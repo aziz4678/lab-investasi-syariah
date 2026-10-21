@@ -1,0 +1,209 @@
+@import "tailwindcss";
+@import "@fontsource/poppins/300.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+  --page: #f2f5f3;
+  --sidebar: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #f0f4f1;
+  --surface-3: #e3e9e5;
+  --text-primary: #141a17;
+  --text-secondary: #505a55;
+  --text-muted: #86918b;
+  --grid: rgba(20, 26, 23, 0.06);
+  --axis: rgba(20, 26, 23, 0.1);
+  --border: rgba(20, 26, 23, 0.07);
+  --aksen: #00a35f;
+  --aksen-teks: #ffffff;
+  --aksen-lembut: rgba(0, 163, 95, 0.1);
+  --lime: #d4f5e2;
+  --lime-teks: #00663b;
+  --series-1: #00a86b;
+  --series-2: #3d7be0;
+  --series-3: #9aa29e;
+  --series-4: #c47a00;
+  --pos: #00a86b;
+  --neg: #e0383e;
+  --netral: #f0f4f1;
+  --naik: #00894f;
+  --turun: #d93036;
+  --naik-bg: rgba(0, 163, 95, 0.1);
+  --turun-bg: rgba(217, 48, 54, 0.1);
+  --kuning: #b26b00;
+  --kuning-bg: rgba(255, 176, 32, 0.16);
+  --bayangan: 0 1px 2px rgba(20, 26, 23, 0.04), 0 8px 24px rgba(20, 26, 23, 0.04);
+  --font: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0c100e;
+    --sidebar: #111614;
+    --surface-1: #161c19;
+    --surface-2: #1e2622;
+    --surface-3: #28312c;
+    --text-primary: #eef3f0;
+    --text-secondary: #a1aca6;
+    --text-muted: #6c7871;
+    --grid: rgba(255, 255, 255, 0.05);
+    --axis: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.06);
+    --aksen: #1fc37f;
+    --aksen-teks: #04140c;
+    --aksen-lembut: rgba(31, 195, 127, 0.14);
+    --lime: #8ee6bd;
+    --lime-teks: #04140c;
+    --series-1: #14b072;
+    --series-2: #4f8fe6;
+    --series-3: #6c7871;
+    --series-4: #b8820f;
+    --pos: #14b072;
+    --neg: #e5505a;
+    --netral: #1e2622;
+    --naik: #2fd38f;
+    --turun: #ff6b72;
+    --naik-bg: rgba(47, 211, 143, 0.14);
+    --turun-bg: rgba(255, 107, 114, 0.14);
+    --kuning: #ffcc66;
+    --kuning-bg: rgba(255, 204, 102, 0.14);
+    --bayangan: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0c100e;
+  --sidebar: #111614;
+  --surface-1: #161c19;
+  --surface-2: #1e2622;
+  --surface-3: #28312c;
+  --text-primary: #eef3f0;
+  --text-secondary: #a1aca6;
+  --text-muted: #6c7871;
+  --grid: rgba(255, 255, 255, 0.05);
+  --axis: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.06);
+  --aksen: #1fc37f;
+  --aksen-teks: #04140c;
+  --aksen-lembut: rgba(31, 195, 127, 0.14);
+  --lime: #8ee6bd;
+  --lime-teks: #04140c;
+  --series-1: #14b072;
+  --series-2: #4f8fe6;
+  --series-3: #6c7871;
+  --series-4: #b8820f;
+  --pos: #14b072;
+  --neg: #e5505a;
+  --netral: #1e2622;
+  --naik: #2fd38f;
+  --turun: #ff6b72;
+  --naik-bg: rgba(47, 211, 143, 0.14);
+  --turun-bg: rgba(255, 107, 114, 0.14);
+  --kuning: #ffcc66;
+  --kuning-bg: rgba(255, 204, 102, 0.14);
+  --bayangan: none;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-sidebar: var(--sidebar);
+  --color-surface: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-grid: var(--grid);
+  --color-garis: var(--border);
+  --color-aksen: var(--aksen);
+  --color-aksen-teks: var(--aksen-teks);
+  --color-aksen-lembut: var(--aksen-lembut);
+  --color-lime: var(--lime);
+  --color-lime-teks: var(--lime-teks);
+  --color-s1: var(--series-1);
+  --color-s2: var(--series-2);
+  --color-s3: var(--series-3);
+  --color-s4: var(--series-4);
+  --color-naik: var(--naik);
+  --color-turun: var(--turun);
+  --color-naik-bg: var(--naik-bg);
+  --color-turun-bg: var(--turun-bg);
+  --color-kuning: var(--kuning);
+  --color-kuning-bg: var(--kuning-bg);
+  --font-sans: var(--font);
+  --shadow-kartu: var(--bayangan);
+}
+
+@layer base {
+  body {
+    @apply bg-page text-ink font-sans text-[14px] leading-relaxed antialiased;
+  }
+  select,
+  input {
+    @apply h-9 rounded-full border-0 bg-surface-2 px-4 text-[13px] text-ink outline-none ring-aksen/40 focus:ring-2;
+  }
+  button {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  .tulang {
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 40%, var(--surface-2) 80%);
+    background-size: 220% 100%;
+    animation: tulang-kilau 1.4s ease-in-out infinite;
+  }
+  .tulang-kontras {
+    background-image: linear-gradient(90deg, var(--surface-3) 0%, color-mix(in srgb, var(--surface-3) 70%, var(--text-muted)) 40%, var(--surface-3) 80%);
+  }
+  .tulang-svg path {
+    fill: var(--surface-2);
+    animation: tulang-redup 1.4s ease-in-out infinite;
+  }
+  @keyframes tulang-kilau {
+    0% { background-position: 120% 0; }
+    100% { background-position: -120% 0; }
+  }
+  @keyframes tulang-redup {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tulang, .tulang-svg path { animation: none; }
+  }
+  .panel {
+    @apply rounded-[24px] border border-garis bg-surface shadow-kartu;
+  }
+  .label {
+    @apply text-xs text-muted;
+  }
+  .tombol {
+    @apply inline-flex h-9 items-center gap-2 rounded-full bg-surface-2 px-4 text-[13px] font-medium text-ink transition hover:bg-surface-3 disabled:cursor-default disabled:opacity-40;
+  }
+  .tombol-utama {
+    @apply inline-flex h-9 items-center gap-2 rounded-full bg-aksen px-4 text-[13px] font-medium text-aksen-teks transition hover:opacity-90 disabled:cursor-default disabled:opacity-40;
+  }
+  .chip {
+    @apply inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium whitespace-nowrap;
+  }
+  .tabel {
+    @apply w-full border-collapse text-[13px] tabular-nums;
+  }
+  .tabel th {
+    @apply h-10 px-3 text-left text-xs font-normal whitespace-nowrap text-muted first:pl-6 last:pr-6;
+  }
+  .tabel td {
+    @apply h-12 border-t border-garis px-3 whitespace-nowrap first:pl-6 last:pr-6;
+  }
+  .tabel tbody tr {
+    @apply transition-colors hover:bg-surface-2/60;
+  }
+}
