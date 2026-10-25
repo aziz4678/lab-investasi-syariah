@@ -2,14 +2,13 @@ import gzip
 import json
 import sys
 from datetime import datetime
-from pathlib import Path
 
 from bson import json_util
 
+from backend.core.config import ROOT
 from backend.db import data as dt
 from backend.db import koneksi as d
 
-ROOT = Path(__file__).resolve().parents[2]
 FOLDER = ROOT / "backup"
 LEWATI = {"pekerjaan"}
 SIMPAN_DATA = 2

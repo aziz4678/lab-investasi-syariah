@@ -266,7 +266,7 @@ Data: 16.986 laporan berisi angka, 733 kode; tanggal publikasi 97.7%. Liputan si
 **Keputusan: H14a dan H14b TIDAK diadopsi.** H14a kalah net/trade dan MAR di syariah. H14b menang net/trade di kedua set, tapi MAR syariah lebih rendah (0.64 vs 0.80). H14b di Set A hanya 28 trade (bank tidak punya SalesAndRevenue, jadi tidak lolos sesuai aturan). Catatan: CAGR dihitung dengan metode portofolio bulanan yang sama untuk semua konfigurasi (lihat temuan di bagian batas paper). H11a tetap dipakai apa adanya.
 
 ## H15: perubahan kepemilikan KSEI (dikunci 2026-10-22, sebelum data dihubungkan ke harga)
-Data: KSEI `BalanceposEfek<tgl>.zip` bulanan sejak Des 2009 (gratis, `backend/riset/ksei.py`). Per saham: jumlah lembar per tipe investor lokal/asing (IS asuransi, CP korporasi, PF dana pensiun, IB lembaga keuangan, ID individu, MF reksa dana, SC sekuritas, FD yayasan, OT lainnya).
+Data: KSEI `BalanceposEfek<tgl>.zip` bulanan sejak Des 2009 (gratis, `backend/ingest/ksei.py`). Per saham: jumlah lembar per tipe investor lokal/asing (IS asuransi, CP korporasi, PF dana pensiun, IB lembaga keuangan, ID individu, MF reksa dana, SC sekuritas, FD yayasan, OT lainnya).
 - **Ritel** = lokal ID. **Institusi** = lokal IS + PF + IB + MF + asing total - asing ID. Dihitung sebagai persen dari jumlah saham (`Sec. Num`).
 - **Sinyal** = perubahan 3 bulan: persen di file tanggal D dikurangi persen di file 3 bulan sebelumnya.
 - **Jeda publikasi**: file tanggal D baru boleh dipakai pada hari t kalau D + 30 hari <= t. Dipakai file terbaru yang memenuhi.
@@ -296,7 +296,7 @@ Data KSEI: 202 bulan (Des 2009 - Sep 2026), 1.053 kode, jumlah tipe = total 100%
 Filter ritel mengurangi drawdown tapi juga return; tidak konsisten di ketiga set. (CAGR H11a di sini sedikit beda dari H14 karena periode metrik sampai Des 2026; kedua konfigurasi diukur sama.)
 
 ## H16: valuasi dashboard Emiten sebagai strategi (dikunci 2026-10-22, sebelum kode uji dibuat dan sebelum melihat hubungannya dengan return)
-Pertanyaan: apakah saham syariah yang dinilai "Undervalue" / "Layak dipertimbangkan" oleh panel Valuasi (`backend/api/valuasi.py`) memberi return lebih tinggi dari rata-rata saham syariah likuid?
+Pertanyaan: apakah saham syariah yang dinilai "Undervalue" / "Layak dipertimbangkan" oleh panel Valuasi (`backend/app/services/valuasi.py`) memberi return lebih tinggi dari rata-rata saham syariah likuid?
 
 Aturan valuasi = sama dengan dashboard, dihitung point-in-time tiap akhir bulan t:
 - Laporan: hanya yang `tgl_publikasi` <= t. TTM = YTD + tahunan tahun lalu - YTD tahun lalu. Saham beredar = KSEI terakhir <= t. Laporan USD x kurs pada t. Harga = close mentah pada t. Dividen = 365 hari sebelum t.
@@ -336,7 +336,7 @@ Pertanyaan user: apakah harga saham Undervalue naik sampai nilai wajarnya, berap
 - Data hanya dev 2021-04..2023-12; jalur harga dipotong 31 Des 2023 (sensor). Peluang mencapai per 21/63/126/252/504 hari dengan Kaplan-Meier.
 - Perbandingan ciri yang sampai vs tidak (dalam 252 hari): MoS, sektor/siklikal, sikap (Layak/Pantau/Hindari), skor kualitas, pertumbuhan laba 3 th, IHSG > MA200.
 
-### Hasil analisis konvergensi (2026-10-22, `backend/riset/analisis_konvergensi.py`)
+### Hasil analisis konvergensi (2026-10-22, `backend/research/analisis_konvergensi.py`)
 131 kejadian Undervalue (116 saham), kenaikan yang dibutuhkan median 52% (p25/p75 34%/87%). Peluang mencapai nilai wajar (Kaplan-Meier): 3 bln 7%, 6 bln 11%, 1 th 21%, 2 th 26%. Pembanding saham Wajar dengan target naik sama: 8%, 14%, 21%, 24% -> tidak berbeda.
 Yang sampai (28): median 135 hari bursa (p25/p75 51/223), sempat turun median -9% dulu. Yang belum (103): kenaikan tertinggi median +12%, penurunan terdalam median -31%.
 Per kebutuhan naik: 25-50% Undervalue 26% vs Wajar 34% (1 th); 50-100% 19% vs 17%; >100% 12% vs 2%. MoS 20-35% 26% vs MoS >50% 12%. Sikap Layak/Pantau/Hindari dan siklikal tidak membedakan.
@@ -373,14 +373,14 @@ Aturan umum: rebalance setahun sekali di hari bursa terakhir Desember (t); beli 
 - Catatan kejujuran: hasil H17a 2021-2026 (+14,9%/th, penghasilan 9,9%/th, pembanding semua saham +0,7%) terlihat karena wajib dihitung sebagai pembanding H17b. Karena dev gagal, H17a tetap TIDAK lulus; hasil 2021-2026 bertepatan dengan boom batu bara dan tidak boleh dipakai sebagai bukti.
 - Kesimpulan: strategi dividen tertinggi di IDX = taruhan siklus komoditas. Penghasilan dividen tinggi dan stabil di kedua periode (4-10%/th), tapi nilai modal ikut siklus.
 
-### Hasil analisis dividend trap (2026-10-23, `backend/riset/analisis_trap.py`)
+### Hasil analisis dividend trap (2026-10-23, `backend/research/analisis_trap.py`)
 89 kejadian yield >= 6% (40 saham), 2012-2024. Trap 65% (rugi 42%, dividen dipotong 47%), total return 12 bln median +13,2%. Trap jika ada vs tidak: dividen spesial 74% vs 55%; laba turun > 30% 73% vs 53%; arus kas < dividen 67% vs 56%; harga turun > 20% 69% vs 62%; komoditas 69% vs 61%; payout > 100% 58% vs 59%; yield > 12% 74% (median +5,8%) vs 6-8% 62%. Jumlah tanda (spesial, harga turun, < MA200, komoditas): 0: 50%, 1: 55%, 2: 65%, 3: 80%. Sampel kecil; ringkasan di `data/hasil/dividend_trap_ringkas.json` dipakai dashboard.
 
 ## Batas paper trade H11a (dikunci 2026-10-22, paper baru berjalan 1 hari tanpa trade)
 Tujuan: menentukan sebelum melihat hasil paper kapan H11a dianggap masih wajar, perlu diwaspadai, atau gagal.
 - Sumber: trade `h11a_2020_konservatif` yang masuk portofolio (375 selesai + 4 terbuka). Kurva ekuitas harian dibangun ulang dengan cara paper: 10% ekuitas saat beli (dibatasi kas), harga pasar, biaya sama, dividen dikreditkan dipotong pajak 10%.
 - Bootstrap blok 20 hari bursa dari return harian kurva itu, 5000 jalur x 500 hari, seed 20261022. Rugi beruntun: bootstrap urutan hasil trade, 5000 x 80 trade.
-- Disimpan di Mongo `batas_paper` id `h11a_v1`; script `backend/riset/batas_paper.py` menolak menghitung ulang.
+- Disimpan di Mongo `batas_paper` id `h11a_v1`; script `backend/paper/batas_paper.py` menolak menghitung ulang.
 - WASPADA: return paper di bawah persentil 5 (mulai hari bursa ke-21), atau drawdown terdalam di bawah persentil 5, atau rugi beruntun di atas persentil 95.
 - GAGAL: return di bawah persentil 1 (mulai hari ke-63), atau drawdown terdalam di bawah persentil 1, atau rugi beruntun di atas persentil 99.
 - Konsekuensi GAGAL: H11a tidak dilanjutkan ke uang asli. Tidak boleh mengubah aturan lalu meneruskan paper yang sama; perubahan = hipotesis baru.
@@ -463,7 +463,7 @@ Kriteria lulus (dev, lalu holdout bila dibuka), semua harus terpenuhi:
 Lulus dev + holdout = kandidat paper trade, **bukan** pengganti Follow Tren. Gagal = ditutup, tanpa variasi parameter.
 Yang dilaporkan untuk semua: jumlah trade, winrate, rata-rata untung vs rugi, expectancy, profit factor, CAGR, max drawdown, bulan positif.
 
-### Hasil H19 dev 2010-2019 (2026-10-24, dijalankan sekali, `backend/riset/uji_h19.py --periode dev`): SEMUA GAGAL, holdout tidak dibuka
+### Hasil H19 dev 2010-2019 (2026-10-24, dijalankan sekali, `backend/research/uji_h19.py --periode dev`): SEMUA GAGAL, holdout tidak dibuka
 Beli-tahan bobot sama 217 saham: CAGR 8,1%/th. Bug RSI (naik terus = NaN, harusnya 100) diperbaiki SEBELUM uji dijalankan.
 | Hipotesis | Trade | Winrate | Untung vs rugi rata2 | Exp net | Kotor | Profit factor | CAGR 10 posisi | DD | Kriteria lulus |
 |---|---|---|---|---|---|---|---|---|---|
@@ -524,7 +524,7 @@ Kelemahan (dicatat sebelum uji):
 - Bunga antarbank awal 2000-an tinggi (diuji lewat kriteria 5).
 - Uji ke-21+; risiko lulus karena kebetulan tetap ada.
 
-### Hasil H20 dev Mei 2001 - Des 2014 (2026-10-24, dijalankan sekali, `backend/riset/uji_h20.py --periode dev`): GAGAL (kriteria 5), holdout tidak dibuka
+### Hasil H20 dev Mei 2001 - Des 2014 (2026-10-24, dijalankan sekali, `backend/research/uji_h20.py --periode dev`): GAGAL (kriteria 5), holdout tidak dibuka
 Sebelum uji dijalankan, dua bug kode diperbaiki tanpa melihat hasil: sinyal MA10 dihitung dari seluruh riwayat (bukan data yang sudah dipotong), dan penyaring "MA belum lengkap" (indeks tanggal vs periode). Mekanisme masuk/keluar dicek dengan data tiruan (biaya & jeda cocok hitungan manual).
 | Skenario | CAGR H20 | DD H20 | CAGR beli-tahan | DD beli-tahan | Pindah/th | % tidak di pasar | Jendela menang | k1 | k2 | k3 | k4 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -596,7 +596,7 @@ Kelemahan (dicatat sebelum uji):
 - Korelasi dengan Follow Tren di dev memakai universe berbeda (217 vs 766).
 - Uji ke ±36-37: risiko lulus karena kebetulan tetap ada.
 
-### Hasil H21 & H22 dev Feb 2011 - Des 2019 (2026-10-24, dijalankan sekali, `backend/riset/uji_h21_h22.py --periode dev`): KEDUANYA GAGAL (sensitivitas), holdout tidak dibuka
+### Hasil H21 & H22 dev Feb 2011 - Des 2019 (2026-10-24, dijalankan sekali, `backend/research/uji_h21_h22.py --periode dev`): KEDUANYA GAGAL (sensitivitas), holdout tidak dibuka
 Sebelum uji: uji mesin dengan peringkat acak (5 seed) — tanpa biaya CAGR rata-rata 6,3% (0,4-12,2%) vs bobot sama 7,8%; dengan biaya turun ±9,4 poin, sesuai turnover acak ±710%/th × biaya. Penyusunan data holdout dicek tanpa menjalankan strategi (FREN → EXCL 14 Apr 2025, META beku 238, TECH = 0 setelah 4 Agu 2023). Rerun kedua hanya karena gagal simpan (tipe numpy), angka identik.
 Universe rata-rata 58,4 saham lolos/bulan, N rata-rata 11,9, 107 rebalance. Pembanding: bobot sama CAGR 7,80%, DD -35,14%, vol 19,32%; JII + 2,5% CAGR 6,96%, DD -25,21%, vol 12,97%.
 

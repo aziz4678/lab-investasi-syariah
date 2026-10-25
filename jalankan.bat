@@ -30,7 +30,7 @@ if not exist "frontend\dist\index.html" (
   popd
 )
 
-venv\Scripts\python.exe -m backend.api.jadwal perbaiki
+venv\Scripts\python.exe -m backend.app.jobs.jadwal perbaiki
 
 netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul
 if not errorlevel 1 (
@@ -43,5 +43,5 @@ echo Menjalankan Lab Investasi di %URL%
 echo Tutup jendela ini untuk menghentikan server.
 if not "%NO_BROWSER%"=="1" start "" cmd /c "timeout /t 4 /nobreak >nul & start %URL%"
 echo Kode backend berubah = server memuat ulang sendiri.
-venv\Scripts\python.exe -m uvicorn backend.api.main:app --port %PORT% --reload --reload-dir backend
+venv\Scripts\python.exe -m uvicorn backend.app.main:app --port %PORT% --reload --reload-dir backend
 pause

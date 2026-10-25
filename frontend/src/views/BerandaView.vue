@@ -1,20 +1,21 @@
 <script setup>
-import TeksWarna from "../components/TeksWarna.vue";
-import KodeSaham from "../components/KodeSaham.vue";
+import TeksWarna from "@/components/common/TeksWarna.vue";
+import KodeSaham from "@/components/common/KodeSaham.vue";
 import { ref, computed, inject, onMounted, onUnmounted } from "vue";
 import { ArrowRight, DollarSign, Gem, Droplet, ChartLine, Globe, Activity } from "lucide-vue-next";
-import Logo, { kunciMi } from "../components/Logo.vue";
-import { ambil, persen, rupiah, tanggal, ringkas, kelasPersen } from "../util.js";
-import Panel from "../components/Panel.vue";
-import KurvaMini from "../components/KurvaMini.vue";
-import GrafikRentang from "../components/GrafikRentang.vue";
-import GrafikBatang from "../components/GrafikBatang.vue";
-import Stats from "../components/Stats.vue";
-import Segmen from "../components/Segmen.vue";
-import Kerangka from "../components/Kerangka.vue";
-import PanelPerawatan from "../components/PanelPerawatan.vue";
-import PengingatDividen from "../components/PengingatDividen.vue";
-import PanelSumberData from "../components/PanelSumberData.vue";
+import Logo, { kunciMi } from "@/components/common/Logo.vue";
+import { ambil } from "@/api/client";
+import { persen, rupiah, tanggal, ringkas, kelasPersen } from "@/utils/format";
+import Panel from "@/components/common/Panel.vue";
+import KurvaMini from "@/components/charts/KurvaMini.vue";
+import GrafikRentang from "@/components/charts/GrafikRentang.vue";
+import GrafikBatang from "@/components/charts/GrafikBatang.vue";
+import Stats from "@/components/common/Stats.vue";
+import Segmen from "@/components/common/Segmen.vue";
+import Kerangka from "@/components/common/Kerangka.vue";
+import PanelPerawatan from "@/components/sistem/PanelPerawatan.vue";
+import PengingatDividen from "@/components/dividen/PengingatDividen.vue";
+import PanelSumberData from "@/components/sistem/PanelSumberData.vue";
 
 const status = inject("status");
 const muatStatus = inject("muatStatus");

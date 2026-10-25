@@ -1,16 +1,17 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
 import { House, TrendingUp, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-vue-next";
-import { ambil, modeTema, setTema } from "./util.js";
-import BerandaView from "./views/BerandaView.vue";
-import StrategiView from "./views/StrategiView.vue";
-import DividenView from "./views/DividenView.vue";
-import ReksadanaView from "./views/ReksadanaView.vue";
-import EtfView from "./views/EtfView.vue";
-import RencanaView from "./views/RencanaView.vue";
-import HipotesisView from "./views/HipotesisView.vue";
-import EmitenView from "./views/EmitenView.vue";
-import PanduanView from "./views/PanduanView.vue";
+import { ambil } from "@/api/client";
+import { modeTema, setTema } from "@/composables/tema";
+import BerandaView from "@/views/BerandaView.vue";
+import FollowTrenView from "@/views/riset/FollowTrenView.vue";
+import DividenView from "@/views/riset/DividenView.vue";
+import ReksadanaView from "@/views/produk/ReksadanaView.vue";
+import EtfView from "@/views/produk/EtfView.vue";
+import RencanaView from "@/views/lainnya/RencanaView.vue";
+import HipotesisView from "@/views/riset/HipotesisView.vue";
+import EmitenView from "@/views/produk/EmitenView.vue";
+import PanduanView from "@/views/lainnya/PanduanView.vue";
 
 const NAMA_APP = "Lab Investasi";
 const GRUP = [
@@ -194,7 +195,7 @@ onMounted(() => {
         </div>
       </div>
       <BerandaView v-if="tab === 'beranda'" />
-      <StrategiView v-else-if="tab === 'tren52'" :sub="sub" @sub="gantiSub" />
+      <FollowTrenView v-else-if="tab === 'tren52'" :sub="sub" @sub="gantiSub" />
       <DividenView v-else-if="tab === 'dividen'" :sub="sub" @sub="gantiSub" />
       <ReksadanaView v-else-if="tab === 'reksadana'" :sub="sub" @sub="gantiSub" />
       <EtfView v-else-if="tab === 'etf'" :sub="sub" @sub="gantiSub" />

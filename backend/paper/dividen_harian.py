@@ -4,12 +4,12 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from backend.api import dividen as dvn
-from backend.api.emiten import baca_ihsg
+from backend.app.services import dividen as dvn
+from backend.app.services.emiten import baca_ihsg
 from backend.db import koneksi as d
-from backend.riset import des_ojk
-from backend.riset import screener as sc
-from backend.riset import uji_h17 as h17
+from backend.ingest import des_ojk
+from backend.research import screener as sc
+from backend.research import uji_h17 as h17
 
 MULAI = pd.Timestamp("2027-01-01")
 MODAL = 100_000_000

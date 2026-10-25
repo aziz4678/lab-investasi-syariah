@@ -1,14 +1,13 @@
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
 from backend.db import koneksi as d
-from backend.riset import uji_tren as ut
-from backend.riset.batas_paper import kurva_harian
-from backend.riset.laporan_bulanan import simulasi_portofolio
-from backend.riset.uji_dividen import bersih
+from backend.paper.batas_paper import kurva_harian
+from backend.research import uji_tren as ut
+from backend.research.laporan_bulanan import simulasi_portofolio
+from backend.research.uji_dividen import bersih
 
 POSISI = 10
 BOBOT = 0.10

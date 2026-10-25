@@ -2,7 +2,6 @@ import argparse
 import logging
 import time
 from datetime import date, datetime
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,9 +9,10 @@ import yfinance as yf
 
 from backend.db import data as dt
 from backend.db import koneksi as kdb
-from backend.riset import des_ojk
-from backend.riset import screener as sc
-from backend.riset.swing_target3 import rapikan_index
+from backend.ingest import des_ojk
+from backend.ingest.final import buang_belum_final
+from backend.research import screener as sc
+from backend.research.swing_target3 import rapikan_index
 
 FILE_TRANSAKSI = "paper_transaksi"
 FILE_EKUITAS = "paper_ekuitas"
@@ -40,7 +40,9 @@ def unduh(daftar):
             if df.empty:
                 continue
             df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-            df = rapikan_index(df)
+            df = buang_belum_final(rapikan_index(df), t)
+            if df.empty:
+                continue
             dt.tulis(f"harian/{t[:-3]}", df)
             hasil[t[:-3]] = df
         time.sleep(1)
@@ -50,7 +52,7 @@ def unduh(daftar):
     ihsg = yf.download("^JKSE", period="2y", interval="1d", auto_adjust=True, progress=False)
     if isinstance(ihsg.columns, pd.MultiIndex):
         ihsg.columns = ihsg.columns.get_level_values(0)
-    ihsg = rapikan_index(ihsg)["Close"].dropna()
+    ihsg = buang_belum_final(rapikan_index(ihsg)["Close"].dropna(), "^JKSE")
     dt.tulis("harian/_ihsg", ihsg.to_frame("ihsg"))
     return hasil, ihsg
 
@@ -61,10 +63,39 @@ def baca_lokal():
     return dict(sorted(semua.items())), ihsg
 
 
-def siapkan(mentah, ihsg):
+def tutup_resmi_tanpa_transaksi(mulai=None):
+    if not dt.ada("idx_harian"):
+        return {}
+    i = dt.baca("idx_harian", kolom=["tgl", "StockCode", "Close", "Volume"])
+    i = i[(i["Volume"] == 0) & (i["Close"] > 0)]
+    if mulai is not None:
+        i = i[i["tgl"] >= mulai]
+    return {k: g.set_index("tgl")["Close"].astype(float) for k, g in i.groupby("StockCode")}
+
+
+def koreksi_tanpa_transaksi(df, resmi=None):
+    kosong = df["volume"].fillna(0) == 0
+    if not kosong.any():
+        return df
+    df = df.copy()
+    faktor = df["adj_close"] / df["close"]
+    acuan = df["close"].where(~kosong & (df["close"] > 0)).ffill()
+    if resmi is not None and len(resmi):
+        r = resmi.reindex(df.index)
+        acuan = r.where(kosong & r.notna(), acuan)
+    ganti = kosong & acuan.notna()
+    for k in ["open", "high", "low", "close"]:
+        df.loc[ganti, k] = acuan[ganti]
+    df.loc[ganti, "adj_close"] = acuan[ganti] * faktor[ganti].where(faktor[ganti] > 0, 1.0)
+    return df
+
+
+def siapkan(mentah, ihsg, resmi=None):
     pasar = pd.DataFrame({"ihsg_mom20": (ihsg / ihsg.shift(20) - 1) * 100})
     siap = {}
+    resmi = resmi or {}
     for t, df in mentah.items():
+        df = koreksi_tanpa_transaksi(df, resmi.get(t))
         df = df[(df[["open", "high", "low", "close", "adj_close"]] > 0).all(axis=1)]
         if len(df) < 260:
             continue
@@ -297,7 +328,8 @@ def utama():
     else:
         print(f"unduh harga {len(daftar)} saham syariah (DES {terbaru.date()})...")
         mentah, ihsg = unduh(daftar)
-    siap = siapkan(mentah, ihsg)
+    awal_data = min((df.index.min() for df in mentah.values() if len(df)), default=None)
+    siap = siapkan(mentah, ihsg, tutup_resmi_tanpa_transaksi(awal_data))
     kalender = kalender_bursa(mentah)
     akhir = kalender.max()
     if akhir >= hari_ini and pd.Timestamp.now().hour < 17:
