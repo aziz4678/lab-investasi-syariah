@@ -13,7 +13,7 @@ from backend.research.uji_dividen import bersih
 
 POSISI = 10
 BOBOT = 0.10
-UNDIAN = 100
+JUMLAH_SIMULASI = 100
 CONTOH_SEED = 7
 
 
@@ -125,18 +125,18 @@ def sebaran(x):
                                                 ("min", x.min()), ("max", x.max()))}
 
 
-def undian(versi, tr, siap, mulai, akhir, mentah):
+def monte_carlo(versi, tr, siap, mulai, akhir, mentah):
     dok = dokumen_trade(versi, tr, set(), siap)
     cagr, dd = [], []
-    for seed in range(1, UNDIAN + 1):
+    for seed in range(1, JUMLAH_SIMULASI + 1):
         pilih = set(simulasi_portofolio(tr, POSISI, seed).index)
         ret, harian = kurva_paper([dict(x, dipilih=i in pilih) for i, x in zip(tr.index, dok)], mulai, akhir, mentah)
         ek = (1 + ret).cumprod()
         cagr.append((ek.iloc[-1] ** (12 / len(ret)) - 1) * 100)
         dd.append((harian / harian.cummax() - 1).min() * 100)
         if seed % 20 == 0:
-            print(f"  {versi}: {seed}/{UNDIAN} undian", flush=True)
-    return {"n": UNDIAN, "seed": f"1-{UNDIAN}", "contoh_seed": CONTOH_SEED, "cagr": sebaran(cagr), "dd": sebaran(dd),
+            print(f"  {versi}: {seed}/{JUMLAH_SIMULASI} simulasi", flush=True)
+    return {"n": JUMLAH_SIMULASI, "seed": f"1-{JUMLAH_SIMULASI}", "contoh_seed": CONTOH_SEED, "cagr": sebaran(cagr), "dd": sebaran(dd),
             "contoh": {"cagr": round(float(cagr[CONTOH_SEED - 1]), 1), "dd": round(float(dd[CONTOH_SEED - 1]), 1)}}
 
 
@@ -160,15 +160,15 @@ def simpan_versi(db, versi, label, siap, tr, mulai, akhir, ihsg_bln):
     rk["cagr_metode_lama"] = round(float((ek_lama.iloc[-1] ** (12 / len(lama)) - 1) * 100), 1)
     rk["dd_harian"] = round(float((harian / harian.cummax() - 1).min() * 100), 1)
     rk["dd_maks"] = rk["dd_harian"]
-    rk["undian"] = undian(versi, tr, siap, mulai, akhir, mentah)
-    if abs(rk["undian"]["contoh"]["cagr"] - rk["cagr"]) > 0.05 or abs(rk["undian"]["contoh"]["dd"] - rk["dd_maks"]) > 0.05:
-        raise RuntimeError(f"{versi}: undian seed {CONTOH_SEED} tidak sama dengan ringkasan ({rk['undian']['contoh']} vs {rk['cagr']}/{rk['dd_maks']})")
+    rk["monte_carlo"] = monte_carlo(versi, tr, siap, mulai, akhir, mentah)
+    if abs(rk["monte_carlo"]["contoh"]["cagr"] - rk["cagr"]) > 0.05 or abs(rk["monte_carlo"]["contoh"]["dd"] - rk["dd_maks"]) > 0.05:
+        raise RuntimeError(f"{versi}: simulasi seed {CONTOH_SEED} tidak sama dengan ringkasan ({rk['monte_carlo']['contoh']} vs {rk['cagr']}/{rk['dd_maks']})")
     db.backtest_ringkasan.replace_one({"versi": versi}, rk, upsert=True)
     print(f"{versi}: {len(tr)} sinyal, {len(p)} trade portofolio, CAGR {rk['cagr']}% (metode lama {rk['cagr_metode_lama']}%), "
           f"DD bulanan {rk['dd_maks']}% / harian {rk['dd_harian']}%, "
           f"WR {rk['win_rate']}%, beli-tahan {rk['cagr_beli_tahan']}%, IHSG {rk['cagr_ihsg']}%")
-    u = rk["undian"]
-    print(f"  {versi} {u['n']} undian: CAGR median {u['cagr']['median']}% (p5-p95 {u['cagr']['p5']} s/d {u['cagr']['p95']}), "
+    u = rk["monte_carlo"]
+    print(f"  {versi} {u['n']} simulasi Monte Carlo: CAGR median {u['cagr']['median']}% (p5-p95 {u['cagr']['p5']} s/d {u['cagr']['p95']}), "
           f"DD median {u['dd']['median']}% (p5-p95 {u['dd']['p5']} s/d {u['dd']['p95']})", flush=True)
 
 

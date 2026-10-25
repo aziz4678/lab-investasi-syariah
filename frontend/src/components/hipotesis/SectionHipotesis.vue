@@ -4,6 +4,7 @@ import { Check, X, Minus, Lightbulb, TriangleAlert, GraduationCap, FileText, Arr
 import { persen } from "@/utils/format";
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import GrafikHipotesis from "@/components/hipotesis/GrafikHipotesis.vue";
+import Info from "@/components/common/Info.vue";
 import BatangEdge from "@/components/hipotesis/BatangEdge.vue";
 
 const props = defineProps({ h: Object, kelasStatus: Function, labelStatus: Function, lencana: Object, kelasLencana: Function, kategori: String, eksplorasiInfo: Object });
@@ -114,7 +115,7 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
             <BatangEdge v-else :grup="edge" />
           </div>
           <div v-if="utama" class="min-w-0">
-            <div class="mb-2 flex items-center gap-2 text-xs text-muted">Angka utama · <span class="text-ink-2">{{ utama.periode }}</span></div>
+            <div class="mb-2 text-xs text-muted"><span class="whitespace-nowrap">Angka utama ·</span> <span class="text-ink-2">{{ utama.periode }}</span></div>
             <div class="grid grid-cols-2 gap-2" :class="visualUtama ? '' : '@lg:grid-cols-3 @3xl:grid-cols-6'">
               <div v-for="t in tiles(utama)" :key="t.label" class="min-w-0 rounded-2xl bg-surface-2/70 px-3.5 py-3">
                 <div class="truncate text-[11px] text-muted">{{ t.label }}</div>
@@ -125,6 +126,12 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
               </div>
             </div>
             <p v-if="utama.ket" class="m-0 mt-2 text-xs leading-relaxed text-muted"><TeksWarna :teks="utama.ket" /></p>
+            <details v-if="utama.info" class="group mt-2 rounded-2xl bg-surface-2/60 px-3.5 py-2.5 text-xs leading-relaxed text-ink-2">
+              <summary class="flex cursor-pointer list-none items-center gap-2 font-medium text-aksen [&::-webkit-details-marker]:hidden">
+                <span class="group-open:hidden">Apa itu simulasi Monte Carlo?</span><span class="hidden group-open:inline">Tutup penjelasan</span>
+              </summary>
+              <p class="m-0 mt-1.5">{{ utama.info }}</p>
+            </details>
             <div v-if="utama.ekstra?.length" class="mt-2 flex flex-wrap gap-x-4 text-xs text-ink-2">
               <span v-for="e in utama.ekstra" :key="e[0]">{{ e[0] }}: <TeksWarna :teks="e[1]" /></span>
             </div>
@@ -143,7 +150,7 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
             <thead><tr><th>Periode / set</th><th class="!text-right">CAGR</th><th class="!text-right">Max DD</th><th class="!text-right">Trade</th><th class="!text-right">Winrate</th><th class="!text-right">Bersih</th></tr></thead>
             <tbody>
               <tr v-for="a in angka" :key="a.periode">
-                <td class="text-ink-2">{{ a.periode }}<span v-if="a.utama" class="chip ml-2 !h-5 bg-surface-2 text-muted">penentu</span></td>
+                <td class="text-ink-2">{{ a.periode }}<span v-if="a.utama" class="chip ml-2 !h-5 bg-surface-2 text-muted">penentu</span><span v-if="a.info" class="ml-1.5"><Info :teks="a.info" /></span></td>
                 <td class="text-right"><TeksWarna v-if="a.cagr != null" :teks="persen(a.cagr, 1)" /><span v-else class="text-muted">—</span>
                   <div v-if="a.cagr_rentang" class="text-[11px] whitespace-nowrap text-muted">{{ persen(a.cagr_rentang[0], 1) }} s/d {{ persen(a.cagr_rentang[1], 1) }}</div></td>
                 <td class="text-right"><TeksWarna v-if="a.dd != null" :teks="persen(a.dd, 1)" /><span v-else class="text-muted">—</span>

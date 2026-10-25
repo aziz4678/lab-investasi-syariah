@@ -12,6 +12,8 @@ import Distribusi from "@/components/charts/Distribusi.vue";
 import TabelTrade from "@/components/tren/TabelTrade.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
+import TeksWarna from "@/components/common/TeksWarna.vue";
+import { persen } from "@/utils/format";
 
 const daftar = ref([]);
 const KET = {
@@ -26,7 +28,7 @@ const distribusi = ref([]);
 const trade = ref([]);
 const galat = ref("");
 const muat = ref(false);
-const contoh = computed(() => `contoh satu undian (seed ${ringkasan.value?.undian?.contoh_seed ?? 7})`);
+const contoh = computed(() => `contoh 1 simulasi Monte Carlo (seed ${ringkasan.value?.monte_carlo?.contoh_seed ?? 7})`);
 
 async function isi(v) {
   muat.value = true;
@@ -87,9 +89,20 @@ watch(versi, (v) => v && isi(v));
     </template>
     <div v-else class="space-y-5 transition-opacity" :class="muat ? 'opacity-50' : ''">
     <KpiTiles :r="ringkasan" />
-    <p v-if="ringkasan?.undian" class="m-0 -mt-2 text-xs leading-relaxed text-muted">Return per tahun dan penurunan terburuk = median {{ ringkasan.undian.n }} undian pemilihan saham (aturan sama). Angka lain, kurva, peta bulanan, dan tabel trade = {{ contoh }}.</p>
-    <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.undian ? contoh : ''" />
-    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.undian ? contoh : ''" />
+    <details v-if="ringkasan?.monte_carlo" class="group -mt-2 rounded-2xl bg-surface-2/60 px-4 py-2.5 text-xs leading-relaxed text-ink-2">
+      <summary class="flex cursor-pointer list-none items-center gap-2 text-muted [&::-webkit-details-marker]:hidden">
+        <span>Return per tahun dan penurunan terburuk = median {{ ringkasan.monte_carlo.n }} simulasi Monte Carlo. Angka lain, kurva, peta bulanan, dan tabel trade = {{ contoh }}.</span>
+        <span class="ml-auto shrink-0 font-medium text-aksen group-open:hidden">Apa itu?</span><span class="ml-auto hidden shrink-0 font-medium text-aksen group-open:inline">Tutup</span>
+      </summary>
+      <div class="mt-2 space-y-1.5 border-t border-garis pt-2">
+        <p class="m-0"><b class="font-medium text-ink">Kenapa perlu simulasi?</b> Follow Tren memegang maksimal 10 saham. Kalau sinyal beli lebih banyak dari slot kosong (misal 5 sinyal, slot tinggal 2), saham dipilih acak karena aturan tidak memberi prioritas. Pilihan acak ini ikut menentukan hasil: kebetulan dapat saham yang naik 500% atau yang kena stop.</p>
+        <p class="m-0"><b class="font-medium text-ink">Caranya:</b> backtest diulang {{ ringkasan.monte_carlo.n }} kali dengan aturan sama, tiap kali memakai seed berbeda (seed = angka awal pengacak; seed sama selalu menghasilkan pilihan sama, jadi bisa diulang persis).</p>
+        <p class="m-0"><b class="font-medium text-ink">Cara membaca:</b> median = hasil tengah dari {{ ringkasan.monte_carlo.n }} simulasi. p5–p95 = rentang tempat 90 dari {{ ringkasan.monte_carlo.n }} simulasi berada. Contoh seed {{ ringkasan.monte_carlo.contoh_seed }}: CAGR <TeksWarna :teks="persen(ringkasan.monte_carlo.contoh.cagr, 1)" />, DD <TeksWarna :teks="persen(ringkasan.monte_carlo.contoh.dd, 1)" />.</p>
+        <p class="m-0"><b class="font-medium text-ink">Artinya untuk paper trade:</b> paper juga memilih acak (seed = tanggal), jadi hasil nyata bisa jatuh di mana saja dalam rentang ini, atau di luarnya.</p>
+      </div>
+    </details>
+    <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" />
+    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''" />
     <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <Distribusi :distribusi="distribusi" />
       <Panel judul="Cara membaca">

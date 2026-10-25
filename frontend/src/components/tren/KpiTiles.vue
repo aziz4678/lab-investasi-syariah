@@ -8,8 +8,8 @@ const props = defineProps({ r: Object });
 const items = computed(() => {
   const r = props.r;
   if (!r) return [];
-  const u = r.undian;
-  const UNDI = u ? ` Median dari ${u.n} undian pemilihan saham (aturan sama; undian hanya menentukan saham mana yang diambil saat sinyal lebih banyak dari slot kosong). Rentang p5–p95 = 90% undian ada di dalamnya. Contoh satu undian (seed ${u.contoh_seed}): ` : "";
+  const u = r.monte_carlo;
+  const UNDI = u ? ` Median dari ${u.n} simulasi Monte Carlo pemilihan saham (aturan sama; simulasi hanya mengacak saham mana yang diambil saat sinyal lebih banyak dari slot kosong). Rentang p5–p95 = 90 dari ${u.n} simulasi ada di dalamnya. Contoh 1 simulasi (seed ${u.contoh_seed}): ` : "";
   const cagr = u ? u.cagr.median : r.cagr;
   const dd = u ? u.dd.median : r.dd_maks;
   return [

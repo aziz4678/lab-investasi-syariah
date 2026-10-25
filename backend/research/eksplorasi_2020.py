@@ -82,7 +82,7 @@ def nilai_trade(kode, tr, dasar, bm, maks=10):
             "angka": {"trade": int(len(tr)), "kotor": float(tr["kotor"].mean()), "net": float(tr["net"].mean()), "tanpa10": float(tanpa10),
                       "cagr": float(cagr), "dd": float(b.get("dd", np.nan)), "bh": float(bm), "tahun_positif": f"{int((th > 0).sum())}/{len(th)}"},
             "metrik": [["Trade", f"{len(tr):,}".replace(",", ".")], ["Kotor/trade", pct(tr["kotor"].mean())], ["Bersih/trade", pct(tr["net"].mean())],
-                       ["Tanpa 10 terbaik", pct(tanpa10)], ["CAGR (1 undian)", pct(cagr, d=1)], ["DD (1 undian)", pct(b.get("dd", np.nan), d=1)],
+                       ["Tanpa 10 terbaik", pct(tanpa10)], ["CAGR (1 simulasi)", pct(cagr, d=1)], ["DD (1 simulasi)", pct(b.get("dd", np.nan), d=1)],
                        ["Beli-tahan", pct(bm, d=1)]]}
 
 
@@ -151,7 +151,7 @@ def per_trade():
     sama = len(ha & hb)
     hasil["H11b"]["catatan"] = (f"{sama / len(ha) * 100:.0f}% hari-saham Follow Tren juga dipegang H11b ({sama / len(hb) * 100:.0f}% dari H11b); "
                                 f"pemenang terbesar sama. Follow Tren di mesin yang sama: bersih/trade {pct(acuan['angka']['net'])}, tanpa 10 terbaik {pct(acuan['angka']['tanpa10'])}. "
-                                f"CAGR di sini dari laporan bulanan satu undian, jadi bisa bergeser beberapa poin. Gagal di dev 2010-2019.")
+                                f"CAGR di sini dari laporan bulanan 1 simulasi (seed 7), jadi bisa bergeser beberapa poin. Gagal di dev 2010-2019.")
     hasil["H12a"] = nilai_trade("H12a", ut.kumpulkan(siap, lambda x: (x["close"] >= x["maks250"]) & atr(x)), p20, bm)
     hasil["H12b"] = nilai_trade("H12b", ut.kumpulkan(siap, lambda x: (x["close"] >= x["maks250"]) & atr(x) & (x["close_mentah"] >= 200)), p20, bm)
     print("H19 ...", flush=True)
