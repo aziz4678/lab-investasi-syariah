@@ -714,6 +714,9 @@ PELAJARAN = [
     {"judul": "Alat ukur bisa menipu",
      "isi": "Beli-tahan dengan rebalance harian menggelembungkan pembanding (DES 2020+: 6,5% vs bulanan 0,5%), dan laporan bulanan Follow Tren melebih-lebihkan dibanding cara paper (21,3% vs 17,3%).",
      "bukti": ["H13", "H11a"]},
+    {"judul": "Hasil bergantung periode", "jenis": "eksplorasi",
+     "isi": "Temuan eksplorasi, bukan bukti. Follow Tren cara paper median +9% di 2010-2019 tapi sekitar +24% di 2020-2026; H11b dan H17a gagal di data lama tapi lulus di 2020+, H21/H22 sebaliknya. Strategi jangka pendek tetap kalah biaya di kedua periode. Pasar ramai setelah COVID bisa saja tidak berulang.",
+     "bukti": ["H11a", "H11b", "H17a", "H22"]},
 ]
 
 ANALISIS = [
@@ -925,7 +928,22 @@ def _isi_undian(angka):
     return hasil
 
 
+def _eksplorasi():
+    from backend.db import data as dt
+    kunci = ("eksplorasi", dt.versi_hasil("eksplorasi_2020_ringkas"))
+    if kunci not in _CACHE:
+        try:
+            _CACHE[kunci] = dt.baca_hasil("eksplorasi_2020_ringkas")
+        except Exception:
+            _CACHE[kunci] = None
+    return _CACHE[kunci]
+
+
 def semua():
-    hip = [h | {"angka": _isi_undian(h.get("angka") or []), "grafik": [x for x in (_isi(g) for g in GRAFIK.get(h["kode"], [])) if x]} for h in HIPOTESIS]
+    eks = _eksplorasi() or {}
+    per_kode = eks.get("hasil") or {}
+    hip = [h | {"angka": _isi_undian(h.get("angka") or []), "grafik": [x for x in (_isi(g) for g in GRAFIK.get(h["kode"], [])) if x],
+                "eksplorasi": per_kode.get(h["kode"])} for h in HIPOTESIS]
+    info = {k: v for k, v in eks.items() if k != "hasil"} if eks else None
     return {"status": STATUS, "kategori": KATEGORI, "lencana": LENCANA, "pelajaran": PELAJARAN,
-            "analisis": ANALISIS, "keluarga": KELUARGA, "hipotesis": hip}
+            "analisis": ANALISIS, "keluarga": KELUARGA, "hipotesis": hip, "eksplorasi": info}

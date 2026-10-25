@@ -1,12 +1,12 @@
 <script setup>
 import { computed } from "vue";
-import { Check, X, Minus, Lightbulb, TriangleAlert, GraduationCap, FileText, ArrowRight, Hourglass } from "lucide-vue-next";
+import { Check, X, Minus, Lightbulb, TriangleAlert, GraduationCap, FileText, ArrowRight, Hourglass, Telescope } from "lucide-vue-next";
 import { persen } from "@/utils/format";
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import GrafikHipotesis from "@/components/hipotesis/GrafikHipotesis.vue";
 import BatangEdge from "@/components/hipotesis/BatangEdge.vue";
 
-const props = defineProps({ h: Object, kelasStatus: Function, labelStatus: Function, lencana: Object, kelasLencana: Function, kategori: String });
+const props = defineProps({ h: Object, kelasStatus: Function, labelStatus: Function, lencana: Object, kelasLencana: Function, kategori: String, eksplorasiInfo: Object });
 const emit = defineEmits(["buka"]);
 
 const angka = computed(() => props.h.angka || []);
@@ -234,6 +234,21 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
           <div class="mb-1 flex items-center gap-1.5 text-[13px] font-medium"><GraduationCap class="h-4 w-4 text-aksen" />Pelajaran</div>
           <p class="m-0 text-[13px] text-ink-2">{{ h.pelajaran || "—" }}</p>
         </div>
+      </div>
+
+      <div v-if="h.eksplorasi" class="rounded-2xl border border-dashed border-garis px-4 py-3.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <Telescope class="h-4 w-4 shrink-0 text-muted" />
+          <span class="text-[13px] font-medium">{{ eksplorasiInfo?.judul || "Eksplorasi 2020+ (Okt 2026) — bukan bukti" }}</span>
+          <span class="chip !h-5 bg-surface-2 text-ink-2">{{ h.eksplorasi.lulus_semua ? "semua kriteria terpenuhi" : "tetap gagal" }} · {{ h.eksplorasi.lulus }}</span>
+          <span class="chip !h-5 bg-surface-2 text-muted">status tetap {{ labelStatus(h.status) }}</span>
+        </div>
+        <div class="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+          <span v-for="m in h.eksplorasi.metrik" :key="m[0]" class="text-muted">{{ m[0] }} <span class="font-medium text-ink-2 tabular-nums"><TeksWarna :teks="m[1]" /></span></span>
+        </div>
+        <p v-if="h.eksplorasi.gagal_di?.length" class="m-0 mt-2 text-xs text-ink-2">Tidak terpenuhi: {{ h.eksplorasi.gagal_di.join(" · ") }}</p>
+        <p v-if="h.eksplorasi.catatan" class="m-0 mt-1.5 text-xs text-ink-2"><TeksWarna :teks="h.eksplorasi.catatan" /></p>
+        <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Bukan bukti: {{ eksplorasiInfo?.catatan }} Periode {{ eksplorasiInfo?.periode }}, {{ eksplorasiInfo?.universe }}.</p>
       </div>
 
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">

@@ -10,8 +10,19 @@ import Kerangka from "@/components/common/Kerangka.vue";
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import SectionHipotesis from "@/components/hipotesis/SectionHipotesis.vue";
 import GrafikHipotesis from "@/components/hipotesis/GrafikHipotesis.vue";
+import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
+import { pakaiPekerjaan } from "@/composables/pekerjaan";
 
 const data = ref(null);
+const { kerja: kerjaEks, galat: galatEks, sibuk: sibukEks, mulai: mulaiEks, lanjutkan: lanjutkanEks } = pakaiPekerjaan();
+const eksplorasiBaris = computed(() => (data.value?.hipotesis || []).filter((h) => h.eksplorasi).map((h) => ({ kode: h.kode, nama: h.nama, status: h.status, e: h.eksplorasi }))
+  .sort((a, b) => Number(b.e.lulus_semua) - Number(a.e.lulus_semua)));
+function ulangEksplorasi() {
+  mulaiEks("aksi/eksplorasi_2020", {}, muatUlangData);
+}
+async function muatUlangData() {
+  data.value = await ambil("hipotesis").catch(() => data.value);
+}
 const siap = ref(false);
 const cari = ref("");
 const fStatus = ref("semua");
@@ -52,6 +63,7 @@ function bacaSimpan() {
 onMounted(async () => {
   data.value = await ambil("hipotesis").catch(() => null);
   siap.value = true;
+  lanjutkanEks("eksplorasi_2020", muatUlangData);
   const dariHash = location.hash.replace("#", "").split("/")[1];
   const ada = (k) => k && hip.value.some((h) => h.kode === k);
   if (ada(dariHash)) {
@@ -194,7 +206,7 @@ function keDaftar() {
           <li v-for="(x, i) in pelajaran" :key="x.judul" class="flex gap-3 rounded-2xl bg-surface-2/60 px-4 py-3.5">
             <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-medium" :class="i < 3 ? 'bg-aksen text-aksen-teks' : 'bg-surface-3 text-ink-2'">{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
-              <div class="text-[14px] leading-snug font-medium">{{ x.judul }}</div>
+              <div class="text-[14px] leading-snug font-medium">{{ x.judul }}<span v-if="x.jenis === 'eksplorasi'" class="chip ml-2 !h-5 align-middle bg-surface-3 text-muted">temuan eksplorasi · bukan bukti</span></div>
               <p class="m-0 mt-1 text-[13px] text-ink-2"><TeksWarna :teks="x.isi" /></p>
               <div class="mt-2 flex flex-wrap gap-x-2 gap-y-1">
                 <button v-for="b in x.bukti" :key="b" class="text-[11px] font-medium text-aksen hover:underline" @click="buka(b)">{{ b }}</button>
@@ -334,7 +346,7 @@ function keDaftar() {
         </div>
 
         <SectionHipotesis :key="aktif.kode" :h="aktif" :kategori="katMap[aktif.kategori]" :kelas-status="kelasStatus" :label-status="labelStatus"
-          :lencana="data.lencana" :kelas-lencana="kelasLencana" @buka="buka" />
+          :lencana="data.lencana" :kelas-lencana="kelasLencana" :eksplorasi-info="data.eksplorasi" @buka="buka" />
 
         <div class="grid grid-cols-2 gap-3">
           <button v-if="sebelum" class="panel flex min-w-0 items-center gap-2 px-4 py-3 text-left transition hover:bg-surface-2/60" @click="buka(sebelum.kode)">
@@ -348,6 +360,29 @@ function keDaftar() {
           </button>
         </div>
       </div>
+
+      <Panel v-if="data.eksplorasi" :judul="data.eksplorasi.judul" :ket="`Tidak dihitung dalam status, kriteria, maupun ringkasan · dijalankan ${data.eksplorasi.dibuat.replace('T', ' ')}`">
+        <template #aksi>
+          <button class="tombol !h-8 text-xs" :disabled="sibukEks" @click="ulangEksplorasi">Jalankan ulang</button>
+        </template>
+        <p class="m-0 text-[13px] leading-relaxed text-ink-2">Semua hipotesis yang dulu gagal diuji ulang dengan aturan yang sama di data {{ data.eksplorasi.periode }} ({{ data.eksplorasi.universe }}).
+          Pembanding: beli-tahan bobot sama <TeksWarna :teks="persen(data.eksplorasi.beli_tahan, 1)" />/th, JII <TeksWarna :teks="persen(data.eksplorasi.jii_cagr, 1)" />/th.</p>
+        <p class="m-0 mt-1.5 text-[13px] leading-relaxed text-ink-2"><b class="font-medium">Kenapa bukan bukti:</b> {{ data.eksplorasi.catatan }}</p>
+        <div class="mt-3 overflow-x-auto rounded-2xl border border-garis">
+          <table class="tabel">
+            <thead><tr><th>Hipotesis</th><th>Status (tetap)</th><th>Eksplorasi 2020+</th><th>Angka</th></tr></thead>
+            <tbody>
+              <tr v-for="x in eksplorasiBaris" :key="x.kode" class="cursor-pointer hover:bg-surface-2/60" @click="buka(x.kode)">
+                <td class="whitespace-nowrap"><span class="font-medium">{{ x.kode }}</span> <span class="text-ink-2">{{ x.nama }}</span></td>
+                <td><span class="chip !h-5" :class="kelasStatus(x.status)">{{ labelStatus(x.status) }}</span></td>
+                <td class="whitespace-nowrap"><span class="chip !h-5" :class="x.e.lulus_semua ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-muted'">{{ x.e.lulus_semua ? "lulus" : "gagal" }} · {{ x.e.lulus }}</span></td>
+                <td class="text-xs text-ink-2"><span v-for="m in x.e.metrik.slice(0, 4)" :key="m[0]" class="mr-3 whitespace-nowrap">{{ m[0] }} <TeksWarna :teks="m[1]" /></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <PanelPekerjaan :kerja="kerjaEks" :galat="galatEks" />
+      </Panel>
 
       <Panel judul="Analisis pendukung" ket="Deskriptif, bukan uji strategi. Tidak dihitung dalam jumlah hipotesis.">
         <div class="grid gap-3 md:grid-cols-2">
