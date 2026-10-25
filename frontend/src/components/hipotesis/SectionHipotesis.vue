@@ -35,7 +35,7 @@ function tiles(a) {
   if (!a) return [];
   const t = (label, v, f, ket) => ({ label, nilai: v == null ? "—" : f(v), kosong: v == null, ket: v == null ? "tidak tercatat" : ket, warna: v != null && /[+-]/.test(f(v)) });
   const pemb = t("Pembanding", a.bh, (v) => persen(v, 1), a.bh != null ? [a.bh_nama, a.bh_dd != null ? `DD ${persen(a.bh_dd, 1)}` : ""].filter(Boolean).join(" · ") : "");
-  if (a.tile?.length) return [t("CAGR", a.cagr, (v) => persen(v, 1)), t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)), ...a.tile.map((x) => ({ label: x[0], nilai: x[1], ket: x[2], kosong: false, warna: false })), pemb];
+  if (a.tile?.length) return [t(a.cagr_rentang ? "CAGR (median)" : "CAGR", a.cagr, (v) => persen(v, 1)), t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)), ...a.tile.map((x) => ({ label: x[0], nilai: x[1], ket: x[2], kosong: false, warna: false })), pemb];
   return [
     t("CAGR", a.cagr, (v) => persen(v, 1)),
     t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)),
@@ -144,8 +144,10 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
             <tbody>
               <tr v-for="a in angka" :key="a.periode">
                 <td class="text-ink-2">{{ a.periode }}<span v-if="a.utama" class="chip ml-2 !h-5 bg-surface-2 text-muted">penentu</span></td>
-                <td class="text-right"><TeksWarna v-if="a.cagr != null" :teks="persen(a.cagr, 1)" /><span v-else class="text-muted">—</span></td>
-                <td class="text-right"><TeksWarna v-if="a.dd != null" :teks="persen(a.dd, 1)" /><span v-else class="text-muted">—</span></td>
+                <td class="text-right"><TeksWarna v-if="a.cagr != null" :teks="persen(a.cagr, 1)" /><span v-else class="text-muted">—</span>
+                  <div v-if="a.cagr_rentang" class="text-[11px] whitespace-nowrap text-muted">{{ persen(a.cagr_rentang[0], 1) }} s/d {{ persen(a.cagr_rentang[1], 1) }}</div></td>
+                <td class="text-right"><TeksWarna v-if="a.dd != null" :teks="persen(a.dd, 1)" /><span v-else class="text-muted">—</span>
+                  <div v-if="a.dd_rentang" class="text-[11px] whitespace-nowrap text-muted">{{ persen(a.dd_rentang[0], 1) }} s/d {{ persen(a.dd_rentang[1], 1) }}</div></td>
                 <td class="text-right">{{ a.trade != null ? a.trade.toLocaleString("id-ID") : "—" }}</td>
                 <td class="text-right">{{ a.wr != null ? `${a.wr}%` : "—" }}</td>
                 <td class="text-right"><TeksWarna v-if="a.net != null" :teks="persen(a.net, 2)" /><span v-else class="text-muted">—</span></td>

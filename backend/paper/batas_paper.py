@@ -26,33 +26,46 @@ ATURAN = [
 ]
 
 
-def kurva_harian(tr, mulai=None, sampai=None):
+def kurva_harian(tr, mulai=None, sampai=None, mentah=None):
     harga, dividen = {}, {}
     for t in tr["ticker"].unique():
-        m = baca_mentah(t)
+        m = mentah[t] if mentah is not None and t in mentah else baca_mentah(t)
         harga[t] = m["close"] if m is not None else pd.Series(dtype=float)
         dividen[t] = m["dividends"].fillna(0) if m is not None and "dividends" in m else pd.Series(dtype=float)
     ihsg = dt.baca("pasar")["ihsg"].dropna()
     awal = pd.Timestamp(mulai) if mulai is not None else tr["tgl_beli"].min()
     akhir = pd.Timestamp(sampai) if sampai is not None else max(tr["tgl_jual"].max(), tr["tgl_beli"].max())
     hari = ihsg.index[(ihsg.index >= awal) & (ihsg.index <= akhir)]
+    tabel, dv = {}, {}
+    for t, s in harga.items():
+        s = s[s.index.isin(hari)].astype(float)
+        tabel[t] = s[np.isfinite(s.to_numpy())].reindex(hari).ffill().to_numpy()
+        d_ = dividen[t]
+        d_ = d_[d_.index.isin(hari) & (d_ > 0)]
+        dv[t] = {k: float(v) for k, v in d_.items()}
+    ticker = tr["ticker"].to_numpy()
+    harga_beli = tr["harga_beli"].to_numpy(float)
     beli = {k: v for k, v in tr.groupby("tgl_beli")}
     jual = {k: v for k, v in tr[tr["tgl_jual"].notna()].groupby("tgl_jual")}
-    kas, posisi, nilai = 1.0, {}, []
-    harga_terakhir = {}
-    for tgl in hari:
-        for t, s in harga.items():
-            if tgl in s.index and np.isfinite(s.at[tgl]):
-                harga_terakhir[t] = float(s.at[tgl])
+
+    def nilai_posisi(posisi, j):
+        total = 0
         for i, l in posisi.items():
-            dv = dividen[tr.at[i, "ticker"]]
-            if tgl in dv.index and dv.at[tgl] > 0:
-                kas += l * float(dv.at[tgl]) * (1 - PAJAK_DIVIDEN)
+            h = tabel[ticker[i]][j]
+            total += l * (h if h == h else harga_beli[i])
+        return total
+
+    kas, posisi, nilai = 1.0, {}, []
+    for j, tgl in enumerate(hari):
+        for i, l in posisi.items():
+            d_ = dv[ticker[i]].get(tgl)
+            if d_:
+                kas += l * d_ * (1 - PAJAK_DIVIDEN)
         if tgl in jual:
             for r in jual[tgl].itertuples():
                 lembar = posisi.pop(r.Index, 0.0)
                 kas += lembar * hasil_jual(r.harga_jual)
-        ekuitas = kas + sum(l * harga_terakhir.get(tr.at[i, "ticker"], tr.at[i, "harga_beli"]) for i, l in posisi.items())
+        ekuitas = kas + nilai_posisi(posisi, j)
         if tgl in beli:
             for r in beli[tgl].itertuples():
                 dana = min(BOBOT * ekuitas, kas)
@@ -61,7 +74,7 @@ def kurva_harian(tr, mulai=None, sampai=None):
                 lembar = dana / biaya_beli(r.harga_beli)
                 kas -= dana
                 posisi[r.Index] = lembar
-        ekuitas = kas + sum(l * harga_terakhir.get(tr.at[i, "ticker"], tr.at[i, "harga_beli"]) for i, l in posisi.items())
+        ekuitas = kas + nilai_posisi(posisi, j)
         nilai.append(ekuitas)
     return pd.Series(nilai, index=hari)
 

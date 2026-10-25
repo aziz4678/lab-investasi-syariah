@@ -6,7 +6,7 @@ import { opsiDasar, warna, gradien } from "@/utils/chart";
 import { persen, ringkas, kelasPersen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 
-const props = defineProps({ ekuitas: Array });
+const props = defineProps({ ekuitas: Array, catatan: String });
 const tema = pakaiTema();
 let modalAwal = 100000000;
 try {
@@ -99,7 +99,7 @@ const akhir = computed(() => {
 </script>
 
 <template>
-  <Panel judul="Pertumbuhan modal" ket="Modal awal = 1x · 10 posisi @ 10% ekuitas saat beli · harga pasar akhir bulan · dihitung sama seperti paper"
+  <Panel judul="Pertumbuhan modal" :ket="`Modal awal = 1x · 10 posisi @ 10% ekuitas saat beli · harga pasar akhir bulan · dihitung sama seperti paper${catatan ? ` · ${catatan}` : ''}`"
     info="Strategi dibandingkan dengan membeli semua saham syariah likuid lalu didiamkan (beli-tahan), dan IHSG.">
     <template #aksi>
       <span v-for="s in akhir" :key="s.label" class="inline-flex items-center gap-2 rounded-full bg-surface-2 py-1.5 pr-3 pl-2.5 text-xs text-ink-2">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { ambil } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
@@ -26,6 +26,7 @@ const distribusi = ref([]);
 const trade = ref([]);
 const galat = ref("");
 const muat = ref(false);
+const contoh = computed(() => `contoh satu undian (seed ${ringkasan.value?.undian?.contoh_seed ?? 7})`);
 
 async function isi(v) {
   muat.value = true;
@@ -86,8 +87,9 @@ watch(versi, (v) => v && isi(v));
     </template>
     <div v-else class="space-y-5 transition-opacity" :class="muat ? 'opacity-50' : ''">
     <KpiTiles :r="ringkasan" />
-    <KurvaModal :ekuitas="ekuitas" />
-    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" />
+    <p v-if="ringkasan?.undian" class="m-0 -mt-2 text-xs leading-relaxed text-muted">Return per tahun dan penurunan terburuk = median {{ ringkasan.undian.n }} undian pemilihan saham (aturan sama). Angka lain, kurva, peta bulanan, dan tabel trade = {{ contoh }}.</p>
+    <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.undian ? contoh : ''" />
+    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.undian ? contoh : ''" />
     <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <Distribusi :distribusi="distribusi" />
       <Panel judul="Cara membaca">

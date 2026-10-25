@@ -56,10 +56,10 @@ def k6(dev, holdout=None, teks=K6):
 
 
 def a(periode, cagr=None, dd=None, trade=None, wr=None, net=None, net_ket="/trade", kotor=None, pemb=None,
-      bh=None, bh_dd=None, bh_nama=None, ket=None, utama=False, ekstra=None, dd_label=None, tile=None):
+      bh=None, bh_dd=None, bh_nama=None, ket=None, utama=False, ekstra=None, dd_label=None, tile=None, undian=None):
     return {"periode": periode, "cagr": cagr, "dd": dd, "trade": trade, "wr": wr, "net": net, "net_ket": net_ket,
             "kotor": kotor, "pemb": pemb, "bh": bh, "bh_dd": bh_dd, "bh_nama": bh_nama, "ket": ket, "utama": utama,
-            "ekstra": ekstra or [], "dd_label": dd_label, "tile": tile}
+            "ekstra": ekstra or [], "dd_label": dd_label, "tile": tile, "undian": undian}
 
 
 def p(nama, rentang, universe, dibuka, hasil=None, skor=None, ket=None):
@@ -265,11 +265,13 @@ HIPOTESIS = [
      "kriteria": k6([("+2,10%", True), ("kotor +3,43% vs -0,65%", True), ("[0,36; 4,00]", True), ("6/9 = 67%", False), ("+0,14%", True), ("+0,58%", True)],
                     [("+6,21%", True), ("kotor +7,70% vs -1,02%", True), ("[3,05; 9,87]", True), ("5/7 = 71%", True), ("+2,39%", True), ("+3,63%", True)])
                  + [k("CAGR 10 posisi > beli-tahan bobot sama", ("12,1% vs 8,1%", True), ("30,3% vs 6,5%", True))],
-     "angka": [a("Dev 2010-2019", cagr=12.1, dd=-20.4, trade=495, wr=40, net=2.10, kotor=3.43, pemb=-0.65, bh=8.1, bh_nama="Bobot sama, rebalance harian (bulanan 7,6%)",
-                 ket="Median trade -3,31%, rata-rata tahan 33 hari, bulan positif 46%."),
-               a("Holdout 2020-2026", cagr=30.3, dd=-37.7, trade=692, wr=34, net=6.21, kotor=7.70, pemb=-1.02, bh=6.5, bh_nama="Bobot sama, rebalance harian (bulanan 0,5%)", utama=True,
-                 ket="Median trade -5,7%, bulan positif 40%. Konservatif (ARA/ARB terkunci): CAGR 21,3%, DD -37,1%. 30 seed acak: CAGR 24,7-34,6%."),
-               a("Cara paper 2020-2026", cagr=23.1, dd=-40, ket="Kurva harian 10% ekuitas saat beli; konservatif 17,3%. Harapan realistis lebih rendah.")],
+     "angka": [a("Cara paper 2020-2026 · median 100 undian", undian="h11a_2020", utama=True,
+                 ket="Cara paper: kurva harian, 10% ekuitas saat beli, harga pasar, dividen dipotong pajak. Median dari 100 undian pemilihan saham saat sinyal melebihi slot kosong (aturan sama). Harapan realistis lebih rendah."),
+               a("Cara paper 2010-2019 · median 100 undian", undian="h11a_dev", ket="Universe dev 217 saham (bias survivorship)."),
+               a("Uji dev 2010-2019 (laporan bulanan)", cagr=12.1, dd=-20.4, trade=495, wr=40, net=2.10, kotor=3.43, pemb=-0.65, bh=8.1, bh_nama="Bobot sama, rebalance harian (bulanan 7,6%)",
+                 ket="CAGR & DD dari satu undian (seed 7), metode laporan bulanan yang dipakai kriteria uji. Median trade -3,31%, rata-rata tahan 33 hari, bulan positif 46%."),
+               a("Uji holdout 2020-2026 (laporan bulanan)", cagr=30.3, dd=-37.7, trade=692, wr=34, net=6.21, kotor=7.70, pemb=-1.02, bh=6.5, bh_nama="Bobot sama, rebalance harian (bulanan 0,5%)",
+                 ket="CAGR & DD dari satu undian (seed 7), metode laporan bulanan yang dipakai kriteria uji (melebih-lebihkan dibanding cara paper). Median trade -5,7%, bulan positif 40%. 30 seed acak: CAGR 24,7-34,6%.")],
      "kenapa": "Dev gagal tipis (tahun positif 67% < 70%). Holdout dibuka sebagai pengecualian dan lulus 7/7, jadi dilanjutkan ke paper trade, bukan dinyatakan terbukti.",
      "kelemahan": ["Dev gagal dengan aturan kita; holdout dibuka sebagai pengecualian.",
                    "2020-2026 mencakup reli besar saham kecil/konglomerasi (2020-2021, 2025).",
@@ -742,9 +744,9 @@ GRAFIK = {
     "H4": [batang("Bersih per trade per tahun, holdout 2024+", ["2024", "2025", "2026*"], [("Bersih/trade", [-1.65, -0.68, -1.98])], "Semua tahun negatif di data yang benar-benar baru. *2026 sebagian.")],
     "H8": [batang("Bersih per trade per tahun, dev", ["2020", "2021", "2022", "2023"], [("Bersih/trade", [1.76, 0.55, 0.03, -1.57])], "Efeknya melemah tiap tahun.")],
     "H11a": [
-        {"jenis": "kurva", "judul": "Kurva modal holdout 2020-2026 (cara paper)", "sumber": {"backtest": "h11a_2020"}, "ket": "Modal awal = 100. 10% ekuitas saat beli, harga pasar, dividen dipotong pajak."},
-        {"jenis": "batang", "judul": "Return portofolio per tahun (cara paper)", "sumber": {"backtest_tahun": ["h11a_dev", "h11a_2020"]}, "ket": "2011-2019 = dev 217 saham, 2020+ = DES historis. 2021 menyumbang sebagian besar hasil.", "satuan": "%"},
-        {"jenis": "kurva", "judul": "Kurva modal dev 2010-2019 (217 saham)", "sumber": {"backtest": "h11a_dev"}, "ket": "Modal awal = 100. Universe 217 (bias survivorship)."},
+        {"jenis": "kurva", "judul": "Kurva modal holdout 2020-2026 (cara paper) · contoh satu undian", "sumber": {"backtest": "h11a_2020"}, "ket": "Contoh satu undian pemilihan saham (seed 7); angka utama memakai median 100 undian. Modal awal = 100. 10% ekuitas saat beli, harga pasar, dividen dipotong pajak."},
+        {"jenis": "batang", "judul": "Return portofolio per tahun (cara paper) · contoh satu undian", "sumber": {"backtest_tahun": ["h11a_dev", "h11a_2020"]}, "ket": "Contoh satu undian (seed 7). 2011-2019 = dev 217 saham, 2020+ = DES historis. 2021 menyumbang sebagian besar hasil.", "satuan": "%"},
+        {"jenis": "kurva", "judul": "Kurva modal dev 2010-2019 (217 saham) · contoh satu undian", "sumber": {"backtest": "h11a_dev"}, "ket": "Contoh satu undian (seed 7). Modal awal = 100. Universe 217 (bias survivorship)."},
     ],
     "H12a": [batang("CAGR dev 2010-2019", ["H11a", "H12a", "H12b", "Beli-tahan"], [("CAGR", [12.1, 5.0, 5.2, 8.1])], "Membuang saham volatil memotong CAGR lebih dari separuh.")],
     "H12b": [batang("CAGR dev 2010-2019", ["H11a", "H12a", "H12b", "Beli-tahan"], [("CAGR", [12.1, 5.0, 5.2, 8.1])], "Sama dengan H12a.")],
@@ -857,7 +859,7 @@ def _isi(g):
     src = g.get("sumber")
     if not src:
         return g
-    kunci = repr(src)
+    kunci = repr(src) + (str(_cap_backtest()) if any(k.startswith("backtest") for k in src) else "")
     if kunci not in _CACHE:
         try:
             if "backtest" in src:
@@ -880,7 +882,50 @@ def _isi(g):
     return {k: v for k, v in g.items() if k != "sumber"} | {"satuan": g.get("satuan", "")} | isi
 
 
+def _cap_backtest():
+    from backend.db import koneksi as kdb
+    r = kdb.koneksi().backtest_ringkasan.find_one({}, {"dibuat": 1}, sort=[("dibuat", -1)])
+    return r["dibuat"].timestamp() if r else 0
+
+
+def _pct(v, tanda=True):
+    return (f"{v:+.1f}%" if tanda else f"{v:.1f}%").replace(".", ",")
+
+
+def _rentang(a_, b_, tanda=True):
+    return f"{_pct(a_, tanda)} s/d {_pct(b_, tanda)}"
+
+
+def _isi_undian(angka):
+    if not any(x.get("undian") for x in angka):
+        return angka
+    kunci = ("undian", _cap_backtest())
+    if kunci not in _CACHE:
+        from backend.db import koneksi as kdb
+        _CACHE[kunci] = {r["versi"]: r for r in kdb.koneksi().backtest_ringkasan.find({}, {"_id": 0, "versi": 1, "undian": 1, "cagr_beli_tahan": 1})}
+    rk = _CACHE[kunci]
+    hasil = []
+    for x in angka:
+        r = rk.get(x["undian"]) if x.get("undian") else None
+        u = (r or {}).get("undian")
+        if not u:
+            hasil.append(x)
+            continue
+        tile = [["CAGR p5–p95", _rentang(u["cagr"]["p5"], u["cagr"]["p95"]), f"{u['n']} undian"],
+                ["Drawdown p5–p95", _rentang(u["dd"]["p5"], u["dd"]["p95"], False), f"{u['n']} undian"],
+                [f"Contoh undian (seed {u['contoh_seed']})", _pct(u["contoh"]["cagr"]), f"DD {_pct(u['contoh']['dd'], False)} · kurva di grafik"]]
+        ekstra = []
+        k = rk.get(x["undian"] + "_konservatif", {}).get("undian")
+        if k:
+            ekstra.append(["Konservatif (ARA/ARB terkunci)", f"CAGR median {_pct(k['cagr']['median'])} ({_rentang(k['cagr']['p5'], k['cagr']['p95'])}), "
+                                                              f"DD median {_pct(k['dd']['median'], False)} ({_rentang(k['dd']['p5'], k['dd']['p95'], False)})"])
+        hasil.append(x | {"cagr": u["cagr"]["median"], "dd": u["dd"]["median"], "cagr_rentang": [u["cagr"]["p5"], u["cagr"]["p95"]],
+                          "dd_rentang": [u["dd"]["p5"], u["dd"]["p95"]], "tile": tile, "ekstra": x["ekstra"] + ekstra,
+                          "bh": r.get("cagr_beli_tahan"), "bh_nama": "Beli-tahan bobot sama (bulanan, cara paper)", "dd_label": "Max drawdown (median)"})
+    return hasil
+
+
 def semua():
-    hip = [h | {"grafik": [x for x in (_isi(g) for g in GRAFIK.get(h["kode"], [])) if x]} for h in HIPOTESIS]
+    hip = [h | {"angka": _isi_undian(h.get("angka") or []), "grafik": [x for x in (_isi(g) for g in GRAFIK.get(h["kode"], [])) if x]} for h in HIPOTESIS]
     return {"status": STATUS, "kategori": KATEGORI, "lencana": LENCANA, "pelajaran": PELAJARAN,
             "analisis": ANALISIS, "keluarga": KELUARGA, "hipotesis": hip}

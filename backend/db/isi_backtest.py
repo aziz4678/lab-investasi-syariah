@@ -1,7 +1,9 @@
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 
+from backend.app.services.emiten import baca_mentah
 from backend.db import data as dt
 from backend.db import koneksi as d
 from backend.paper.batas_paper import kurva_harian
@@ -11,6 +13,8 @@ from backend.research.uji_dividen import bersih
 
 POSISI = 10
 BOBOT = 0.10
+UNDIAN = 100
+CONTOH_SEED = 7
 
 
 def konservatif(tr, siap):
@@ -80,12 +84,12 @@ def kurva(p, mulai, akhir):
     return bln.reindex(semua, fill_value=1.0) - 1
 
 
-def kurva_paper(dok, mulai, akhir):
+def kurva_paper(dok, mulai, akhir, mentah=None):
     tr = pd.DataFrame([x for x in dok if x["dipilih"]])
     tr["tgl_beli"] = pd.to_datetime(tr["tgl_beli"])
     tr["tgl_jual"] = pd.to_datetime(tr["tgl_jual"]).where(tr["status"] != "terbuka")
     tr = tr.sort_values(["tgl_beli", "ticker"]).reset_index(drop=True)
-    harian = kurva_harian(tr, mulai, akhir)
+    harian = kurva_harian(tr, mulai, akhir, mentah)
     bln = harian.resample("ME").last()
     bln.index = bln.index.to_period("M")
     semua = pd.period_range(mulai.to_period("M"), akhir.to_period("M"), freq="M")
@@ -115,11 +119,33 @@ def ringkas(versi, label, tr, p, ret, bm, ihsg):
     }
 
 
+def sebaran(x):
+    x = np.asarray(x, float)
+    return {k: round(float(v), 1) for k, v in (("median", np.median(x)), ("p5", np.percentile(x, 5)), ("p95", np.percentile(x, 95)),
+                                                ("min", x.min()), ("max", x.max()))}
+
+
+def undian(versi, tr, siap, mulai, akhir, mentah):
+    dok = dokumen_trade(versi, tr, set(), siap)
+    cagr, dd = [], []
+    for seed in range(1, UNDIAN + 1):
+        pilih = set(simulasi_portofolio(tr, POSISI, seed).index)
+        ret, harian = kurva_paper([dict(x, dipilih=i in pilih) for i, x in zip(tr.index, dok)], mulai, akhir, mentah)
+        ek = (1 + ret).cumprod()
+        cagr.append((ek.iloc[-1] ** (12 / len(ret)) - 1) * 100)
+        dd.append((harian / harian.cummax() - 1).min() * 100)
+        if seed % 20 == 0:
+            print(f"  {versi}: {seed}/{UNDIAN} undian", flush=True)
+    return {"n": UNDIAN, "seed": f"1-{UNDIAN}", "contoh_seed": CONTOH_SEED, "cagr": sebaran(cagr), "dd": sebaran(dd),
+            "contoh": {"cagr": round(float(cagr[CONTOH_SEED - 1]), 1), "dd": round(float(dd[CONTOH_SEED - 1]), 1)}}
+
+
 def simpan_versi(db, versi, label, siap, tr, mulai, akhir, ihsg_bln):
-    p = simulasi_portofolio(tr, POSISI, 7)
+    mentah = {t: baca_mentah(t) for t in tr["ticker"].unique()}
+    p = simulasi_portofolio(tr, POSISI, CONTOH_SEED)
     lama = kurva(p, mulai, akhir)
     dok_tr = dokumen_trade(versi, tr, set(p.index), siap)
-    ret, harian = kurva_paper(dok_tr, mulai, akhir)
+    ret, harian = kurva_paper(dok_tr, mulai, akhir, mentah)
     bm = bulanan_benchmark(siap, mulai, akhir).reindex(ret.index).fillna(0)
     ih = ihsg_bln.reindex(ret.index).fillna(0)
     ek, ek_bm, ek_ih = (1 + ret).cumprod(), (1 + bm).cumprod(), (1 + ih).cumprod()
@@ -134,10 +160,16 @@ def simpan_versi(db, versi, label, siap, tr, mulai, akhir, ihsg_bln):
     rk["cagr_metode_lama"] = round(float((ek_lama.iloc[-1] ** (12 / len(lama)) - 1) * 100), 1)
     rk["dd_harian"] = round(float((harian / harian.cummax() - 1).min() * 100), 1)
     rk["dd_maks"] = rk["dd_harian"]
+    rk["undian"] = undian(versi, tr, siap, mulai, akhir, mentah)
+    if abs(rk["undian"]["contoh"]["cagr"] - rk["cagr"]) > 0.05 or abs(rk["undian"]["contoh"]["dd"] - rk["dd_maks"]) > 0.05:
+        raise RuntimeError(f"{versi}: undian seed {CONTOH_SEED} tidak sama dengan ringkasan ({rk['undian']['contoh']} vs {rk['cagr']}/{rk['dd_maks']})")
     db.backtest_ringkasan.replace_one({"versi": versi}, rk, upsert=True)
     print(f"{versi}: {len(tr)} sinyal, {len(p)} trade portofolio, CAGR {rk['cagr']}% (metode lama {rk['cagr_metode_lama']}%), "
           f"DD bulanan {rk['dd_maks']}% / harian {rk['dd_harian']}%, "
           f"WR {rk['win_rate']}%, beli-tahan {rk['cagr_beli_tahan']}%, IHSG {rk['cagr_ihsg']}%")
+    u = rk["undian"]
+    print(f"  {versi} {u['n']} undian: CAGR median {u['cagr']['median']}% (p5-p95 {u['cagr']['p5']} s/d {u['cagr']['p95']}), "
+          f"DD median {u['dd']['median']}% (p5-p95 {u['dd']['p5']} s/d {u['dd']['p95']})", flush=True)
 
 
 def utama():

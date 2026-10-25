@@ -11,7 +11,7 @@ DB = d.koneksi()
 
 @router.get("/versi")
 def daftar_versi():
-    kolom = {"_id": 0, "versi": 1, "label": 1, "cagr": 1, "dd_maks": 1, "win_rate": 1, "trade": 1, "mulai": 1, "akhir": 1}
+    kolom = {"_id": 0, "versi": 1, "label": 1, "cagr": 1, "dd_maks": 1, "win_rate": 1, "trade": 1, "mulai": 1, "akhir": 1, "undian": 1}
     return list(DB.backtest_ringkasan.find({}, kolom).sort("versi", 1))
 
 

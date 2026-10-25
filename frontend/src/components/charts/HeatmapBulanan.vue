@@ -5,7 +5,7 @@ import { warnaDivergen } from "@/utils/chart";
 import { persen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 
-const props = defineProps({ ekuitas: Array, perTahun: Object });
+const props = defineProps({ ekuitas: Array, perTahun: Object, catatan: String });
 const tema = pakaiTema();
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
@@ -25,7 +25,7 @@ const baris = computed(() => {
 </script>
 
 <template>
-  <Panel judul="Return per bulan" ket="Hijau = untung, merah = rugi · warna penuh di ±15% · ekuitas harga pasar akhir bulan" rapat>
+  <Panel judul="Return per bulan" :ket="`Hijau = untung, merah = rugi · warna penuh di ±15% · ekuitas harga pasar akhir bulan${catatan ? ` · ${catatan}` : ''}`" rapat>
     <div class="overflow-x-auto px-6 pb-4">
       <table class="w-full min-w-[780px] border-separate border-spacing-1 text-xs tabular-nums">
         <thead>
