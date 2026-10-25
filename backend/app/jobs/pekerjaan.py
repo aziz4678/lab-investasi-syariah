@@ -11,7 +11,6 @@ from backend.db import koneksi as d
 PYTHON = ROOT / "venv" / "Scripts" / "python.exe"
 PERINTAH = {
     "paper_harian": ("Perbarui paper trade", ["-m", "backend.paper.tren_harian"]),
-    "paper_dividen": ("Perbarui uji maju dividen", ["-m", "backend.paper.dividen_harian"]),
     "impor_ojk_nab": ("Impor NAB bulanan OJK", ["-m", "backend.ingest.ojk_nab"]),
     "impor_logo": ("Impor logo emiten IDX", ["-m", "backend.ingest.impor_browser", "logo"]),
     "logo_perbarui": ("Perbarui logo emiten & produk", ["-m", "backend.ingest.logo"]),
@@ -40,8 +39,7 @@ PERINTAH = {
 }
 BATAS_LOG = 400
 BENTROK = {
-    "paper_harian": {"paper_cek", "pulihkan", "des_perbarui", "paper_dividen"},
-    "paper_dividen": {"paper_harian", "pulihkan", "impor_dividen"},
+    "paper_harian": {"paper_cek", "pulihkan", "des_perbarui"},
     "paper_cek": {"paper_harian", "pulihkan"},
     "des_perbarui": {"paper_harian", "pulihkan"},
     "cadangan": {"pulihkan"},

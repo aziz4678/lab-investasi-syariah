@@ -11,6 +11,7 @@ import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import ProdukRD from "@/components/produk/ProdukRD.vue";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 import SukukDetail from "@/components/produk/SukukDetail.vue";
+import KalkulatorLapisan from "@/components/produk/KalkulatorLapisan.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 
@@ -413,6 +414,7 @@ const tglPendek = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { month: "
           </button>
         </Panel>
       </div>
+      <KalkulatorLapisan />
       <p class="m-0 text-xs text-muted">Porsi setiap profil mengikuti alokasi umum robo-advisor dan bukan hasil pengujian. Disarankan menyebar dana ke 2–3 produk per kategori agar tidak bergantung pada satu manajer investasi. Informasi ini bukan nasihat keuangan.</p>
     </template>
 

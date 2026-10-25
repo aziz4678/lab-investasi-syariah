@@ -2,7 +2,9 @@
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
 import { House, TrendingUp, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-vue-next";
 import { ambil } from "@/api/client";
-import { modeTema, setTema } from "@/composables/tema";
+import { modeTema, setTema, temaGelap } from "@/composables/tema";
+import logoTerang from "@/assets/logo/logo.svg";
+import logoGelap from "@/assets/logo/logo-gelap.svg";
 import BerandaView from "@/views/BerandaView.vue";
 import FollowTrenView from "@/views/riset/FollowTrenView.vue";
 import DividenView from "@/views/riset/DividenView.vue";
@@ -14,9 +16,10 @@ import EmitenView from "@/views/produk/EmitenView.vue";
 import PanduanView from "@/views/lainnya/PanduanView.vue";
 
 const NAMA_APP = "Lab Investasi";
+const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Pemburu dividen saham syariah", sub: "Saham syariah", lencana: "Uji maju" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H22" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Pemburu dividen saham syariah", sub: "Daftar & kalender" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H23" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -36,7 +39,7 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan", "riset"], dividen: ["daftar", "paper", "kalkulator", "uji", "trap", "aturan"], reksadana: ["katalog", "sukuk", "banding", "alokasi", "data"], etf: ["daftar", "luar", "banding", "data"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan", "riset"], dividen: ["daftar", "kalkulator", "uji", "trap", "aturan"], reksadana: ["katalog", "sukuk", "banding", "alokasi", "data"], etf: ["daftar", "luar", "banding", "data"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["tren52", "riset"] };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
 const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
@@ -121,7 +124,7 @@ onMounted(() => {
     <aside class="fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-garis bg-sidebar py-6 transition-[width] duration-200 md:flex"
       :class="lebar ? 'w-[248px] px-4' : 'w-[88px] items-center px-0'">
       <div class="mb-7 flex items-center gap-3" :class="lebar ? 'px-2' : ''">
-        <div class="h-10 w-10 shrink-0 rounded-full shadow-sm" style="background: conic-gradient(var(--lime) 0 35%, var(--aksen) 35% 100%)" :title="NAMA_APP"></div>
+        <img :src="logo" alt="" class="h-10 w-10 shrink-0" :title="NAMA_APP" />
         <div v-if="lebar" class="min-w-0 leading-tight">
           <div class="font-medium">{{ NAMA_APP }}</div>
           <div class="text-xs text-muted">Syariah</div>
@@ -163,7 +166,7 @@ onMounted(() => {
 
     <header class="sticky top-0 z-20 border-b border-garis bg-sidebar/90 backdrop-blur md:hidden" style="padding-top: env(safe-area-inset-top, 0px)">
       <div class="flex items-center gap-3 px-4 pt-3">
-        <div class="h-7 w-7 rounded-full" style="background: conic-gradient(var(--lime) 0 35%, var(--aksen) 35% 100%)"></div>
+        <img :src="logo" alt="" class="h-7 w-7" />
         <span class="font-medium">{{ NAMA_APP }}</span>
         <button @click="gantiTema" class="ml-auto grid h-9 w-9 place-items-center rounded-full bg-surface-2 text-ink-2" :aria-label="LABEL_TEMA[modeTema]">
           <component :is="IKON_TEMA[modeTema]" class="h-4 w-4" />

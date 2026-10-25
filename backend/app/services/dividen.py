@@ -373,7 +373,17 @@ def ringkasan():
         kol = ["tahun", "parsial", "jumlah", "yield_masuk", "penghasilan", "harga", "total", "biaya", "pembanding_penghasilan", "pembanding_total", "ihsg", "saham"]
         df = df[[k for k in kol if k in df]]
         return json.loads(df.round(2).to_json(orient="records"))
+
+    def baca_cd(nama):
+        df = dt.baca_hasil(f"{nama}_tahun")
+        if df is None:
+            return []
+        df = pd.DataFrame({"tahun": df["tahun"], "parsial": ~df["lengkap"].astype(bool), "penghasilan": df["penghasilan"],
+                           "harga": df["total"] - df["penghasilan"], "total": df["total"], "pembanding_total": df["pembanding"],
+                           "ihsg": df["ihsg"], "saham": df["saham"]})
+        return json.loads(df.round(2).to_json(orient="records"))
     return {"h17a_dev": baca("hasil_h17a_dev.csv"), "h17a_2021": baca("hasil_h17a_2021.csv"), "h17b": baca("hasil_h17b.csv"),
+            "h17c": baca_cd("h17c"), "h17d": baca_cd("h17d"),
             "trap": json_hasil("dividend_trap_ringkas.json"), "exdate": json_hasil("exdate_ringkas.json")}
 
 
@@ -429,35 +439,10 @@ def bersih(x):
     return x
 
 
-def paper():
-    from backend.paper import dividen_harian as pd_
-    db = d.koneksi()
-    status = db.paper_dividen_status.find_one({"_id": "status"}, {"_id": 0})
-    pilihan = {str(x["_id"]): x for x in db.paper_dividen_pilihan.find()}
-    nama = {}
-    for p in pilihan.values():
-        for s_ in p["saham"]:
-            s_["nama"] = nama.setdefault(s_["kode"], nama_dari(db, s_["kode"]))
-    posisi = list(db.paper_dividen_posisi.find({}, {"_id": 0}).sort("nilai", -1))
-    for p in posisi:
-        p["nama"] = nama_dari(db, p["kode"])
-    ekuitas = list(db.paper_dividen_ekuitas.find({}, {"_id": 0}).sort("tgl", 1))
-    transaksi = list(db.paper_dividen_transaksi.find({}, {"_id": 0}).sort("tgl", -1).limit(200))
-    kunci = db.batas_paper.find_one({"_id": pd_.ID_KUNCI})
-    hari = pd.Timestamp.today().normalize()
-    tunggu = list(db.paper_dividen_transaksi.find({"aksi": "dividen", "bayar": {"$gt": hari.to_pydatetime()}}, {"_id": 0}).sort("bayar", 1))
-    return bersih({"status": status, "pratinjau": pilihan.pop("pratinjau", None), "pilihan": sorted(pilihan.values(), key=lambda x: x["tahun"]),
-                   "posisi": posisi, "ekuitas": ekuitas, "transaksi": transaksi, "menunggu_cair": tunggu,
-                   "aturan": pd_.ATURAN, "dikunci": kunci["dikunci"] if kunci else None})
-
-
 def pengingat(hari_maju=7):
     hari = pd.Timestamp.today().normalize()
     ki = idx_kejadian(syarat={"cum": {"$gte": hari.to_pydatetime(), "$lte": (hari + pd.Timedelta(days=hari_maju)).to_pydatetime()}})
     db = d.koneksi()
-    pegang = {x["kode"] for x in db.paper_dividen_posisi.find({}, {"kode": 1})}
-    pr = db.paper_dividen_pilihan.find_one({"_id": "pratinjau"})
-    calon = {x["kode"] for x in (pr or {}).get("saham", [])}
     if ki.empty:
         return {"data": [], "hari": hari_maju}
     syariah = des_ojk.syariah_pada(des_ojk.baca(), hari)
@@ -468,5 +453,5 @@ def pengingat(hari_maju=7):
         per = r.get("per_lembar_idx")
         hasil.append({"kode": r["kode"], "nama": nama_dari(db, r["kode"]), "cum": fmt(r["cum"]), "ex": fmt(r["ex_ef"]), "bayar": fmt(r["bayar"]),
                       "per_lembar": round(float(per), 2) if per is not None and pd.notna(per) else None,
-                      "sisa_hari": int((r["cum"] - hari).days), "paper": r["kode"] in pegang, "pratinjau": r["kode"] in calon})
+                      "sisa_hari": int((r["cum"] - hari).days)})
     return {"data": sorted(hasil, key=lambda x: x["cum"]), "hari": hari_maju}

@@ -27,6 +27,7 @@ const ekBt = ref([]);
 const ekPaper = ref([]);
 const transaksi = ref([]);
 const div = ref(null);
+const divSiap = ref(false);
 const rd = ref(null);
 const etf = ref(null);
 const etfLuar = ref(null);
@@ -43,8 +44,9 @@ const PERIODE = [["1H", "Hari ini"], ["1M", "1 minggu"], ["1B", "1 bulan"], ["3B
 async function muat() {
   ambil("ringkasan/h11a_2020_konservatif").then((x) => (btKons.value = x)).catch(() => null);
   ambil("ekuitas/h11a_2020").then((x) => (ekBt.value = x)).catch(() => null);
-  [pasar.value, paper.value, bt.value, div.value, rd.value, etf.value, etfLuar.value] = await Promise.all([
-    ambil("pasar").catch(() => ({})), ambil("paper/ringkasan").catch(() => null), ambil("ringkasan/h11a_2020").catch(() => null), ambil("dividen/paper").catch(() => null),
+  ambil("dividen/daftar").then((x) => (div.value = x)).catch(() => null).finally(() => (divSiap.value = true));
+  [pasar.value, paper.value, bt.value, rd.value, etf.value, etfLuar.value] = await Promise.all([
+    ambil("pasar").catch(() => ({})), ambil("paper/ringkasan").catch(() => null), ambil("ringkasan/h11a_2020").catch(() => null),
     ambil("rd/daftar").catch(() => null), ambil("etf/daftar").catch(() => null), ambil("etf/luar").catch(() => null),
   ]);
   if (paper.value?.mulai) {
@@ -106,14 +108,11 @@ const kurvaTren = computed(() => {
 
 const btTotal = computed(() => (ekBt.value.length ? (ekBt.value[ekBt.value.length - 1].ekuitas - 1) * 100 : null));
 const btIhsg = computed(() => (ekBt.value.length ? (ekBt.value[ekBt.value.length - 1].ihsg - 1) * 100 : null));
-const divSt = computed(() => div.value?.status);
-const divMenunggu = computed(() => !divSt.value || divSt.value.tahap === "menunggu");
-const divSisa = computed(() => (div.value?.aturan?.mulai ? Math.max(0, Math.ceil((new Date(div.value.aturan.mulai) - new Date()) / 864e5)) : null));
 const divYield = computed(() => {
   const y = divPilihan.value.map((x) => x.yield).filter((v) => v != null);
   return y.length ? y.reduce((a, b) => a + b, 0) / y.length : null;
 });
-const divPilihan = computed(() => (divMenunggu.value ? div.value?.pratinjau?.saham : div.value?.posisi)?.slice(0, 10) || []);
+const divPilihan = computed(() => (div.value?.data || []).filter((x) => x.beruntun >= 3 && x.yield != null).sort((a, b) => b.yield - a.yield).slice(0, 10));
 
 const rdTerbaik = computed(() => {
   const d = rd.value?.data || [];
@@ -276,23 +275,15 @@ function waktu(s) {
           </div>
         </div>
       </Panel>
-      <Panel class="h-full" judul="Dividen" ket="Pemburu dividen saham syariah · uji maju">
-        <template #aksi><button class="tombol" @click="pindahTab('dividen', 'paper')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
-        <Kerangka v-if="!siap" :n="5" />
-        <template v-else-if="divMenunggu">
-          <div class="flex items-end gap-2">
-            <span class="text-[26px] leading-none font-medium tabular-nums">{{ divSisa ?? "–" }}</span>
-            <span class="pb-0.5 text-[13px] text-muted">hari lagi uji maju dimulai ({{ tanggal(div?.aturan?.mulai) }})</span>
-          </div>
-          <div class="mt-4 text-xs text-muted">Pratinjau pilihan {{ div?.pratinjau?.tahun }} · 10 saham dengan yield tertinggi yang rutin bayar 3 tahun</div>
-        </template>
-        <template v-else>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div><div class="text-xs text-muted">Nilai modal</div><div class="text-[17px] font-medium tabular-nums">Rp{{ ringkas(Math.round(divSt.ekuitas)) }}</div></div>
-            <div><div class="text-xs text-muted">Dividen diterima</div><div class="text-[17px] font-medium tabular-nums text-naik">Rp{{ ringkas(Math.round(divSt.penghasilan_total || 0)) }}</div></div>
-          </div>
-          <div class="mt-4 text-xs text-muted">Saham dipegang</div>
-        </template>
+      <Panel class="h-full" judul="Dividen" ket="Pemburu dividen saham syariah · gagal diuji, uji maju dihentikan">
+        <template #aksi><button class="tombol" @click="pindahTab('dividen', 'daftar')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
+        <div class="flex flex-wrap gap-2">
+          <span class="chip bg-turun-bg text-turun">H17a/c/d gagal</span>
+          <span class="chip bg-surface-2 text-muted">uji maju 2027 dihentikan</span>
+        </div>
+        <p class="m-0 mt-3 text-xs leading-relaxed text-ink-2">Aturan "10 yield tertinggi" gagal di saham syariah dan non-syariah 2014-2026: penghasilan tinggi hanya saat boom batu bara.</p>
+        <div class="mt-4 text-xs text-muted">Yield tertinggi saat ini · rutin bayar ≥ 3 tahun · bukan rekomendasi</div>
+        <Kerangka v-if="!divSiap" class="mt-2" :n="5" />
         <div class="mt-2 grid grid-cols-1 gap-x-6 sm:grid-flow-col sm:grid-cols-2" :style="{ gridTemplateRows: `repeat(${Math.ceil(divPilihan.length / 2)}, auto)` }">
           <div v-for="(x, i) in divPilihan" :key="x.kode" class="flex items-center gap-3 border-b border-garis py-2 text-[13px]">
             <span class="w-4 text-right text-xs text-muted tabular-nums">{{ i + 1 }}</span>

@@ -98,7 +98,7 @@ RENCANA = [
     {"id": "alokasi", "nama": "Alokasi Portofolio", "kelas": "Gabungan semua section", "ikon": "scale", "status": "Menunggu hasil",
      "ide": "Menggabungkan strategi yang lolos (mis. Follow Tren + dividen + sukuk + emas) dengan porsi tetap dan rebalance.",
      "beda": "Strategi yang korelasinya rendah membuat penurunan modal jauh lebih dangkal.",
-     "data": "Dari hasil section lain. Menunggu paper Follow Tren dan uji maju Dividen berjalan cukup lama.",
+     "data": "Dari hasil section lain. Menunggu paper Follow Tren berjalan cukup lama.",
      "pertanyaan": "Kombinasi mana yang memberi penghasilan paling stabil per bulan?"},
     {"id": "saham_as", "nama": "Saham AS", "kelas": "NYSE / NASDAQ", "ikon": "globe", "status": "Perlu keputusan",
      "ide": "Follow Tren pada saham AS likuid. Data jauh lebih panjang (1990-an) dan biaya lebih kecil, jadi uji lebih kuat.",

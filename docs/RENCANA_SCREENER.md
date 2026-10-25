@@ -415,7 +415,7 @@ Hasil dev (2026-10-20):
 ## Output screener
 `rekomendasi_<tanggal>.csv`, diurutkan dari peluang tertinggi: ticker, close, perkiraan entry, TP, SL, peluang, base rate hari itu, 3 fitur pendorong. Semua rekomendasi ditambahkan ke `log_rekomendasi.csv` untuk dicek maju.
 
-## Uji maju Pemburu Dividen (dividen_v1), dikunci 2026-10-23
+## Uji maju Pemburu Dividen (dividen_v1), dikunci 2026-10-23 — DIHENTIKAN 2026-10-25 (lihat hasil H17c/H17d)
 
 Dikunci sebelum data 2027 ada. Kode: `backend/paper/dividen_harian.py` (konstanta `ATURAN` disimpan di koleksi `batas_paper` id `dividen_v1`; modul menolak jalan kalau berubah). Tujuan: mengukur penghasilan rutin dari dividen saham syariah, bukan mengalahkan pasar.
 
@@ -615,3 +615,117 @@ Catatan:
 - H21: drawdown memang lebih dangkal (-24% vs -35%) dan volatilitas jauh lebih rendah, tapi hasilnya bergantung pada lima saham besar defensif (TLKM, ICBP, JSMR, UNVR, KLBF). Tanpa mereka, CAGR jatuh ke 3,5% dan drawdown malah lebih dalam. Di universe Rp20 M drawdown-nya tidak cukup dangkal. Tertinggal di 2016 (+10% vs +31%) dan 2018 (-5% vs +13%).
 - H22: angka dasar kuat (18,8% vs 7,8%, lulus semua 6 kriteria), tapi rapuh: dengan biaya 2 tick, tanpa 5 pemenang terbesar hasilnya sudah di bawah bobot sama, dan di universe likuid Rp20 M tanpa 5 pemenang hasilnya negatif. Korelasi dengan Follow Tren 0,65 → sumber keuntungannya mirip (sedikit saham yang naik besar), jadi kalaupun lulus tidak banyak menambah diversifikasi.
 - Sesuai aturan: GAGAL = ditutup, tanpa variasi lookback, jumlah saham, buffer, atau filter. Holdout 2020-2026 tidak dibuka.
+
+## H23: dual momentum JII / emas / kas (dikunci 2026-10-25, sebelum kode uji dibuat dan sebelum melihat hasil apa pun)
+Konteks: hasil brainstorming literatur 2026-10-25 (Antonacci "Global Equity Momentum"; Hurst, Ooi & Pedersen 2017 "A Century of Evidence on Trend-Following"). Satu hipotesis, tanpa varian. Disetujui user 2026-10-25 dengan lencana **pasca hasil**: H23 dekat dengan H20 (yang gagal dan ditutup "tanpa variasi instrumen"), data JII 2001-2014 sudah terlihat di H20 dev, dan 2020-2026 sudah terlihat di eksplorasi 2020+. Karena itu hasilnya bukti lemah; lulus = kandidat uji maju saja, bukan diadopsi. Biaya emas 2% pulang-pergi dipilih user sebelum uji.
+
+Cek data sebelum dikunci (2026-10-25, hanya kelengkapan data, tanpa return strategi apa pun):
+- Emas `GC=F` (Yahoo, USD/troy ons) lengkap sejak 2001 (tanpa celah > 5 hari).
+- Kurs `IDR=X` (Yahoo, `kurs/USD`) kotor: 12 titik salah (×0,1 pada 1 Nov 2010 & 7 Feb 2012, nilai macet 9.612 Okt-Des 2013, 5 Nov 2008, 26 Des 2024) dan celah 214 hari (Jun-Des 2003), 26 hari (Agt 2008), 10 hari (Sep 2002). Setelah dibersihkan (aturan di bawah, median 21 hari), akhir bulan cocok dengan FRED `CCUSSP02IDM650N` (kurs akhir periode, sampai Des 2023): 245 dari 271 bulan beda ≤ 1%, 2 bulan > 3%, maks 3,3%.
+
+Data & instrumen:
+- **JII**: sama persis dengan H20 (close `indeks/JKII` + dividen 2,5%/th − expense 2,0%/th diakru harian; biaya masuk 0,60%, keluar 0,70%).
+- **Emas (rupiah)**: close `GC=F` × kurs USD/IDR. Kurs: close `IDR=X` dibuang bila menyimpang > 5% dari median 21 hari bursa (berpusat; semula 11, diubah 2026-10-25 sebelum uji karena nilai macet 9.612 di Nov-Des 2013 muncul 6 dari 11 hari sehingga lolos); celah > 7 hari kalender diisi interpolasi log-linear lewat titik akhir bulan FRED di dalam celah. Biaya emas **1% beli + 1% jual** (2% pulang-pergi), tanpa biaya simpan.
+- Tanggal emas: nilai emas untuk hari bursa IDX t = nilai emas-rupiah terakhir yang bertanggal **sebelum** t (emas AS & kurs ditutup setelah IDX tutup; mencegah melihat masa depan).
+- **Kas**: sama dengan H20 (bunga antarbank FRED `IRSTCI01IDM156N` − 1,5%/th; BI-Rate bila FRED belum ada).
+- Kalender: hari bursa JII.
+
+Aturan:
+- Sinyal di close hari bursa terakhir tiap bulan: hitung return 12 bulan (close akhir bulan ini / close akhir bulan yang sama tahun lalu) dari indeks total return model masing-masing: JII (dengan dividen − expense), emas-rupiah, kas (bunga − 1,5% berbunga majemuk). Pegang aset dengan return 12 bulan **tertinggi** (kalau kas tertinggi → kas). Hanya bertindak kalau aset berubah.
+- Perpindahan A → B (mengikuti mekanisme H20): hari bursa ke-1 bulan berikutnya: kalau A berisiko, A ikut return hari itu lalu dijual di close (biaya jual A); kalau A kas, bunga berhenti dan return 0. Hari ke-2 s.d. ke-4 return 0. Close hari ke-4: beli B (biaya beli B) kalau B berisiko; kalau B kas, bunga mulai hari ke-5.
+- Awal: emas-rupiah ada sejak 28 Jun 2001 → sinyal pertama akhir Jun 2002. Sebelum sinyal pertama = kas.
+- **Pembanding 1, beli-tahan JII**: seperti H20 (masuk close hari bursa ke-1 Jul 2002, biaya 0,60%).
+- **Pembanding 2, campuran tetap 50% JII + 50% emas**: masuk close hari bursa ke-1 Jul 2002 (biaya beli masing-masing), diseimbangkan ulang ke 50/50 di close hari bursa pertama tiap Januari, biaya per sisi sesuai aset atas nilai yang dipindah.
+
+Periode:
+- **Dev**: Jul 2002 s/d 31 Des 2014.
+- **Holdout**: 1 Jan 2015 s/d close 23 Okt 2026 (dipatok). Dibuka SEKALI, hanya kalau dev lulus semua kriteria dan setelah user melihat hasil dev. Posisi H23 diteruskan dari akhir dev; kedua pembanding dianggap sudah memegang posisi tanpa biaya masuk; CAGR, DD, jendela dihitung dari ekuitas awal Jan 2015 (puncak di-reset).
+
+Kriteria lulus dasar (dev dan holdout, semua harus terpenuhi):
+1. Max drawdown H23 ≤ 2/3 × max drawdown beli-tahan JII.
+2. CAGR H23 ≥ CAGR beli-tahan JII − 2%/th.
+3. Bukan cuma diversifikasi: CAGR H23 ≥ CAGR campuran 50/50 **dan** CAGR/|max DD| H23 ≥ CAGR/|max DD| campuran 50/50.
+4. Rata-rata perpindahan ≤ 4 per tahun (setiap pergantian aset = 1).
+5. Jendela 5 tahun bergulir (geser per bulan) vs beli-tahan JII, definisi sama dengan H20 kriteria 4: menang di ≥ 60% jendela.
+
+Kriteria sensitivitas (skenario terpisah; di tiap skenario kriteria 1, 2, 3 harus tetap lulus, dev dan holdout):
+6. Return kas 0%.
+7. Biaya emas 4% pulang-pergi (2% + 2%), juga untuk campuran 50/50.
+8. Dividen JII 4%/th (menguntungkan beli-tahan dan campuran).
+Hanya DILAPORKAN: gabungan terburuk (kas 0% + emas 4% + dividen 4%).
+Klarifikasi (2026-10-25, ditulis saat menyusun kode, sebelum uji dijalankan): di tiap skenario, indeks total return untuk sinyal memakai asumsi skenario itu (kas 0% → return 12 bulan kas = 0; dividen 4% → indeks JII memakai dividen 4%). Biaya tidak masuk indeks sinyal.
+
+Yang dilaporkan: CAGR, max DD harian, perpindahan/th, % waktu di tiap aset, jendela menang, per tahun kalender, daftar perpindahan.
+Hasil: lulus dev + holdout = kandidat uji maju (lapisan satelit/inti), bukan diadopsi. Gagal = ditutup, tanpa variasi lookback, aset, biaya, atau aturan pindah.
+
+Kelemahan (dicatat sebelum uji):
+- Pasca hasil (lihat konteks). Holdout tidak buta: emas naik besar 2019-2026 dan JII melemah sejak ±2018 sudah diketahui umum, jadi holdout cenderung menguntungkan H23.
+- Emas: harga futures AS × kurs, bukan harga emas digital/Antam sebenarnya; selisih jual-beli nyata bisa berubah-ubah.
+- Kurs 2003 (6 bulan) dan Agt 2008 hasil interpolasi, volatilitas harian di celah itu hilang.
+- JII = indeks harga; dividen asumsi; eksekusi di close sedikit optimis (sama dengan H20).
+- Uji ke ±38; risiko lulus karena kebetulan tetap ada.
+
+### Hasil H23 dev Jul 2002 - Des 2014 (2026-10-25, dijalankan sekali, `backend/research/uji_h23.py --periode dev`): GAGAL, holdout tidak dibuka
+Sebelum uji dijalankan: mekanisme (biaya, jeda 4 hari, beli-tahan, campuran 50/50, penyeimbangan Januari) dicek dengan data tiruan dan cocok persis dengan hitungan manual; data kurs/emas dicek tanpa return strategi. Satu error kode (baris sinyal tanpa riwayat 12 bulan) diperbaiki sebelum hasil pertama keluar.
+| Skenario | CAGR H23 | DD H23 | CAGR beli-tahan | DD beli-tahan | CAGR 50/50 | DD 50/50 | Pindah/th | % JII / emas / kas | Jendela menang | k1 | k2 | k3 | k4 | k5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Dasar | 13,51% | -27,2% | 19,80% | -66,5% | 18,86% | -40,2% | 1,44 (18×) | 54 / 28 / 12 | 37% (91) | ✔ | ✘ | ✘ | ✔ | ✘ |
+| 6. kas 0% | 9,42% | -34,5% | 19,80% | -66,5% | 18,86% | -40,2% | 2,00 | 57 / 32 / 4 | | ✔ | ✘ | ✘ | | |
+| 7. emas 4% | 12,23% | -28,6% | 19,80% | -66,5% | 18,73% | -40,2% | 1,44 | | | ✔ | ✘ | ✘ | | |
+| 8. dividen 4% | 14,81% | -27,1% | 21,52% | -66,2% | 19,74% | -40,1% | 1,60 | | | ✔ | ✘ | ✘ | | |
+| Gabungan terburuk (laporan) | 8,17% | -38,1% | 21,52% | -66,2% | 19,61% | -40,1% | 2,16 | | 32% | | | | | |
+- Lulus kriteria 1 (DD) dan 4 (perpindahan); gagal 2, 3, 5 dan semua sensitivitas. CAGR tertinggal ±6%/th dari beli-tahan JII dan ±5%/th dari campuran 50/50.
+- Per tahun: H23 terlambat masuk lagi setelah kejatuhan (2009 -1,6% vs JII +93,9%; 2006 +6,1% vs +56,6%; 2005 +6,7% vs +22,4%). Return 12 bulan bereaksi lambat, dan pindah ke emas di 2008 masih rugi dibanding diam di emas.
+- Campuran 50/50 (pembanding, bukan hipotesis): CAGR 18,86% dengan DD -40,2% vs beli-tahan JII 19,80% / -66,5%. **Catatan, bukan bukti**: ini hanya pembanding dev; tidak diuji sebagai hipotesis.
+- Sesuai aturan: GAGAL = ditutup, tanpa variasi lookback, aset, biaya, atau aturan pindah. Holdout 2015+ tidak dibuka.
+
+## H17c uji silang dividen_v1 di saham non-syariah & H17d dividen_v1 syariah historis (dikunci 2026-10-25, sebelum kode uji dibuat dan sebelum melihat hasil apa pun)
+Konteks: user tidak mau menunggu uji maju 2027-2028 (2026-10-25). Data syariah 2014-2026 sudah terpakai (H17a dev gagal 2014-2019; 2021-2026 terlihat lewat H17b; aturan `dividen_v1` "maks 3 per sektor" dibuat setelah melihat dominasi batu bara). Disepakati user: **H17c = bukti utama** (data yang tidak pernah dipakai membentuk aturan dividen), **H17d = pelengkap** berlencana pasca hasil. Uji maju `dividen_v1` tetap berjalan, tidak diubah (`paper_dividen_*` & `batas_paper` tidak disentuh; sidik dicocokkan sebelum/sesudah).
+
+Aturan yang diuji: **persis `dividen_v1`** (`backend/paper/dividen_harian.py`: fungsi `simulasi` dipakai apa adanya, hanya tanggal mulai dan daftar universe yang diganti di dalam proses uji): seleksi tiap Januari (acuan hari bursa terakhir sebelumnya), harga ≥ Rp50, nilai transaksi rata-rata 20 hari ≥ Rp5 M, membayar dividen di masing-masing 3 tahun kalender terakhir, urut yield 12 bulan, maks 3 saham per sektor (sektor Yahoo; kosong = sektor sendiri), 10 saham (calon < 5 → semua); beli open 1/10 ekuitas dibulatkan lot; yang masih terpilih tidak dijual; dividen tunai × lot, pajak 10%, cair di tanggal bayar IDX atau ex + 18 hari; tidak diinvestasikan ulang di tengah tahun; fee 0,15%/0,25% + 1 tick. Modal Rp100 jt.
+
+Universe:
+- **H17c (non-syariah)**: 153 kode di koleksi `harga` yang tidak pernah masuk DES OJK (2019-2026) dan tidak ada di daftar 217 syariah (bank, asuransi, pembiayaan, dll.). 114 punya sektor Yahoo.
+- **H17d (syariah)**: sama dengan H17a: 2014-2019 daftar 217 syariah (bias: status syariah dari masa kini), 2020+ DES OJK pada tanggal acuan.
+
+Periode: hari bursa pertama Jan 2014 s/d 23 Okt 2026 (dipatok). Tahun penuh 2014-2025 (12 tahun); 2026 parsial (dilaporkan, tidak dihitung di kriteria per tahun, ikut di CAGR & DD).
+
+Pembanding:
+- IHSG (indeks harga, tanpa dividen), harian.
+- Bobot sama semua saham lolos likuiditas di universe yang sama (cara H17a: beli open hari bursa pertama tiap tahun, tahan setahun, dividen setelah pajak, **tanpa biaya**).
+
+Kriteria lulus (tiap uji dinilai terpisah, semua harus terpenuhi):
+1. Penghasilan bersih (dividen setelah pajak, menurut tanggal ex / ekuitas awal tahun) rata-rata ≥ 4%/th **dan** ≥ 3% di ≥ 80% tahun penuh.
+2. CAGR total bersih ≥ CAGR IHSG **dan** ≥ CAGR pembanding bobot sama.
+3. Max drawdown harian tidak lebih buruk dari max drawdown IHSG lebih dari 10 poin.
+4. Return tahun terburuk (tahun penuh) ≥ tahun terburuk pembanding bobot sama − 5 poin.
+Laporan saja: per tahun (penghasilan %, total %, IHSG, pembanding, saham), jumlah saham rata-rata, % kas menganggur, kontribusi sektor.
+
+Arti hasil:
+- H17c lulus = aturan dividen_v1 bekerja juga di kelompok saham yang sama sekali berbeda → bukti bahwa polanya umum, bukan kebetulan batu bara. Bersama H17d lulus, lapisan Dividen boleh dipertimbangkan user untuk uang nyata kecil sebelum uji maju selesai (keputusan user, bukan otomatis).
+- H17c gagal = aturan tidak terbukti umum; H17d (apa pun hasilnya) tidak cukup sendirian karena pasca hasil.
+- Tanpa varian: tidak ada perubahan jumlah saham, batas sektor, syarat 3 tahun, atau universe setelah melihat hasil.
+
+Kelemahan (dicatat sebelum uji):
+- Non-syariah tidak bisa dibeli (bukan instrumen syariah); ini hanya uji apakah polanya umum.
+- Survivorship: `harga` (Yahoo) hanya berisi saham yang masih ada.
+- Universe non-syariah kecil dan didominasi bank; batas 3 per sektor bisa membuat portofolio < 10 saham (sisa jatah jadi kas tanpa bunga, sesuai aturan).
+- H17d: 2014-2019 status syariah dari masa kini; 2021-2026 sudah terlihat; batas sektor dibuat setelah lihat data.
+- Pengetahuan umum: bank besar Indonesia naik kuat 2014-2022 (diketahui sebelum uji).
+- Uji ke ±39-40.
+
+### Hasil H17c & H17d (2026-10-25, dijalankan sekali, `backend/research/uji_h17cd.py semua`): KEDUANYA GAGAL
+Sidik `paper_*` & `batas_paper` sama sebelum/sesudah uji.
+| | H17c non-syariah | H17d syariah (pasca hasil) |
+|---|---|---|
+| CAGR | 1,07% | 6,37% |
+| IHSG / bobot sama | 1,90% / 0,35% | 1,90% / 4,26% |
+| Max DD harian | -48,4% (IHSG -45,3%) | -52,7% (IHSG -45,3%) |
+| Penghasilan rata-rata (tahun penuh) | 2,35%/th, ≥ 3% di 17% tahun | 5,63%/th, ≥ 3% di 75% tahun |
+| Tahun terburuk | 2024 -21,6% (pembanding terburuk -14,5%) | 2015 -32,9% (pembanding -24,9%) |
+| Saham rata-rata / kas rata-rata | 6,9 / 24,9% | 10,0 / 15,4% |
+| Kriteria 1 / 2 / 3 / 4 | ✘ / ✘ / ✔ / ✘ (1/4) | ✘ / ✔ / ✔ / ✘ (2/4) |
+- H17c: universe non-syariah likuid kecil (11-41 saham), didominasi bank + rokok + menara; batas 3 per sektor membuat portofolio rata-rata 6,9 saham dan ±25% ekuitas menganggur sebagai kas, sehingga penghasilan per ekuitas hanya 1,4-3,3%. Aturan dividen_v1 tidak terbukti umum.
+- H17d: penghasilan tinggi di 2019-2025 (4,6-11,6%, didorong batu bara), tapi 2015-2017 hanya 2,4-2,8% (gagal syarat 80%); 2015 -32,9% dan DD -52,7%. Total return mengalahkan IHSG dan bobot sama, tapi itu pasca hasil (bukan bukti).
+- Sesuai aturan: tanpa varian.
+- **Keputusan user 2026-10-25: uji maju dividen_v1 DIHENTIKAN** karena H17c & H17d gagal. Data `paper_dividen_*` (status menunggu + pratinjau) dan `batas_paper/dividen_v1` diarsip ke `swing.arsip_paper_dividen` lalu dihapus; job `paper_dividen` dan jadwalnya dicabut; tab Uji maju dihapus. Kode simulasi dipindah ke `backend/research/dividen_v1.py` (dipakai `uji_h17cd.py`). Catatan kejujuran: H17c/H17d gagal tidak membuktikan dividen_v1 pasti gagal ke depan; penghentian adalah keputusan user berdasarkan bukti data lama.

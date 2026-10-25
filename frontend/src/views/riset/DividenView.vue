@@ -8,14 +8,13 @@ import Stats from "@/components/common/Stats.vue";
 import Segmen from "@/components/common/Segmen.vue";
 import KodeSaham from "@/components/common/KodeSaham.vue";
 import KalkulatorDividen from "@/components/dividen/KalkulatorDividen.vue";
-import PaperDividen from "@/components/dividen/PaperDividen.vue";
 import HeaderStrategi from "@/components/common/HeaderStrategi.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 
 const props = defineProps({ sub: String });
 const emit = defineEmits(["sub"]);
-const SUB = [["daftar", "Daftar & kalender"], ["paper", "Uji maju"], ["kalkulator", "Kalkulator"], ["uji", "Hasil uji"], ["trap", "Dividend trap"], ["aturan", "Aturan"]];
+const SUB = [["daftar", "Daftar & kalender"], ["kalkulator", "Kalkulator"], ["uji", "Hasil uji"], ["trap", "Dividend trap"], ["aturan", "Aturan"]];
 const BULAN = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 const daftar = ref(null);
@@ -97,6 +96,8 @@ const UJI = computed(() => [
   ["H17a 2014–2019 (data latihan)", ringkas.value?.h17a_dev, "Gagal 2/4: penghasilan tinggi & stabil, total return kalah dari semua saham dan 2015 rugi −39%."],
   ["H17a 2021–2026 (dihitung sebagai pembanding H17b)", ringkas.value?.h17a_2021, "Tidak dihitung sebagai bukti: H17a sudah gagal di data latihan. Periode ini bertepatan dengan boom batu bara."],
   ["H17b dividen + saringan anti-trap 2021–2026", ringkas.value?.h17b, "Tidak diadopsi: saringan membuang saham batu bara yang justru menang besar."],
+  ["H17c aturan uji maju di saham non-syariah 2014–2026", ringkas.value?.h17c, "Gagal 1/4 (25 Okt 2026): bukti utama. Penghasilan hanya 2,4%/th dan return di bawah IHSG; aturan tidak terbukti umum. Saham non-syariah, hanya untuk menguji pola."],
+  ["H17d aturan uji maju di saham syariah 2014–2026", ringkas.value?.h17d, "Gagal 2/4 (25 Okt 2026), pasca hasil: return di atas IHSG, tapi penghasilan 2015–2017 di bawah 3% dan 2015 rugi −32,9%. Penghasilan tinggi hanya saat boom batu bara."],
 ]);
 function cagr(rows) {
   if (!rows?.length) return null;
@@ -122,8 +123,8 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
     <HeaderStrategi judul="Pemburu Dividen" :sub="sub" :pilihan="SUB" @sub="emit('sub', $event)"
       ringkas="Mencari penghasilan rutin dari dividen (bagi hasil laba perusahaan) saham syariah, bukan dari naik-turun harga."
       :langkah="[{ judul: 'Pilih', teks: 'Tiap awal tahun dipilih 10 saham syariah yang dividennya paling tinggi dan rutin dibayar 3 tahun berturut-turut.' }, { judul: 'Tahan', teks: 'Saham ditahan setahun penuh, tidak dijual meski harga turun.' }, { judul: 'Terima', teks: 'Dividen masuk ke kas setelah dipotong pajak 10%.' }, { judul: 'Ganti', teks: 'Awal tahun berikutnya pilihan diperbarui dengan cara yang sama.' }]"
-      harapan="Penghasilan dividennya tinggi dan cukup stabil (4–10% per tahun), tapi harga sahamnya ikut naik-turun bersama harga batu bara dan komoditas. Di backtest 2014-2019 total hasilnya kalah dari pasar, jadi belum lolos. Sekarang diuji maju dengan uang pura-pura mulai Januari 2027."
-      :chip="[{ teks: 'H17', kelas: 'bg-surface-2 text-muted' }, { teks: 'Uji maju mulai Jan 2027', kelas: 'bg-aksen-lembut text-aksen' }, { teks: 'Backtest belum lolos', kelas: 'bg-turun-bg text-turun' }, { teks: 'Saham syariah IDX', kelas: 'bg-surface-2 text-ink-2' }]" />
+      harapan="Penghasilan dividennya tinggi dan cukup stabil (4–10% per tahun), tapi harga sahamnya ikut naik-turun bersama harga batu bara dan komoditas. Di backtest 2014-2019 total hasilnya kalah dari pasar. Aturan uji maju juga gagal saat diuji di saham non-syariah dan syariah 2014-2026, jadi uji maju 2027 dihentikan (25 Okt 2026). Halaman ini tetap berguna sebagai daftar, kalender, dan kalkulator dividen."
+      :chip="[{ teks: 'H17', kelas: 'bg-surface-2 text-muted' }, { teks: 'Gagal diuji', kelas: 'bg-turun-bg text-turun' }, { teks: 'Uji maju dihentikan', kelas: 'bg-surface-2 text-muted' }, { teks: 'Saham syariah IDX', kelas: 'bg-surface-2 text-ink-2' }]" />
 
     <template v-if="sub === 'daftar'">
       <Kerangka v-if="!daftar" panel jenis="stat" :n="5" :judul="false" kolom="grid-cols-2 md:grid-cols-3 xl:grid-cols-5" />
@@ -225,7 +226,6 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
       </Panel>
     </template>
 
-    <PaperDividen v-else-if="sub === 'paper'" />
     <KalkulatorDividen v-else-if="sub === 'kalkulator'" :daftar="data" :tanda-ket="tandaKet" />
 
     <template v-else-if="(sub === 'uji' || sub === 'trap') && !ringkas">
@@ -338,7 +338,7 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
             </table>
           </div>
         </Panel>
-        <p class="m-0 text-xs text-muted">Kesimpulan: membeli saham hanya untuk mengejar dividen lalu cepat menjual rata-rata rugi setelah pajak dan biaya, dan makin besar dividennya makin sering rugi. Dividen masuk akal sebagai penghasilan kalau sahamnya ditahan lama (lihat tab Uji maju). Ini analisis deskriptif, bukan uji strategi; sejalan dengan uji H2 (beli ex−5, jual cum) yang gagal.</p>
+        <p class="m-0 text-xs text-muted">Kesimpulan: membeli saham hanya untuk mengejar dividen lalu cepat menjual rata-rata rugi setelah pajak dan biaya, dan makin besar dividennya makin sering rugi. Strategi tahan setahun (H17a/c/d) pun gagal diuji, lihat tab Hasil uji. Ini analisis deskriptif, bukan uji strategi; sejalan dengan uji H2 (beli ex−5, jual cum) yang gagal.</p>
       </template>
 
       <template v-else>
@@ -382,10 +382,11 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
     </template>
 
     <template v-else>
-      <Panel judul="Aturan yang diuji (dikunci 23 Okt 2026)">
+      <Panel judul="Aturan yang diuji">
         <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
           <li><b class="font-medium">H17a</b>: tiap akhir Desember pilih 10 saham syariah likuid (nilai transaksi ≥ Rp5 M/hari) yang membayar dividen di masing-masing 3 tahun terakhir, dengan yield 12 bulan tertinggi. Beli open hari bursa pertama Januari, tahan setahun, sama bobot.</li>
           <li><b class="font-medium">H17b</b>: H17a + payout ≤ 100%, laba tidak turun > 30%, dividen tidak dipotong > 30%, DER ≤ 2 (bukan bank), arus kas operasi ≥ dividen.</li>
+          <li><b class="font-medium">H17c / H17d</b> (aturan uji maju dividen_v1): seperti H17a + maksimal 3 saham per sektor, dihitung harian dengan lot dan tanggal cair dividen. H17c di saham non-syariah, H17d di saham syariah, 2014 s/d Okt 2026. Syarat lulus: penghasilan rata-rata ≥ 4% dan ≥ 3% di ≥ 80% tahun, return ≥ IHSG dan ≥ semua saham, penurunan tidak lebih buruk dari IHSG − 10 poin, tahun terburuk tidak jauh lebih buruk dari pembanding. Keduanya gagal; uji maju 2027 dihentikan.</li>
           <li>Dividen tunai dipotong pajak 10%. Biaya fee 0,15%/0,25% + 1 tick per sisi untuk saham yang berganti. Pembanding: semua saham syariah likuid sama bobot.</li>
           <li>Syarat lulus: return per tahun ≥ pembanding, penghasilan dividen rata-rata ≥ 4%, penghasilan ≥ 3% di ≥ 80% tahun, tahun terburuk tidak jauh lebih buruk dari pembanding.</li>
         </ul>

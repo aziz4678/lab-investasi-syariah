@@ -10,11 +10,6 @@ def dividen_daftar():
     return dvn.daftar()
 
 
-@router.get("/dividen/paper")
-def dividen_paper():
-    return dvn.paper()
-
-
 @router.get("/dividen/pengingat")
 def dividen_pengingat(hari: int = Query(7, ge=1, le=60)):
     return dvn.pengingat(hari)

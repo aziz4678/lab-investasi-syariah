@@ -114,7 +114,6 @@ def jalan():
         urutan.append("des_perbarui")
     if db.paper_status.find_one({"_id": "status"}):
         urutan += ["paper_harian", "paper_cek"]
-    urutan.append("paper_dividen")
     urutan += ["harga_perbarui", "pasar_perbarui"]
     urutan.append("rd_perbarui")
     urutan.append("etf_perbarui")

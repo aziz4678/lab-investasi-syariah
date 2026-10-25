@@ -44,3 +44,9 @@ def rd_banding():
 @router.get("/rd/alokasi")
 def rd_alokasi(profil: str = Query("moderat"), modal: float = Query(100_000_000, gt=0, le=1e13)):
     return rdn.alokasi(profil, modal)
+
+
+@router.get("/rd/lapisan")
+def rd_lapisan():
+    from backend.app.services import lapisan
+    return lapisan.hitung()
