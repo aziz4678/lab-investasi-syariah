@@ -1,0 +1,92 @@
+# Lab Investasi Syariah
+
+Aplikasi pribadi untuk meriset dan menguji strategi investasi **syariah** di pasar Indonesia: saham syariah IDX, reksa dana & sukuk syariah, dan ETF. Semua ide strategi diperlakukan sebagai hipotesis yang ditulis dulu, diuji dengan biaya transaksi realistis, lalu dicatat apa adanya, termasuk yang gagal.
+
+> Proyek riset dan uji coba, belum memakai uang asli. **Bukan nasihat keuangan.**
+
+## Tujuan
+
+Mencari cara mendapat penghasilan rutin dari investasi syariah, dengan target berlapis:
+
+| Lapisan | Isi | Patokan |
+|---|---|---|
+| Inti | Sukuk negara + reksa dana pasar uang syariah | Imbal hasil bersih ≥ inflasi + 1,5%/th, penurunan maks -10% |
+| Dividen | Saham dividen syariah | Kosong: strategi dividen gagal diuji |
+| Satelit | Strategi saham yang lulus uji (Follow Tren) | Total return > beli-tahan JII, penurunan sampai -40% |
+
+Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yang berlaku **pada tanggal itu**, bukan daftar hari ini.
+
+## Status strategi
+
+| Strategi | Status | Ringkasan |
+|---|---|---|
+| **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo): CAGR +23,6%, penurunan maks -37,5%. Belum terbukti di uang nyata. |
+| Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
+| Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
+| Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |
+
+Katalog lengkap 40 hipotesis (H0-H23) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
+
+## Cara riset
+
+- Hipotesis dan kriteria lulus ditulis **sebelum** uji dijalankan; tidak ada varian baru setelah melihat hasil.
+- Data dibagi **dev** (untuk menguji) dan **holdout** (dibuka sekali, hanya kalau dev lulus).
+- Biaya transaksi model ±1,2% pulang-pergi (fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi).
+- Hasil backtest Follow Tren dilaporkan sebagai median dan rentang p5-p95 dari 100 simulasi Monte Carlo, karena pemilihan saham saat sinyal melebihi slot dilakukan acak.
+- Uji yang dibuat setelah melihat data diberi lencana "dibuat setelah lihat hasil" dan tidak dihitung sebagai bukti.
+
+## Menu aplikasi
+
+- **Beranda**: pasar hari ini (IHSG, perputaran uang, naik/turun, sektor, pasar dunia, jadwal dividen), ringkasan strategi, produk, perawatan, dan sumber data.
+- **Follow Tren**: paper trade + pantauan harga, backtest, aturan, riset.
+- **Dividen**: daftar & kalender dividen saham syariah, kalkulator penghasilan, hasil uji, dividend trap.
+- **Hipotesis**: katalog semua uji, pelajaran, dan eksplorasi 2020+ (bukan bukti).
+- **Emiten**: profil, harga, valuasi, dividen, fundamental, kepemilikan KSEI, transaksi orang dalam, berita, pengumuman.
+- **Reksa Dana & Sukuk**: katalog + skor, sukuk & SBN, perbandingan, alokasi, kalkulator campuran lapisan.
+- **ETF**: ETF syariah Indonesia dan ETF luar negeri (yang bukan syariah diberi label).
+- **Rencana** dan **Panduan**.
+
+Semua aksi (memperbarui data, menjalankan job, backup) dijalankan lewat tombol di dashboard.
+
+## Menjalankan
+
+Prasyarat (Windows): Python 3.12, Node.js, MongoDB (service lokal), Google Chrome.
+
+```powershell
+python -m venv venv
+venv\Scripts\python -m pip install -r requirements.txt
+cd frontend; npm install; npm run build; cd ..
+```
+
+Lalu dobel klik `jalankan.bat`: mengecek venv & MongoDB, membangun tampilan bila perlu, menjalankan server di `http://127.0.0.1:8765`, dan membuka browser.
+
+Pengembangan:
+
+- Backend: `venv\Scripts\python -m uvicorn backend.app.main:app --reload --port 8765`
+- Frontend: `cd frontend; npm run dev` (port 5173, API diteruskan ke 8765)
+- Modul Python selalu dijalankan dari root sebagai modul, misalnya `python -m backend.paper.tren_harian`.
+
+Jadwal otomatis (Task Scheduler, Senin-Jumat 17:30) dipasang lewat tombol di panel Perawatan.
+
+## Data
+
+Semua data disimpan di MongoDB lokal, tidak ada file data di folder proyek:
+
+- `swing`: state aplikasi (paper trade, backtest, DES, fundamental, reksa dana, dll.).
+- `lab_data`: data pasar (harga harian saham sejak 2010, indeks, kurs, emas, data resmi IDX, KSEI, pengumuman, makro BI/FRED).
+
+Sumber: Yahoo Finance (harga, hanya bar harian yang sudah final), IDX, OJK, KSEI, Bank Indonesia, FRED, Pasardana. Data IDX/OJK yang dilindungi Cloudflare diambil lewat Chrome biasa dengan profil terpisah ("Chrome Lab"); pemeriksaan Cloudflare tetap dilewati manual.
+
+## Struktur
+
+```
+backend/
+  app/        FastAPI: routers, services (logika per menu), jobs (job latar belakang & jadwal)
+  paper/      paper trade Follow Tren, cek ulang + cek silang data resmi IDX
+  ingest/     pengumpul & impor data (Yahoo, IDX, OJK, KSEI, BI, reksa dana, ETF, logo)
+  research/   semua uji hipotesis dan analisis
+  db/         akses MongoDB, backtest + simulasi Monte Carlo, cadangan
+browser/      script pengambilan data IDX/OJK yang dijalankan di browser
+frontend/     Vue 3 + Vite + Tailwind 4 + Chart.js
+docs/         rencana & hasil semua uji, catatan teknis lengkap
+```
