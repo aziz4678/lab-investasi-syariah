@@ -10,9 +10,11 @@ Mencari cara mendapat penghasilan rutin dari investasi syariah, dengan target be
 
 | Lapisan | Isi | Patokan |
 |---|---|---|
-| Inti | Sukuk negara + reksa dana pasar uang syariah | Imbal hasil bersih ≥ inflasi + 1,5%/th, penurunan maks -10% |
-| Dividen | Saham dividen syariah | Kosong: strategi dividen gagal diuji |
-| Satelit | Strategi saham yang lulus uji (Follow Tren) | Total return > beli-tahan JII, penurunan sampai -40% |
+| Likuiditas | Sukuk negara + reksa dana pasar uang syariah (tempat parkir kas) | Imbal hasil bersih ≥ inflasi + 1,5%/th, penurunan maks -10% |
+| Pendapatan | Saham dividen syariah | Kosong: strategi dividen gagal diuji |
+| Apresiasi modal | Strategi saham yang lulus uji (Follow Tren) | Total return > beli-tahan JII, penurunan sampai -40% |
+
+Fokus riset: saham syariah IDX. Paper trade Follow Tren dinilai 12 bulan (keputusan utama Okt 2027) sebelum uang nyata, dimulai kecil dan bertahap.
 
 Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yang berlaku **pada tanggal itu**, bukan daftar hari ini.
 
@@ -24,6 +26,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
 | Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
 | Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |
+| Faktor kualitas ala Buffett (ROE, utang, harga wajar), seri K | Gagal di dev 2011-2019 | Semua varian kalah dari memegang semua saham syariah likuid secara rata. Kolam saham syariah likuid terlalu kecil (28-62 saham) untuk membedakan keunggulan faktor dari kebetulan. Lihat [docs/RISET_KUALITAS.md](docs/RISET_KUALITAS.md). |
 
 Katalog lengkap 40 hipotesis (H0-H23) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
 
@@ -34,6 +37,7 @@ Katalog lengkap 40 hipotesis (H0-H23) beserta kriteria, hasil, dan grafiknya ada
 - Biaya transaksi model ±1,2% pulang-pergi (fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi).
 - Hasil backtest Follow Tren dilaporkan sebagai median dan rentang p5-p95 dari 100 simulasi Monte Carlo, karena pemilihan saham saat sinyal melebihi slot dilakukan acak.
 - Uji yang dibuat setelah melihat data diberi lencana "dibuat setelah lihat hasil" dan tidak dihitung sebagai bukti.
+- Saat beberapa varian diuji sekaligus, pemenang harus mengalahkan persentil 95 dari "terbaik di antara portofolio acak" dengan jumlah varian yang sama (uji anti-kebetulan).
 
 ## Menu aplikasi
 
@@ -73,7 +77,9 @@ Jadwal otomatis (Task Scheduler, Senin-Jumat 17:30) dipasang lewat tombol di pan
 Semua data disimpan di MongoDB lokal, tidak ada file data di folder proyek:
 
 - `swing`: state aplikasi (paper trade, backtest, DES, fundamental, reksa dana, dll.).
-- `lab_data`: data pasar (harga harian saham sejak 2010, indeks, kurs, emas, data resmi IDX, KSEI, pengumuman, makro BI/FRED).
+- `lab_data`: data pasar (harga harian saham sejak 2010, indeks, kurs, emas, data resmi IDX, KSEI, pengumuman, makro BI/FRED), dan data keuangan & rasio emiten bulanan sejak 2010 (`keuangan_idx`: aset, liabilitas, ekuitas, penjualan, laba, rasio, status syariah pada bulan itu).
+
+Data keuangan 2010-2020 dibaca dari tabel "Financial Data & Ratios" di PDF IDX Monthly Statistics (arsip Wayback Machine dan situs IDX; hanya angka hasil bacaan yang disimpan), 2021+ dari statistik digital IDX. Hasil bacaan PDF dicocokkan dengan API IDX: 97,5% angka sama.
 
 Sumber: Yahoo Finance (harga, hanya bar harian yang sudah final), IDX, OJK, KSEI, Bank Indonesia, FRED, Pasardana. Data IDX/OJK yang dilindungi Cloudflare diambil lewat Chrome biasa dengan profil terpisah ("Chrome Lab"); pemeriksaan Cloudflare tetap dilewati manual.
 

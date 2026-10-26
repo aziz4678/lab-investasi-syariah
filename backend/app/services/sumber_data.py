@@ -135,6 +135,22 @@ SUMBER = [
                  "Tunggu sampai kotak progres menulis 'SELESAI' (±2 detik per hari bursa). File idx_harian_baru_*.json masuk Downloads.",
                  "Tekan 'Impor ringkasan perdagangan'. Data baru digabung ke data lama, tidak menimpa."],
      "tombol": "impor_idx_harian", "label_tombol": "Impor ringkasan perdagangan"},
+    {"id": "keuangan_idx", "nama": "Data keuangan & rasio emiten IDX (bulanan, sejak 2010)", "dipakai": ["Riset (uji fundamental/kualitas)"], "strategi": False,
+     "sumber": "Statistik digital IDX 'Financial Data and Ratio' lewat browser (lengkap sejak Jan 2021) + tabel 'Financial Data & Ratios' di IDX Monthly Statistics 2010-2020 "
+               "(PDF arsip Wayback Machine dan situs IDX; hanya angka hasil bacaan + link yang disimpan). Ada status syariah per bulan", "cara": "browser",
+     "frekuensi": "Bulanan; data bulan lalu terbit sekitar pertengahan bulan berikutnya",
+     "skrip": "idx_rasio_browser.js", "url": "https://www.idx.co.id/en/market-data/statistical-reports/digital-statistic/monthly/financial-report-and-ratio-of-listed-companies/financial-data-and-ratio",
+     "langkah": ["Tekan 'Ambil otomatis' (Chrome Lab), atau buka halaman IDX lalu jalankan script lewat Console.",
+                 "Script hanya mengambil bulan sesudah data terakhir di database. File idx_rasio_*.json masuk Downloads.",
+                 "Tekan 'Impor data keuangan'. Impor juga membaca PDF arsip Wayback 2010-2019 yang belum terbaca dan PDF 2020 di Downloads."],
+     "tombol": "impor_keuangan_idx", "label_tombol": "Impor data keuangan"},
+    {"id": "idx_statistik", "nama": "IDX Monthly Statistics 2020 (PDF, pengisi celah data keuangan)", "dipakai": ["Riset (uji fundamental/kualitas)"], "strategi": False,
+     "sumber": "PDF laporan bulanan resmi IDX 2020, lewat browser (situs IDX menolak unduhan server). Dibaca lalu dibuang; hanya angka yang disimpan", "cara": "browser",
+     "frekuensi": "Sekali saja (data 2020 tidak berubah)",
+     "skrip": "idx_statistik_browser.js", "url": "https://www.idx.co.id/en/market-data/statistical-reports/statistics",
+     "langkah": ["Tekan 'Ambil otomatis' (Chrome Lab). Script mengunduh 12 PDF idx_statistik_2020-MM.pdf ke Downloads.",
+                 "Tekan 'Impor data keuangan'."],
+     "tombol": "impor_keuangan_idx", "label_tombol": "Impor data keuangan"},
     {"id": "makro", "nama": "Makro Indonesia (BI-Rate, inflasi)", "dipakai": ["Reksa Dana & Sukuk (Perbandingan)", "Beranda"], "strategi": False,
      "sumber": "Bank Indonesia (unduhan Excel resmi, gratis, otomatis): BI-Rate sejak Apr 2016, inflasi tahunan sejak 2003; suku bunga antarbank dari FRED",
      "cara": "otomatis", "frekuensi": "BI-Rate tiap rapat dewan gubernur (bulanan), inflasi awal bulan; diperiksa tiap hari bursa (jadwal 17:30)",
@@ -333,6 +349,17 @@ def status():
                                 "alasan": "Belum pernah diimpor" if ki is None else f"{ki['sisa']} PDF belum dibaca" if ki.get("sisa", 0) > 200 else
                                           f"Sudah {umur_ki} hari sejak impor terakhir" if umur_ki > JEDA_PENGUMUMAN else None,
                                 "berikutnya": (ki["diimpor"] + timedelta(days=JEDA_PENGUMUMAN)).strftime("%Y-%m-%d") if ki else "sekarang"}
+    from backend.ingest import keuangan_idx
+    kf = keuangan_idx.info()
+    harap_bln = str(pd.Period(sekarang, "M") - (1 if sekarang.day >= 20 else 2))
+    hasil["keuangan_idx"] = {"terakhir": f"{kf['baris']:,} baris · {kf['kode']:,} emiten · {kf['bulan']} bulan ({kf['dari']} s/d {kf['sampai']})".replace(",", ".") if kf else None,
+                             "diimpor": kf["diimpor"].isoformat(timespec="minutes") if kf else None, "seharusnya": f"data s/d {harap_bln}",
+                             "perlu": kf is None or (kf.get("api_sampai") or "") < harap_bln,
+                             "alasan": "Belum pernah diimpor" if kf is None else f"Data API baru s/d {kf.get('api_sampai')}" if (kf.get("api_sampai") or "") < harap_bln else None,
+                             "berikutnya": "pertengahan bulan berikutnya"}
+    kurang = keuangan_idx.tahun_pdf_kurang()
+    hasil["idx_statistik"] = {"terakhir": "PDF 2020 sudah terbaca" if kf and not kurang else None, "perlu": bool(kurang),
+                              "alasan": f"PDF {', '.join(map(str, kurang))} belum terbaca" if kurang else None, "berikutnya": "tidak perlu lagi" if not kurang else "sekarang"}
     th_ = idx_harian_terakhir()
     harap = hari_bursa_harapan(sekarang)
     telat = int(np.busday_count(th_ + timedelta(days=1), harap + timedelta(days=1))) if th_ else None
@@ -372,6 +399,12 @@ def skrip(nama):
     if "__DARI__" in isi and nama == "idx_harian_browser.js":
         akhir = idx_harian_terakhir()
         isi = isi.replace("__DARI__", json.dumps(tgl(akhir + timedelta(days=1)) if akhir else "2020-01-02"))
+    if "__DARI__" in isi and nama == "idx_rasio_browser.js":
+        from backend.ingest import keuangan_idx
+        isi = isi.replace("__DARI__", json.dumps(keuangan_idx.bulan_berikut_api()))
+    if "__TAHUN__" in isi:
+        from backend.ingest import keuangan_idx
+        isi = isi.replace("__TAHUN__", json.dumps(keuangan_idx.tahun_pdf_kurang()))
     if "__DAFTAR__" in isi:
         from backend.ingest import kepemilikan_idx
         isi = isi.replace("__DAFTAR__", json.dumps(kepemilikan_idx.daftar_unduh()))

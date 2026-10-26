@@ -30,6 +30,7 @@ PERINTAH = {
     "des_perbarui": ("Cek DES baru di OJK", ["-m", "backend.ingest.des_ojk", "perbarui"]),
     "impor_pengumuman": ("Impor pengumuman & aksi korporasi IDX", ["-m", "backend.ingest.impor_browser", "pengumuman"]),
     "impor_idx_harian": ("Impor ringkasan perdagangan IDX", ["-m", "backend.ingest.impor_browser", "idx_harian"]),
+    "impor_keuangan_idx": ("Impor data keuangan & rasio emiten IDX", ["-m", "backend.ingest.keuangan_idx", "gabung"]),
     "impor_kepemilikan": ("Impor transaksi orang dalam & pemegang besar", ["-m", "backend.ingest.kepemilikan_idx", "impor"]),
     "otomatis": ("Ambil otomatis lewat Chrome Lab", ["-m", "backend.ingest.otomatis"]),
     "paper_cek": ("Cek ulang paper trade", ["-m", "backend.paper.cek_ulang"]),
