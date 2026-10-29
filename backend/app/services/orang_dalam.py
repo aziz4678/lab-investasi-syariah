@@ -81,5 +81,5 @@ def detail(kode, hari=90):
     return {
         "kode": kode, "laporan": lap, "ringkas": ringkas, "pemegang": pemegang, "keluar": keluar,
         "pemegang_tgl": tanggal[0].isoformat() if tanggal else None, "pemegang_tgl_lalu": tanggal[1].isoformat() if len(tanggal) > 1 else None,
-        "mulai_data": "2025-11-28", "diimpor": info.get("diimpor").isoformat(timespec="minutes") if info.get("diimpor") else None,
+        "mulai_data": "2023-07-03", "diimpor": info.get("diimpor").isoformat(timespec="minutes") if info.get("diimpor") else None,
     }

@@ -36,7 +36,7 @@ function tiles(a) {
   if (!a) return [];
   const t = (label, v, f, ket) => ({ label, nilai: v == null ? "—" : f(v), kosong: v == null, ket: v == null ? "tidak tercatat" : ket, warna: v != null && /[+-]/.test(f(v)) });
   const pemb = t("Pembanding", a.bh, (v) => persen(v, 1), a.bh != null ? [a.bh_nama, a.bh_dd != null ? `DD ${persen(a.bh_dd, 1)}` : ""].filter(Boolean).join(" · ") : "");
-  if (a.tile?.length) return [t(a.cagr_rentang ? "CAGR (median)" : "CAGR", a.cagr, (v) => persen(v, 1)), t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)), ...a.tile.map((x) => ({ label: x[0], nilai: x[1], ket: x[2], kosong: false, warna: false })), pemb];
+  if (a.tile?.length) return [t(a.cagr_rentang ? "CAGR (median)" : "CAGR", a.cagr, (v) => persen(v, 1)), t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)), t(`Bersih ${a.net_ket || ""}`.trim(), a.net, (v) => persen(v, 2)), ...a.tile.map((x) => ({ label: x[0], nilai: x[1], ket: x[2], kosong: false, warna: false })), pemb].filter((x) => !x.kosong);
   return [
     t("CAGR", a.cagr, (v) => persen(v, 1)),
     t(a.dd_label || "Max drawdown", a.dd, (v) => persen(v, 1)),
@@ -255,7 +255,9 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
         </div>
         <p v-if="h.eksplorasi.gagal_di?.length" class="m-0 mt-2 text-xs text-ink-2">Tidak terpenuhi: {{ h.eksplorasi.gagal_di.join(" · ") }}</p>
         <p v-if="h.eksplorasi.catatan" class="m-0 mt-1.5 text-xs text-ink-2"><TeksWarna :teks="h.eksplorasi.catatan" /></p>
-        <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Bukan bukti: {{ eksplorasiInfo?.catatan }} Periode {{ eksplorasiInfo?.periode }}, {{ eksplorasiInfo?.universe }}.</p>
+        <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Bukan bukti: {{ eksplorasiInfo?.catatan }} Periode {{ eksplorasiInfo?.periode }}, {{ eksplorasiInfo?.universe }}.
+          <template v-if="eksplorasiInfo?.beli_tahan != null">Pembanding: beli-tahan bobot sama <TeksWarna :teks="persen(eksplorasiInfo.beli_tahan, 1)" />/th, JII <TeksWarna :teks="persen(eksplorasiInfo.jii_cagr, 1)" />/th.</template></p>
+        <div v-if="$slots.eksplorasi" class="mt-2.5 space-y-2"><slot name="eksplorasi" /></div>
       </div>
 
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">

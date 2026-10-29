@@ -120,6 +120,109 @@ def baca_lk(isi):
     return dok
 
 
+LABEL_EREP = [("kategori", "Kategori"), ("pengendali", "Status Pengedali"), ("pengendali", "Status Pengendali"),
+              ("nama", "Nama Pemegang Saham"), ("kewarganegaraan", "Kewarganegaraan"),
+              ("sebelum", "Jumlah Saham Sebelum Transaksi"), ("p_sebelum", "Persentase Saham Sebelum Transaksi"),
+              ("p_transaksi", "Persentase Saham yang ditransaksikan"), ("sesudah", "Jumlah Saham Setelah Transaksi"),
+              ("p_sesudah", "Persentase Saham Sesudah Transaksi"), ("status", "Status Kepemilikan Saham"), ("tujuan", "Tujuan Transaksi")]
+KEPALA_EREP = [("nomor", "Nomor Surat"), ("emiten", "Nama Perusahaan"), ("kode", "Kode Emiten")]
+BATAS_EREP = datetime(2025, 11, 28)
+POLA_JUDUL_EREP = r"^(Laporan Kepemilikan atau Setiap Perubahan|Keterbukaan Informasi Pemegang Saham Tertentu)"
+
+
+def angka_erep(s):
+    s = (s or "").strip().replace(" ", "").replace("%", "")
+    if not s or s == "-":
+        return None
+    if re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d+)?", s):
+        s = s.replace(",", "")
+    else:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(re.sub(r"[^\d.\-]", "", s))
+    except ValueError:
+        return None
+
+
+def baris_halaman(pg):
+    kata = sorted(pg.extract_words(keep_blank_chars=True, x_tolerance=2), key=lambda w: (round(w["top"]), w["x0"]))
+    baris = []
+    for w in kata:
+        if baris and abs(baris[-1]["top"] - w["top"]) < 3:
+            baris[-1]["kata"].append(w)
+        else:
+            baris.append({"top": w["top"], "kata": [w]})
+    for b in baris:
+        b["kata"].sort(key=lambda w: w["x0"])
+    return baris
+
+
+def baca_erep(isi):
+    halaman = []
+    with pdfplumber.open(io.BytesIO(isi)) as pdf:
+        for pg in pdf.pages:
+            bs = baris_halaman(pg)
+            if "Go To Indonesian Page" in " ".join(w["text"] for b in bs for w in b["kata"]):
+                break
+            halaman.append(bs)
+    teks = "\n".join(" ".join(w["text"] for w in b["kata"]) for bs in halaman for b in bs)
+    if "Pemegang Saham Tertentu" not in teks:
+        return {}, []
+    kepala = {}
+    for k, label in KEPALA_EREP:
+        lb = next((b for b in halaman[0] if b["kata"][0]["text"].strip() == label), None)
+        if lb:
+            kepala[k] = " ".join(w["text"] for b in halaman[0] for w in b["kata"] if abs(b["top"] - lb["top"]) <= 8 and w["x0"] >= 150).strip() or None
+    waktu = re.search(r"Tanggal dan Waktu\s+(\d{2})-(\d{2})-(\d{4})", teks)
+    kepala["tgl_lapor"] = datetime(int(waktu.group(3)), int(waktu.group(2)), int(waktu.group(1))) if waktu else None
+    pemegang, cur, mode, kolom = [], None, None, None
+    for bs in halaman:
+        for b in bs:
+            kiri = b["kata"][0]
+            t = kiri["text"].strip()
+            kanan = " ".join(w["text"] for w in b["kata"] if w["x0"] >= 290).strip()
+            if t.startswith("Jenis Transaksi"):
+                mode, kolom = "tabel", [w["x0"] for w in b["kata"]]
+                continue
+            cocok = next(((k, l) for k, l in LABEL_EREP if t.startswith(l)), None) if kiri["x0"] < 120 else None
+            if cocok:
+                k, l = cocok
+                mode = k
+                if k == "kategori" or cur is None:
+                    cur = {"transaksi": []}
+                    pemegang.append(cur)
+                cur[k] = kanan or t[len(l):].strip()
+                continue
+            if mode == "tabel" and cur is not None and kolom and len(kolom) >= 4:
+                sel = ["", "", "", ""]
+                for w in b["kata"]:
+                    j = 0 if w["x0"] < kolom[1] - 10 else 1 if w["x0"] < kolom[2] - 10 else 2 if w["x0"] < kolom[3] - 10 else 3
+                    sel[j] = (sel[j] + " " + w["text"]).strip()
+                if sel[0] and re.search(r"\d", sel[3]):
+                    cur["transaksi"].append({"jenis": sel[0], "harga": angka_erep(sel[1]), "tanggal": tanggal(sel[2]), "jumlah": angka_erep(sel[3])})
+                continue
+            if mode == "tujuan" and cur is not None and kanan and kiri["x0"] >= 290:
+                cur["tujuan"] = (cur.get("tujuan", "") + " " + kanan).strip()
+                continue
+            if t in ("Hormat Kami,", "Demikian untuk diketahui."):
+                mode = None
+    hasil = []
+    for x in pemegang:
+        kat = (x.get("kategori") or "").lower()
+        dalam = "direksi" in kat or "komisaris" in kat
+        hasil.append({
+            "nomor": kepala.get("nomor"), "tgl_lapor": kepala.get("tgl_lapor"), "kode": kepala.get("kode"), "emiten": kepala.get("emiten"),
+            "nama": x.get("nama"), "orang_dalam": dalam, "jabatan": ("Dewan Komisaris" if "komisaris" in kat else "Direksi") if dalam else None,
+            "kategori_asli": x.get("kategori"), "kewarganegaraan": x.get("kewarganegaraan"),
+            "pengendali": (x.get("pengendali") or "").lower().startswith("pengendali"),
+            "saham_sebelum": angka_erep(x.get("sebelum")), "saham_sesudah": angka_erep(x.get("sesudah")),
+            "persen_sebelum": angka_erep(x.get("p_sebelum")), "persen_sesudah": angka_erep(x.get("p_sesudah")),
+            "transaksi": [{**t, "status": x.get("status"), "tujuan": x.get("tujuan")} for t in x["transaksi"]],
+            "format": "erep",
+        })
+    return kepala, hasil
+
+
 POLA_KSEI1 = re.compile(r"^(\d{2}-[A-Za-z]{3}-\d{4}) ([A-Z0-9]{4}) (.+?) ([\d.]+) ([\d.]+) ([\d.]+) ([\d,]+)$")
 POLA_TENGAH = re.compile(r"^(.*?)(?: (" + "|".join(KELAS_KSEI) + r"))? ([LF])(?: (.*))?$")
 
@@ -163,10 +266,17 @@ def daftar_unduh():
     c = dt.db().pengumuman
     hasil = []
     q = {"$or": [{"kategori": "kepemilikan", "lampiran.url": {"$regex": "From_KSEI/LK-"}}, {"kategori": "ksei_1"},
-                 {"judul": {"$regex": "^(Pengumuman )?(Revisi )?Evaluasi (Insidental )?Indeks", "$options": "i"}}]}
-    for x in c.find(q, {"kategori": 1, "lampiran": 1, "pdf": 1, "judul": 1}).sort("tgl", -1):
+                 {"judul": {"$regex": "^(Pengumuman )?(Revisi )?Evaluasi (Insidental )?Indeks", "$options": "i"}},
+                 {"kategori": "kepemilikan", "tgl": {"$lt": BATAS_EREP}, "judul": {"$regex": POLA_JUDUL_EREP, "$options": "i"}}]}
+    for x in c.find(q, {"kategori": 1, "lampiran": 1, "pdf": 1, "judul": 1, "tgl": 1}).sort("tgl", -1):
         sudah = x.get("pdf") or {}
-        for a in x["lampiran"]:
+        lampiran = x["lampiran"]
+        if x["kategori"] == "kepemilikan" and not any("From_KSEI/LK-" in a["url"] for a in lampiran):
+            a = lampiran[0] if lampiran else None
+            if a and "From_EREP" in a["url"] and sudah.get(a["url"].rsplit("/", 1)[-1].replace(".", "_")) not in ("terbaca", "kosong"):
+                hasil.append([x["_id"], a["url"], "erep"])
+            continue
+        for a in lampiran:
             kunci = a["url"].rsplit("/", 1)[-1].replace(".", "_")
             if sudah.get(kunci) in ("terbaca", "kosong"):
                 continue
@@ -220,6 +330,18 @@ def impor():
                         ops_besar.append(UpdateOne({"_id": kid}, {"$set": {**b, "sumber": x["id"]}}, upsert=True))
                     n_besar += len(baris)
                     tanda.append((x["id"], kunci, "terbaca" if baris else "kosong"))
+                elif x["jenis"] == "erep":
+                    _, daftar = baca_erep(isi)
+                    if not daftar:
+                        n_kosong += 1
+                        tanda.append((x["id"], kunci, "kosong"))
+                        continue
+                    for i, d in enumerate(daftar):
+                        d.update({"_id": f"{x['id']}#{kunci}" + (f"#{i}" if i else ""), "pengumuman": x["id"], "url": x["url"], "tgl": p.get("tgl"),
+                                  "kode": d.get("kode") or p.get("kode"), "tgl_lapor": d.get("tgl_lapor") or p.get("tgl")})
+                        ops_lk.append(UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True))
+                    n_lk += len(daftar)
+                    tanda.append((x["id"], kunci, "terbaca"))
                 else:
                     d = baca_lk(isi)
                     if not d.get("kode") and not d.get("nama"):

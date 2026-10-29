@@ -729,3 +729,84 @@ Sidik `paper_*` & `batas_paper` sama sebelum/sesudah uji.
 - H17d: penghasilan tinggi di 2019-2025 (4,6-11,6%, didorong batu bara), tapi 2015-2017 hanya 2,4-2,8% (gagal syarat 80%); 2015 -32,9% dan DD -52,7%. Total return mengalahkan IHSG dan bobot sama, tapi itu pasca hasil (bukan bukti).
 - Sesuai aturan: tanpa varian.
 - **Keputusan user 2026-10-25: uji maju dividen_v1 DIHENTIKAN** karena H17c & H17d gagal. Data `paper_dividen_*` (status menunggu + pratinjau) dan `batas_paper/dividen_v1` diarsip ke `swing.arsip_paper_dividen` lalu dihapus; job `paper_dividen` dan jadwalnya dicabut; tab Uji maju dihapus. Kode simulasi dipindah ke `backend/research/dividen_v1.py` (dipakai `uji_h17cd.py`). Catatan kejujuran: H17c/H17d gagal tidak membuktikan dividen_v1 pasti gagal ke depan; penghentian adalah keputusan user berdasarkan bukti data lama.
+
+## H24: efek Ramadan pada JII — dihapus dari katalog (2026-10-28, permintaan user)
+Pernah dikunci dan diuji sekali (2026-10-28): JII hanya selama Ramadan vs kas, dev Ramadan 2001-2014 GAGAL 4/6 (rata-rata bersih +0,74%/Ramadan, tapi tidak lebih baik dari jendela acak, p 0,30; tanpa 2007 negatif). Holdout tidak dibuka. Detail, kode, dan hasil dihapus atas permintaan user; baris ini disimpan supaya jumlah uji tetap tercatat dan ide ini tidak diuji ulang tanpa sadar.
+
+## H25: pembelian saham oleh orang dalam (dikunci 2026-10-29, sebelum harga/return setelah sinyal dihitung)
+Permintaan user (2026-10-28/29) setelah brainstorming literatur. Sumber ide: Cohen, Malloy & Pomorski (2012, *Journal of Finance*, "Decoding Inside Information"): pembelian direksi/komisaris yang **tidak rutin** diikuti return lebih tinggi beberapa bulan; juga Lakonishok & Lee (2001), Seyhun (1986). Bukti di negara berkembang campuran. Uji ke-42 (termasuk H24 yang dihapus); hanya SATU hipotesis, tanpa varian.
+
+Pertanyaan: saham syariah likuid yang baru dibeli direksi/komisarisnya sendiri (atas inisiatif sendiri), apakah dalam 3 bulan berikutnya naik lebih tinggi daripada saham syariah likuid lain di periode yang sama, setelah biaya?
+
+Data (sudah diambil 2026-10-28, sebelum hipotesis ini ditulis; yang sudah dilihat hanya jumlah laporan dan teks tujuan, BELUM ada harga/return):
+- `lab_data.kepemilikan_lapor`: formulir elektronik IDX "Pemegang Saham Tertentu" (3 Jul 2023 - 27 Nov 2025, `format: erep`) + format standar KSEI (sejak 28 Nov 2025). Waktu terbit = `tgl` (jam pengumuman IDX).
+- Harga `harga/<kode>` (Yahoo, harian final): open/close disesuaikan dividen & split untuk return, harga mentah untuk fraksi tick.
+- Universe: saham syariah DES (`des_ojk.syariah_pada`) + likuid: nilai transaksi rata-rata 20 hari ≥ **Rp1 M**, harga ≥ Rp50, tanpa hari volume nol dalam 5 hari; **tanpa syarat ATR**. Dihitung di hari sinyal = hari bursa terakhir ≤ tanggal terbit laporan.
+- **Perubahan draf sebelum dikunci (2026-10-29, keputusan user)**: draf memakai likuiditas ala H11a (Rp5 M + ATR 1,5-5%). Hitungan JUMLAH sinyal saja (tanpa harga sesudah sinyal/return) memberi dev 48 trade (< syarat 60) → syarat diganti Rp1 M tanpa ATR (dev 98, holdout ±179 sebelum dipotong jendela). ATR dipakai H11a untuk stop 3×ATR; H25 tanpa stop. Batas Rp100 jt, masa tahan, dan kriteria tidak berubah.
+
+Kejadian (sinyal), semua harus terpenuhi:
+1. Laporan dengan `orang_dalam = True` (Direksi atau Dewan Komisaris). Pemegang ≥5% yang bukan direksi/komisaris tidak dihitung.
+2. Minimal satu baris transaksi berjenis "Pembelian" dengan harga > 0 dan jumlah > 0.
+3. Pembeli bersih di laporan itu: nilai beli − nilai jual ≥ **Rp100 juta** (jumlah × harga).
+4. **Bukan pembelian rutin/wajib**: teks tujuan semua baris pembelian TIDAK mengandung (huruf kecil): `pojk`, `peraturan`, `remunerasi`, `tantiem`, `bonus`, `mesop`, `esop`, `msop`, `lti`, `program`, `repo`, `repurchase`, `tabungan saham`, `menabung`, `hibah`, `waris`, `kewajiban`, `pemenuhan`, `hmetd`, `right`, `konversi`, `waran`, `dividen`, `tender`, `penjatahan`, `ipo`, `penawaran umum`, `jaminan`, `gadai`.
+5. Kualitas: kalau saldo bisa dicek (semua baris beli/jual), saham sebelum + beli − jual harus = saham sesudah (selisih ≤ 0,1%); kalau tidak cocok, laporan dibuang.
+6. Saham lolos universe di hari sinyal.
+
+Transaksi:
+- Masuk: **open hari bursa pertama SETELAH tanggal terbit laporan** (bukan tanggal transaksi orang dalam; tidak mengintip). Biaya beli 0,15% + 1 tick.
+- Keluar: close hari bursa ke-63 sejak masuk (±3 bulan). Biaya jual 0,25% + 1 tick. Tanpa stop. Kalau tidak ada harga di hari keluar (suspensi), pakai close terakhir yang ada sebelumnya.
+- Satu posisi per saham: laporan baru untuk saham yang posisinya masih terbuka diabaikan. Tidak ada batas jumlah posisi (uji per trade).
+
+Ukuran per trade:
+- Return kotor = close keluar / open masuk − 1 (harga disesuaikan). Return bersih = setelah biaya di atas.
+- Pembanding = rata-rata return kotor semua saham universe di hari sinyal yang sama (masuk di open hari berikutnya), jendela sama (open masuk → close hari ke-63), tanpa biaya.
+- Excess bersih = return bersih − pembanding.
+
+Periode:
+- **Dev**: laporan terbit 3 Jul 2023 s/d 31 Des 2024 (harga keluar bisa sampai ±Apr 2025).
+- **Holdout**: laporan terbit 1 Jan 2025 s/d laporan terakhir yang jendela 63 harinya selesai sebelum data harga terakhir saat uji. Dibuka SEKALI, hanya kalau dev lulus semua kriteria.
+
+Kriteria lulus (dev, lalu holdout bila dibuka; semua harus terpenuhi):
+1. Jumlah trade ≥ 60 (kurang dari itu = GAGAL karena data tidak cukup).
+2. Rata-rata return bersih per trade > 0.
+3. Rata-rata excess bersih per trade > 0.
+4. Uji acak: rata-rata return kotor > persentil 95 dari 10.000 set acak (tiap trade diganti saham acak lain dari universe hari sinyal yang sama, jendela sama; seed 25).
+5. Bootstrap 90% (blok per bulan masuk, 10.000 kali): batas bawah rata-rata excess bersih > 0.
+6. Tanpa 10 trade terbaik: rata-rata excess bersih tetap > 0.
+7. Tanpa 5 emiten terbaik (menurut total excess): rata-rata excess bersih tetap > 0.
+8. Kuartal masuk (yang punya ≥ 5 trade) dengan rata-rata excess bersih > 0 ≥ 60%.
+
+Hanya dilaporkan (bukan syarat): tahan 21 dan 126 hari; tanpa batas Rp100 juta; batas ≥ Rp500 juta; termasuk pemegang ≥5% bukan direksi/komisaris; biaya 2 tick per sisi; hasil terpisah Direksi vs Komisaris; jumlah kejadian yang dibuang per aturan 2-6.
+
+Hasil: lulus dev + holdout = kandidat uji maju (paper) sebagai strategi kedua di lapisan Apresiasi modal, bukan uang nyata langsung. Gagal = ditutup, tanpa variasi batas nilai, daftar kata, masa tahan, atau universe.
+
+Kelemahan (dicatat sebelum uji):
+- Periode pendek: dev 18 bulan, holdout ±18 bulan; satu kondisi pasar bisa mendominasi (IHSG/JII turun 2025-2026 sudah diketahui umum, sebagian dikendalikan oleh pembanding hari yang sama).
+- Tidak bisa memakai definisi "rutin" Cohen dkk. (bertransaksi di bulan yang sama 3 tahun berturut-turut) karena data baru sejak Jul 2023; diganti daftar kata tujuan.
+- Format laporan berganti di tengah holdout (28 Nov 2025).
+- 3,5% laporan lama saldonya tidak cocok (salah isi emiten); dibuang lewat aturan 5.
+- Data diambil sendiri dari PDF; salah baca kecil mungkin tersisa.
+- Banyak pembelian orang dalam terjadi di saham kecil yang tidak lolos likuiditas; sinyal yang tersisa sedikit (dev ±98).
+- Syarat likuiditas diubah setelah melihat jumlah sinyal (bukan return); dicatat di atas.
+- Kalau saham tidak punya harga open di hari masuk (suspensi), kejadian dibuang dan jumlahnya dilaporkan.
+
+### Hasil H25 dev laporan Jul 2023 - Des 2024 (2026-10-29, dijalankan sekali, `backend/research/uji_h25.py --periode dev`): GAGAL 5/8, holdout tidak dibuka
+Sebelum data harga asli dipakai, mesin dicek dengan harga tiruan (tanggal kejadian asli): harga datar → bersih -1,391%/trade = hitungan biaya manual, semua kriteria gagal; efek palsu +0,15%/hari di saham orang dalam → terdeteksi, semua lulus.
+Kejadian: 5.451 laporan direksi/komisaris → dibuang 2.119 tanpa pembelian, 454 rutin/wajib, 91 saldo tidak cocok; dari sisa kejadian dev 392 tidak lolos universe, 189 posisi masih terbuka → **98 trade, 64 emiten**.
+
+| Kriteria | Hasil | |
+|---|---|---|
+| 1. Trade ≥ 60 | 98 | ✔ |
+| 2. Bersih > 0 | +8,04%/trade | ✔ |
+| 3. Excess bersih > 0 | +6,07% (pembanding +1,97%; **median excess -2,81%**, menang 47%) | ✔ |
+| 4. Kotor > p95 acak | +9,79% vs +8,29% (median acak +1,50%, p 0,033) | ✔ |
+| 5. Bootstrap 5% > 0 | -1,28% | **✘** |
+| 6. Tanpa 10 trade terbaik > 0 | -6,27% | **✘** |
+| 7. Tanpa 5 emiten terbaik > 0 | -3,46% (tanpa CUAN, PTRO, SSIA, RAJA, LABA) | **✘** |
+| 8. Kuartal menang ≥ 60% | 4/6 | ✔ |
+
+Per kuartal masuk (excess bersih): 2023Q3 -0,50 (19 trade), Q4 +14,90 (13), 2024Q1 +16,70 (11), Q2 +3,56 (18), Q3 -3,78 (17), Q4 +11,37 (20).
+Laporan saja: tahan 21 hari excess +2,73% (131 trade); tahan 126 hari +4,06% (81); tanpa batas nilai +6,55% (119); batas ≥ Rp500 jt +7,81% (76); biaya 2 tick +4,78%; termasuk pemegang ≥5% +2,12% (154); **Direksi +0,27% (66) vs Dewan Komisaris +18,03% (32)**.
+- Rata-rata bagus tapi tidak tahan uji: separuh lebih trade kalah dari pembanding (median -2,81%), dan hasil bergantung pada segelintir saham yang melonjak di 2024 (CUAN/PTRO grup Barito, RAJA, SSIA, LABA). Tanpa 10 trade terbaik rata-ratanya -6,27%.
+- Selisih Komisaris vs Direksi menarik tapi BUKAN bukti (32 trade, diduga terpusat di saham grup yang sama, dan dilihat setelah hasil). Tidak boleh dijadikan varian baru tanpa hipotesis baru + data baru.
+- Sesuai aturan: GAGAL = ditutup, tanpa variasi batas nilai, daftar kata, masa tahan, universe, atau jabatan. Holdout 2025-2026 tidak dibuka.

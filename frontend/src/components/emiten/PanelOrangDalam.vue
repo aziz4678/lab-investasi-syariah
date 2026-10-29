@@ -51,7 +51,7 @@ const ada = computed(() => d.value && (d.value.laporan.length || d.value.pemegan
 
 <template>
   <Panel judul="Transaksi orang dalam & pemegang besar"
-    :ket="`Laporan kepemilikan saham ke KSEI/OJK (format standar sejak ${tgl(d?.mulai_data || '2025-11-28')}) · nilai = jumlah lembar × harga yang dilaporkan`" rapat>
+    :ket="`Laporan kepemilikan saham di IDX sejak ${tgl(d?.mulai_data || '2023-07-03')} (formulir IDX, lalu format KSEI sejak 28 Nov 2025) · nilai = jumlah lembar × harga yang dilaporkan`" rapat>
     <Kerangka v-if="!d" class="px-6 pb-5" jenis="baris" :n="4" />
     <p v-else-if="!ada" class="m-0 px-6 pb-5 text-[13px] text-muted">Belum ada laporan kepemilikan atau data pemegang saham di atas 1% untuk emiten ini.</p>
     <template v-else>
@@ -116,7 +116,7 @@ const ada = computed(() => d.value && (d.value.laporan.length || d.value.pemegan
           <button type="button" class="text-muted hover:underline" @click="semuaPemegang = !semuaPemegang">{{ semuaPemegang ? "Tampilkan 10 terbesar" : `Tampilkan semua ${d.pemegang.length} pemegang` }}</button>
         </div>
       </template>
-      <p class="m-0 px-6 py-3 text-[11px] text-muted">Laporan sebelum 28 Nov 2025 berupa surat bebas tiap emiten dan tidak dibaca otomatis; lihat panel Pengumuman (kategori Laporan kepemilikan saham).</p>
+      <p class="m-0 px-6 py-3 text-[11px] text-muted">Laporan dibaca otomatis dari PDF IDX sejak Jul 2023 (99% terbaca); laporan yang angkanya tidak konsisten tetap ditampilkan apa adanya. Surat aslinya ada di panel Pengumuman.</p>
     </template>
   </Panel>
 </template>

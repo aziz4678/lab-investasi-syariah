@@ -3,7 +3,7 @@
   const SEMUA = __DAFTAR__;
   const DAFTAR = SEMUA.slice(0, MAKS);
   const SISA_LAIN = Math.max(0, SEMUA.length - MAKS);
-  const PER_FILE = 300;
+  const PER_FILE = 100;
   const PARALEL = 1;
   const JEDA = 1500;
   const BATAS_DITOLAK = 6;

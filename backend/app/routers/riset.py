@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from backend.app.services import hipotesis as hps
+from backend.app.services import penjelasan as pj
 from backend.app.services import riset as rs
 from backend.app.services import strategi as st
 
@@ -15,6 +16,11 @@ def daftar_strategi():
 @router.get("/hipotesis")
 def hipotesis():
     return hps.semua()
+
+
+@router.get("/hipotesis/{kode}/penjelasan")
+def penjelasan(kode: str):
+    return pj.untuk(kode)
 
 
 @router.get("/riset")
