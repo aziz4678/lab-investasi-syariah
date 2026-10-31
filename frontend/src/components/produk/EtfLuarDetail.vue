@@ -10,6 +10,7 @@ import Logo from "@/components/common/Logo.vue";
 import GrafikRentang from "@/components/charts/GrafikRentang.vue";
 import KesimpulanProduk from "@/components/produk/KesimpulanProduk.vue";
 import RingkasHariIni from "@/components/produk/RingkasHariIni.vue";
+import KeyakinanEtf from "@/components/produk/KeyakinanEtf.vue";
 
 const props = defineProps({ kode: String });
 const emit = defineEmits(["kembali"]);
@@ -132,6 +133,8 @@ const simulasi = computed(() => {
         <Kerangka v-else jenis="grafik" :tinggi="300" />
         <RingkasHariIni :intra="intra" :format="uangEtf" :uang="uangBesar" />
       </Panel>
+
+      <KeyakinanEtf :k="x.keyakinan" :x="x" />
 
       <div class="grid gap-5 lg:grid-cols-2">
         <Panel judul="10 isi terbesar" :ket="x.isi_top.length ? '% dari dana · data penerbit lewat Yahoo' : 'Data isi belum tersedia untuk ETF ini'">

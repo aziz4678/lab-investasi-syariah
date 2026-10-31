@@ -411,14 +411,23 @@ const STATUS_POS = { beli_besok: "Antre beli di open berikutnya", aktif: "Dipega
             <thead><tr><th>Sumber</th><th>Beli</th><th class="!text-right">Harga</th><th>Jual</th><th class="!text-right">Harga</th><th class="!text-right">Hari</th><th class="!text-right">Stop awal</th><th class="!text-right">Hasil net</th></tr></thead>
             <tbody>
               <tr v-for="t in tradeTabel" :key="t.sumber + t.tgl_beli" :class="t.dipilih ? '' : 'opacity-55'">
-                <td class="text-ink-2">{{ SUMBER[t.sumber] }}<span v-if="!t.dipilih" class="text-xs text-muted"> · tidak terpilih</span></td>
+                <td class="!h-auto py-2.5 text-ink-2">{{ SUMBER[t.sumber] }}<span v-if="!t.dipilih" class="text-xs text-muted"> · tidak terpilih</span><div v-if="t.sumber !== 'paper' && t.status === 'terbuka'" class="text-[11px] text-muted">data s/d {{ t.tgl_akhir_data }}</div></td>
                 <td class="tabular-nums">{{ t.tgl_beli }}</td>
                 <td class="text-right">{{ rupiah(t.harga_beli) }}</td>
-                <td class="tabular-nums">{{ t.tgl_jual || "dipegang" }}</td>
-                <td class="text-right">{{ rupiah(t.harga_jual) }}</td>
+                <td class="tabular-nums">
+                  <span v-if="t.status === 'terbuka'" class="chip" :class="t.sumber === 'paper' ? 'bg-aksen-lembut text-aksen' : 'bg-surface-2 text-ink-2'"
+                    :title="t.sumber === 'paper' ? 'Posisi paper trade yang masih dipegang' : `Backtest berhenti karena data habis (${t.tgl_akhir_data}); belum ada sinyal jual, jadi bukan penjualan`">
+                    {{ t.sumber === "paper" ? (t.status_paper === "jual_besok" ? "Antre jual besok" : "Masih dipegang") : "Dipegang di akhir data" }}
+                  </span>
+                  <template v-else>{{ t.tgl_jual }}</template>
+                </td>
+                <td class="text-right">
+                  <template v-if="t.status === 'terbuka'"><span class="text-ink-2">{{ rupiah(t.harga_akhir) }}</span><div class="text-[11px] text-muted">close {{ t.tgl_akhir_data }}</div></template>
+                  <template v-else>{{ rupiah(t.harga_jual) }}</template>
+                </td>
                 <td class="text-right text-ink-2">{{ t.hari ?? "–" }}</td>
                 <td class="text-right text-turun/80">{{ t.stop_awal_pct == null ? "–" : persen(-t.stop_awal_pct) }}</td>
-                <td class="text-right font-medium" :class="t.net >= 0 ? 'text-naik' : 'text-turun'">{{ persen(t.net) }}</td>
+                <td class="text-right font-medium" :class="t.net >= 0 ? 'text-naik' : 'text-turun'">{{ persen(t.net) }}<div v-if="t.status === 'terbuka'" class="text-[11px] font-normal text-muted">{{ t.sumber === "paper" ? "berjalan · kotor" : "berjalan" }}</div></td>
               </tr>
             </tbody>
           </table>

@@ -28,6 +28,7 @@
   --series-2: #3d7be0;
   --series-3: #9aa29e;
   --series-4: #c47a00;
+  --series-5: #8a5cd6;
   --pos: #00a86b;
   --neg: #e0383e;
   --netral: #f0f4f1;
@@ -64,6 +65,7 @@
     --series-2: #4f8fe6;
     --series-3: #6c7871;
     --series-4: #b8820f;
+    --series-5: #a283ec;
     --pos: #14b072;
     --neg: #e5505a;
     --netral: #1e2622;
@@ -99,6 +101,7 @@
   --series-2: #4f8fe6;
   --series-3: #6c7871;
   --series-4: #b8820f;
+  --series-5: #a283ec;
   --pos: #14b072;
   --neg: #e5505a;
   --netral: #1e2622;
@@ -131,6 +134,7 @@
   --color-s2: var(--series-2);
   --color-s3: var(--series-3);
   --color-s4: var(--series-4);
+  --color-s5: var(--series-5);
   --color-naik: var(--naik);
   --color-turun: var(--turun);
   --color-naik-bg: var(--naik-bg);

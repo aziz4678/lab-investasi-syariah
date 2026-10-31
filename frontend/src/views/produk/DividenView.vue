@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { Search, ArrowUpDown } from "lucide-vue-next";
+import { ref, computed, onMounted, watch, inject } from "vue";
+import { Search, ArrowUpDown, FlaskConical, ArrowRight } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { persen, rupiah, kelasPersen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
@@ -14,7 +14,16 @@ import Pemutar from "@/components/common/Pemutar.vue";
 
 const props = defineProps({ sub: String });
 const emit = defineEmits(["sub"]);
-const SUB = [["daftar", "Daftar & kalender"], ["kalkulator", "Kalkulator"], ["uji", "Hasil uji"], ["trap", "Dividend trap"], ["aturan", "Aturan"]];
+const SUB = [["daftar", "Daftar & kalender"], ["kalkulator", "Kalkulator"], ["trap", "Dividend trap"], ["riset", "Hasil riset (H17)"], ["data", "Data"]];
+const pindahTab = inject("pindahTab");
+const hip = ref(null);
+const STATUS_HIP = { gagal: ["Gagal", "bg-turun-bg text-turun"], tidak_diadopsi: ["Tidak diadopsi", "bg-surface-2 text-muted"] };
+const LANGKAH = [{ judul: "Pilih", teks: "Tiap awal tahun dipilih 10 saham syariah yang dividennya paling tinggi dan rutin dibayar 3 tahun berturut-turut." }, { judul: "Tahan", teks: "Saham ditahan setahun penuh, tidak dijual meski harga turun." }, { judul: "Terima", teks: "Dividen masuk ke kas setelah dipotong pajak 10%." }, { judul: "Ganti", teks: "Awal tahun berikutnya pilihan diperbarui dengan cara yang sama." }];
+const h17 = computed(() => (hip.value?.hipotesis || []).filter((h) => h.keluarga === "H17"));
+function muatHip() {
+  if (!hip.value) ambil("hipotesis").then((x) => (hip.value = x)).catch(() => (hip.value = { hipotesis: [] }));
+}
+const bukaHipotesis = (kode) => pindahTab("hipotesis", kode);
 const BULAN = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 const daftar = ref(null);
@@ -30,8 +39,11 @@ const semua = ref(false);
 onMounted(async () => {
   ambil("dividen/jadwal").then((x) => (jadwal.value = x)).catch(() => (jadwal.value = {}));
   ambil("dividen/ringkasan").then((x) => (ringkas.value = x)).catch(() => (ringkas.value = {}));
+  if (props.sub === "riset") muatHip();
   daftar.value = await ambil("dividen/daftar").catch(() => ({ data: [] }));
 });
+watch(() => props.sub, (s) => s === "riset" && muatHip());
+const jumlahBayar = computed(() => (daftar.value ? data.value.filter((s) => s.dps12 > 0).length : null));
 
 const data = computed(() => daftar.value?.data || []);
 const tandaKet = computed(() => daftar.value?.tanda || {});
@@ -120,11 +132,21 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
 
 <template>
   <div class="space-y-5">
-    <HeaderStrategi judul="Pemburu Dividen" :sub="sub" :pilihan="SUB" @sub="emit('sub', $event)"
-      ringkas="Mencari penghasilan rutin dari dividen (bagi hasil laba perusahaan) saham syariah, bukan dari naik-turun harga."
-      :langkah="[{ judul: 'Pilih', teks: 'Tiap awal tahun dipilih 10 saham syariah yang dividennya paling tinggi dan rutin dibayar 3 tahun berturut-turut.' }, { judul: 'Tahan', teks: 'Saham ditahan setahun penuh, tidak dijual meski harga turun.' }, { judul: 'Terima', teks: 'Dividen masuk ke kas setelah dipotong pajak 10%.' }, { judul: 'Ganti', teks: 'Awal tahun berikutnya pilihan diperbarui dengan cara yang sama.' }]"
-      harapan="Penghasilan dividennya tinggi dan cukup stabil (4–10% per tahun), tapi harga sahamnya ikut naik-turun bersama harga batu bara dan komoditas. Di backtest 2014-2019 total hasilnya kalah dari pasar. Aturan uji maju juga gagal saat diuji di saham non-syariah dan syariah 2014-2026, jadi uji maju 2027 dihentikan (25 Okt 2026). Halaman ini tetap berguna sebagai daftar, kalender, dan kalkulator dividen."
-      :chip="[{ teks: 'H17', kelas: 'bg-surface-2 text-muted' }, { teks: 'Gagal diuji', kelas: 'bg-turun-bg text-turun' }, { teks: 'Uji maju dihentikan', kelas: 'bg-surface-2 text-muted' }, { teks: 'Saham syariah IDX', kelas: 'bg-surface-2 text-ink-2' }]" />
+    <HeaderStrategi judul="Dividen Saham Syariah" :sub="sub" :pilihan="SUB" @sub="emit('sub', $event)"
+      ringkas="Dividen adalah bagian laba perusahaan yang dibagikan tunai ke pemegang saham. Di sini ada jadwal dividen resmi IDX, riwayat dan yield tiap saham syariah, kalender bulan pembagian, kalkulator penghasilan, dan tanda bahaya dividend trap. Semuanya informasi, bukan sinyal beli."
+      :chip="[{ teks: jumlahBayar != null ? `${jumlahBayar} saham syariah bayar dividen (12 bln)` : 'Saham syariah IDX', kelas: 'bg-aksen-lembut text-aksen' }, { teks: 'Jadwal resmi IDX', kelas: 'bg-surface-2 text-ink-2' }, { teks: 'Data: Yahoo, IDX', kelas: 'bg-surface-2 text-ink-2' }]" />
+
+    <div v-if="sub !== 'riset'" class="panel flex flex-wrap items-center gap-x-4 gap-y-3 px-6 py-4">
+      <FlaskConical class="h-5 w-5 shrink-0 text-muted" />
+      <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">
+        <div class="mb-1 flex flex-wrap items-center gap-2"><span class="font-medium text-ink">Pernah diuji sebagai strategi</span><span class="chip bg-surface-2 text-muted">H17 Pemburu Dividen</span><span class="chip bg-turun-bg text-turun">Gagal</span></div>
+        Beli 10 saham syariah dengan yield tertinggi yang rutin bayar 3 tahun, tahan setahun. Gagal di 2014-2019 (H17a), di saham non-syariah (H17c), dan di saham syariah 2014-2026 (H17d): penghasilan tinggi hanya saat boom batu bara, total return kalah dari pasar. Uji maju 2027 dihentikan.
+      </div>
+      <div class="flex gap-2">
+        <button class="tombol" @click="emit('sub', 'riset')">Hasil uji</button>
+        <button class="tombol" @click="bukaHipotesis('H17a')">Hipotesis <ArrowRight class="h-3.5 w-3.5" /></button>
+      </div>
+    </div>
 
     <template v-if="sub === 'daftar'">
       <Kerangka v-if="!daftar" panel jenis="stat" :n="5" :judul="false" kolom="grid-cols-2 md:grid-cols-3 xl:grid-cols-5" />
@@ -228,14 +250,38 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
 
     <KalkulatorDividen v-else-if="sub === 'kalkulator'" :daftar="data" :tanda-ket="tandaKet" />
 
-    <template v-else-if="(sub === 'uji' || sub === 'trap') && !ringkas">
+    <template v-else-if="(sub === 'riset' || sub === 'trap') && !ringkas">
       <Kerangka panel jenis="stat" :n="4" kolom="grid-cols-2 sm:grid-cols-4" />
       <div class="grid gap-5 xl:grid-cols-2">
         <Kerangka panel jenis="tabel" :n="6" />
         <Kerangka panel jenis="tabel" :n="6" />
       </div>
     </template>
-    <template v-else-if="sub === 'uji'">
+    <template v-else-if="sub === 'riset'">
+      <Panel judul="Strategi yang diuji: Pemburu Dividen (H17)" ket="Ide: penghasilan rutin dari dividen, bukan dari naik-turun harga · status di katalog Hipotesis">
+        <template #aksi><button class="tombol" @click="bukaHipotesis('H17a')">Buka di Hipotesis <ArrowRight class="h-3.5 w-3.5" /></button></template>
+        <ol class="m-0 grid list-none gap-2.5 p-0 sm:grid-cols-2 xl:grid-cols-4">
+          <li v-for="(l, i) in LANGKAH" :key="l.judul" class="flex gap-3 rounded-2xl bg-surface-2 px-4 py-3">
+            <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aksen-lembut text-xs font-medium text-aksen">{{ i + 1 }}</span>
+            <div class="min-w-0"><div class="text-[13px] font-medium">{{ l.judul }}</div><div class="mt-0.5 text-xs leading-relaxed text-ink-2">{{ l.teks }}</div></div>
+          </li>
+        </ol>
+        <p class="m-0 mt-3 rounded-2xl border border-garis px-4 py-3 text-xs leading-relaxed text-ink-2">
+          <span class="font-medium text-ink">Kesimpulan:</span> penghasilan dividennya memang tinggi (4–10% per tahun), tapi harga sahamnya ikut naik-turun bersama batu bara dan komoditas, sehingga total hasilnya kalah dari pasar. Aturan yang sama gagal di saham non-syariah dan syariah 2014-2026, jadi uji maju 2027 dihentikan (25 Okt 2026). Lapisan "Pendapatan" kosong sampai ada strategi lain yang lulus.
+        </p>
+        <Kerangka v-if="!hip" class="mt-4" jenis="kartu" :n="4" kolom="sm:grid-cols-2 xl:grid-cols-4" />
+        <div v-else class="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <button v-for="h in h17" :key="h.kode" class="flex flex-col items-start gap-1.5 rounded-2xl border border-garis px-4 py-3 text-left transition hover:bg-surface-2" @click="bukaHipotesis(h.kode)">
+            <span class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[13px] font-medium">{{ h.kode }}</span>
+              <span class="chip !h-5 !px-2 !text-[10px]" :class="(STATUS_HIP[h.status] || STATUS_HIP.tidak_diadopsi)[1]">{{ (STATUS_HIP[h.status] || [h.status])[0] }}</span>
+              <span v-if="h.skor" class="text-[11px] text-muted">{{ h.skor }}</span>
+            </span>
+            <span class="text-xs text-ink-2">{{ h.nama }}</span>
+            <span class="text-[11px] leading-relaxed text-muted">{{ h.pelajaran }}</span>
+          </button>
+        </div>
+      </Panel>
       <Panel v-for="[judul, rows, ket] in UJI" :key="judul" :judul="judul" :ket="ket" rapat>
         <div v-if="rows?.length" class="flex flex-wrap gap-2 px-6 pb-3">
           <span class="chip bg-surface-2 text-ink-2">Return per tahun {{ persen(cagr(rows).s, 1) }}</span>
@@ -258,6 +304,15 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
             </tbody>
           </table>
         </div>
+      </Panel>
+      <Panel judul="Aturan yang diuji">
+        <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
+          <li><b class="font-medium">H17a</b>: tiap akhir Desember pilih 10 saham syariah likuid (nilai transaksi ≥ Rp5 M/hari) yang membayar dividen di masing-masing 3 tahun terakhir, dengan yield 12 bulan tertinggi. Beli open hari bursa pertama Januari, tahan setahun, sama bobot.</li>
+          <li><b class="font-medium">H17b</b>: H17a + payout ≤ 100%, laba tidak turun > 30%, dividen tidak dipotong > 30%, DER ≤ 2 (bukan bank), arus kas operasi ≥ dividen.</li>
+          <li><b class="font-medium">H17c / H17d</b> (aturan uji maju dividen_v1): seperti H17a + maksimal 3 saham per sektor, dihitung harian dengan lot dan tanggal cair dividen. H17c di saham non-syariah, H17d di saham syariah, 2014 s/d Okt 2026. Syarat lulus: penghasilan rata-rata ≥ 4% dan ≥ 3% di ≥ 80% tahun, return ≥ IHSG dan ≥ semua saham, penurunan tidak lebih buruk dari IHSG − 10 poin, tahun terburuk tidak jauh lebih buruk dari pembanding. Keduanya gagal; uji maju 2027 dihentikan.</li>
+          <li>Dividen tunai dipotong pajak 10%. Biaya fee 0,15%/0,25% + 1 tick per sisi untuk saham yang berganti. Pembanding: semua saham syariah likuid sama bobot.</li>
+          <li>Syarat lulus H17a: return per tahun ≥ pembanding, penghasilan dividen rata-rata ≥ 4%, penghasilan ≥ 3% di ≥ 80% tahun, tahun terburuk tidak jauh lebih buruk dari pembanding.</li>
+        </ul>
       </Panel>
     </template>
 
@@ -338,7 +393,7 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
             </table>
           </div>
         </Panel>
-        <p class="m-0 text-xs text-muted">Kesimpulan: membeli saham hanya untuk mengejar dividen lalu cepat menjual rata-rata rugi setelah pajak dan biaya, dan makin besar dividennya makin sering rugi. Strategi tahan setahun (H17a/c/d) pun gagal diuji, lihat tab Hasil uji. Ini analisis deskriptif, bukan uji strategi; sejalan dengan uji H2 (beli ex−5, jual cum) yang gagal.</p>
+        <p class="m-0 text-xs text-muted">Kesimpulan: membeli saham hanya untuk mengejar dividen lalu cepat menjual rata-rata rugi setelah pajak dan biaya, dan makin besar dividennya makin sering rugi. Strategi tahan setahun (H17a/c/d) pun gagal diuji, lihat tab Hasil riset. Ini analisis deskriptif, bukan uji strategi; sejalan dengan uji H2 (beli ex−5, jual cum) yang gagal.</p>
       </template>
 
       <template v-else>
@@ -382,16 +437,7 @@ const tglId = (t) => (t ? new Date(t).toLocaleDateString("id-ID", { day: "numeri
     </template>
 
     <template v-else>
-      <Panel judul="Aturan yang diuji">
-        <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
-          <li><b class="font-medium">H17a</b>: tiap akhir Desember pilih 10 saham syariah likuid (nilai transaksi ≥ Rp5 M/hari) yang membayar dividen di masing-masing 3 tahun terakhir, dengan yield 12 bulan tertinggi. Beli open hari bursa pertama Januari, tahan setahun, sama bobot.</li>
-          <li><b class="font-medium">H17b</b>: H17a + payout ≤ 100%, laba tidak turun > 30%, dividen tidak dipotong > 30%, DER ≤ 2 (bukan bank), arus kas operasi ≥ dividen.</li>
-          <li><b class="font-medium">H17c / H17d</b> (aturan uji maju dividen_v1): seperti H17a + maksimal 3 saham per sektor, dihitung harian dengan lot dan tanggal cair dividen. H17c di saham non-syariah, H17d di saham syariah, 2014 s/d Okt 2026. Syarat lulus: penghasilan rata-rata ≥ 4% dan ≥ 3% di ≥ 80% tahun, return ≥ IHSG dan ≥ semua saham, penurunan tidak lebih buruk dari IHSG − 10 poin, tahun terburuk tidak jauh lebih buruk dari pembanding. Keduanya gagal; uji maju 2027 dihentikan.</li>
-          <li>Dividen tunai dipotong pajak 10%. Biaya fee 0,15%/0,25% + 1 tick per sisi untuk saham yang berganti. Pembanding: semua saham syariah likuid sama bobot.</li>
-          <li>Syarat lulus: return per tahun ≥ pembanding, penghasilan dividen rata-rata ≥ 4%, penghasilan ≥ 3% di ≥ 80% tahun, tahun terburuk tidak jauh lebih buruk dari pembanding.</li>
-        </ul>
-      </Panel>
-      <Panel judul="Data">
+      <Panel judul="Data & cara hitung">
         <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
           <li>Dividen dari Yahoo Finance (tanggal = ex-date, sudah disesuaikan stock split). Ikut terbarui otomatis bersama harga harian (Perbarui / jadwal 17:30).</li>
           <li>Tanda bahaya fundamental (payout, laba, arus kas, DER) dari laporan keuangan IDX; cara memperbarui ada di Beranda → Sumber data.</li>

@@ -70,6 +70,28 @@ def cocokkan(df, db):
     return hasil
 
 
+def sambung_pendahulu(df, peta):
+    seri = {k: g.set_index("tgl")["nav"].sort_index() for k, g in df.groupby("kunci")}
+    calon = []
+    for k, fund in peta.items():
+        lama = re.sub(r" KELAS [A-Z0-9]+(?=\|)", "", k)
+        if lama == k or lama not in seri or lama in peta:
+            continue
+        a, b = seri[lama], seri[k]
+        mulai = b.index[0]
+        sebelum = a[a.index < mulai]
+        if sebelum.empty or (mulai - sebelum.index[-1]).days > 62:
+            continue
+        loncat = abs(b.iloc[0] / sebelum.iloc[-1] - 1)
+        if loncat <= 0.03:
+            calon.append((loncat, lama, fund, mulai))
+    calon.sort(key=lambda x: x[0])
+    hasil = {}
+    for loncat, lama, fund, mulai in calon:
+        hasil.setdefault(lama, (fund, mulai))
+    return hasil
+
+
 def norm(s):
     s = (s or "").upper().replace("&", " DAN ")
     s = re.sub(r"[^A-Z0-9 ]", " ", s)
@@ -131,7 +153,11 @@ def bangun():
         k = kurs.reindex(pd.DatetimeIndex(df.loc[usd, "tgl"]), method="ffill").to_numpy()
         df.loc[usd, "nav"] = df.loc[usd, "nav"].to_numpy() / k
     db = d.koneksi()
-    df["fund"] = df["kunci"].map(cocokkan(df, db))
+    peta = cocokkan(df, db)
+    df["fund"] = df["kunci"].map(peta)
+    sambung = sambung_pendahulu(df, peta)
+    for lama, (fund, mulai) in sambung.items():
+        df.loc[(df["kunci"] == lama) & (df["tgl"] < mulai), "fund"] = fund
     df["syariah"] = df["fund"].notna() | df["produk"].str.contains(KATA_SYARIAH)
     db.rd_ojk.delete_many({})
     dok = [{"_id": f"{r.kunci}_{r.tgl:%Y%m}", "kunci": r.kunci, "produk": r.produk, "mi": r.mi, "bk": r.bk, "tipe": r.tipe, "denominasi": r.denominasi,
@@ -149,6 +175,7 @@ def bangun():
     print(f"\n{len(df)} baris, {bulan} bulan ({df['tgl'].min():%Y-%m} s/d {df['tgl'].max():%Y-%m}), {produk} produk")
     print(f"  syariah (cocok katalog atau nama mengandung syariah/sukuk/sharia): {sy['kunci'].nunique()} produk")
     print(f"  cocok dengan katalog Pasardana: {cocok} dari {db.rd_produk.count_documents({})} reksa dana syariah")
+    print(f"  riwayat sebelum pemecahan kelas disambung: {len(sambung)} produk")
     if gagal:
         print(f"  PERINGATAN bulan gagal diambil: {', '.join(gagal)}")
     nav = pd.DataFrame(list(db.rd_nav.find({}, {"_id": 0, "fund": 1, "tgl": 1, "nav": 1})))

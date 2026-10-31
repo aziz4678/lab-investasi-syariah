@@ -118,6 +118,20 @@ def kepemilikan(kode):
     return [{"tgl": tgl(r.tgl), **{c: angka(getattr(r, c), 2) for c in kolom}} for r in k.itertuples()]
 
 
+def posisi_paper(db, kode, p):
+    status = db.paper_status.find_one({"_id": "status"}, {"_id": 0}) or {}
+    h = dt.baca(f"harian/{kode}", kolom=["close"])
+    h = None if h is None else h["close"].dropna()
+    if h is not None and status.get("tgl_terakhir"):
+        h = h[h.index <= pd.Timestamp(status["tgl_terakhir"])]
+    close = float(h.iloc[-1]) if h is not None and len(h) else None
+    return {"sumber": "paper", "dipilih": True, "tgl_sinyal": tgl(p.get("tgl_sinyal")), "tgl_beli": tgl(p.get("tgl_masuk")),
+            "harga_beli": angka(p.get("harga_masuk"), 0), "tgl_jual": None, "harga_jual": None,
+            "tgl_akhir_data": tgl(h.index[-1]) if close else None, "harga_akhir": angka(close, 0),
+            "hari": p.get("hari"), "net": angka((close / p["harga_masuk"] - 1) * 100) if close else None,
+            "status": "terbuka", "status_paper": p.get("status"), "stop_awal_pct": None}
+
+
 def profil(kode):
     kode = kode.upper().strip()
     db = d.koneksi()
@@ -129,9 +143,11 @@ def profil(kode):
 
     trades = []
     for t in db.backtest_trade.find({"ticker": kode, "versi": {"$in": VERSI_GRAFIK + ["h11a_2020_konservatif"]}}, {"_id": 0}).sort("tgl_beli", 1):
+        terbuka = t.get("status") == "terbuka"
         trades.append({"sumber": t["versi"], "dipilih": bool(t.get("dipilih", True)), "tgl_sinyal": tgl(t.get("tgl_sinyal")),
                        "tgl_beli": tgl(t.get("tgl_beli")), "harga_beli": angka(t.get("harga_beli"), 0),
-                       "tgl_jual": tgl(t.get("tgl_jual")), "harga_jual": angka(t.get("harga_jual"), 0),
+                       "tgl_jual": None if terbuka else tgl(t.get("tgl_jual")), "harga_jual": None if terbuka else angka(t.get("harga_jual"), 0),
+                       "tgl_akhir_data": tgl(t.get("tgl_jual")) if terbuka else None, "harga_akhir": angka(t.get("harga_jual"), 0) if terbuka else None,
                        "hari": t.get("hari"), "net": angka(t.get("net")), "status": t.get("status"),
                        "stop_awal_pct": angka(t.get("stop_awal_pct"), 1)})
     for t in db.paper_transaksi.find({"ticker": kode, "aksi": "jual"}, {"_id": 0}):
@@ -139,6 +155,8 @@ def profil(kode):
                        "harga_beli": angka(t.get("harga_masuk"), 0), "tgl_jual": tgl(t.get("tgl")), "harga_jual": angka(t.get("harga_keluar"), 0),
                        "hari": t.get("hari"), "net": angka(t.get("net_pct")), "status": "selesai", "stop_awal_pct": None})
     paper_pos = db.paper_posisi.find_one({"ticker": kode}, {"_id": 0})
+    if paper_pos and paper_pos.get("status") in ("aktif", "jual_besok") and paper_pos.get("harga_masuk"):
+        trades.append(posisi_paper(db, kode, paper_pos))
 
     stop = {}
     if x is not None:

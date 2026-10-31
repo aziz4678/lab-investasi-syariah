@@ -28,6 +28,7 @@ const ekPaper = ref([]);
 const transaksi = ref([]);
 const div = ref(null);
 const divSiap = ref(false);
+const hip = ref(null);
 const rd = ref(null);
 const etf = ref(null);
 const etfLuar = ref(null);
@@ -44,6 +45,7 @@ const PERIODE = [["1H", "Hari ini"], ["1M", "1 minggu"], ["1B", "1 bulan"], ["3B
 async function muat() {
   ambil("ringkasan/h11a_2020_konservatif").then((x) => (btKons.value = x)).catch(() => null);
   ambil("ekuitas/h11a_2020").then((x) => (ekBt.value = x)).catch(() => null);
+  ambil("hipotesis").then((x) => (hip.value = x)).catch(() => null);
   ambil("dividen/daftar").then((x) => (div.value = x)).catch(() => null).finally(() => (divSiap.value = true));
   [pasar.value, paper.value, bt.value, rd.value, etf.value, etfLuar.value] = await Promise.all([
     ambil("pasar").catch(() => ({})), ambil("paper/ringkasan").catch(() => null), ambil("ringkasan/h11a_2020").catch(() => null),
@@ -94,6 +96,8 @@ onMounted(async () => {
   await muat();
 });
 
+const KELAS_STATUS = { turun: "bg-turun-bg text-turun", naik: "bg-naik-bg text-naik", aksen: "bg-aksen-lembut text-aksen", kuning: "bg-kuning-bg text-kuning" };
+const hipStatus = computed(() => (hip.value?.status || []).map((x) => ({ ...x, n: hip.value.hipotesis.filter((h) => h.status === x.id).length, kelas: KELAS_STATUS[x.warna] || "bg-surface-2 text-ink-2" })).filter((x) => x.n));
 const posisi = computed(() => paper.value?.posisi || []);
 const aktif = computed(() => posisi.value.filter((p) => p.status !== "beli_besok"));
 const aksiBeli = computed(() => posisi.value.filter((p) => p.status === "beli_besok").length);
@@ -117,9 +121,13 @@ const divPilihan = computed(() => (div.value?.data || []).filter((x) => x.berunt
 const rdTerbaik = computed(() => {
   const d = rd.value?.data || [];
   return ["pasar_uang", "pendapatan_tetap", "campuran", "saham"]
-    .map((k) => d.filter((x) => x.kategori === k && x.ret_1th != null && !x.etf).sort((a, b) => (b.skor ?? -1e9) - (a.skor ?? -1e9))[0])
+    .map((k) => d.filter((x) => x.kategori === k && x.mata_uang === "IDR" && !x.etf && x.urut != null).sort((a, b) => a.urut - b.urut)[0])
     .filter(Boolean);
 });
+function bukaRd(id) {
+  pindahTab("reksadana", "katalog");
+  history.replaceState(null, "", `#reksadana/katalog/${id}`);
+}
 const rdJumlah = computed(() => (rd.value?.data || []).filter((x) => !x.etf).length);
 
 const etfSyariah = computed(() => {
@@ -275,43 +283,36 @@ function waktu(s) {
           </div>
         </div>
       </Panel>
-      <Panel class="h-full" judul="Dividen" ket="Pemburu dividen saham syariah · gagal diuji, uji maju dihentikan">
-        <template #aksi><button class="tombol" @click="pindahTab('dividen', 'daftar')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
-        <div class="flex flex-wrap gap-2">
-          <span class="chip bg-turun-bg text-turun">H17a/c/d gagal</span>
-          <span class="chip bg-surface-2 text-muted">uji maju 2027 dihentikan</span>
-        </div>
-        <p class="m-0 mt-3 text-xs leading-relaxed text-ink-2">Aturan "10 yield tertinggi" gagal di saham syariah dan non-syariah 2014-2026: penghasilan tinggi hanya saat boom batu bara.</p>
-        <div class="mt-4 text-xs text-muted">Yield tertinggi saat ini · rutin bayar ≥ 3 tahun · bukan rekomendasi</div>
-        <Kerangka v-if="!divSiap" class="mt-2" :n="5" />
-        <div class="mt-2 grid grid-cols-1 gap-x-6 sm:grid-flow-col sm:grid-cols-2" :style="{ gridTemplateRows: `repeat(${Math.ceil(divPilihan.length / 2)}, auto)` }">
-          <div v-for="(x, i) in divPilihan" :key="x.kode" class="flex items-center gap-3 border-b border-garis py-2 text-[13px]">
-            <span class="w-4 text-right text-xs text-muted tabular-nums">{{ i + 1 }}</span>
-            <KodeSaham :kode="x.kode" />
-            <span v-if="x.yield != null" class="ml-auto font-medium tabular-nums" :class="kelasPersen(x.yield)">{{ persen(x.yield, 1) }}</span>
+      <Panel class="h-full" judul="Hipotesis" :ket="hip ? `${hip.hipotesis.length} uji riset · aturan & kriteria dikunci sebelum uji` : 'Semua uji riset'">
+        <template #aksi><button class="tombol" @click="pindahTab('hipotesis')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
+        <Kerangka v-if="!hip" :n="4" />
+        <template v-else>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="x in hipStatus" :key="x.id" class="chip" :class="x.kelas">{{ x.label }} {{ x.n }}</span>
           </div>
-        </div>
-        <p v-if="divYield != null" class="m-0 mt-3 text-xs leading-relaxed text-muted">
-          Rata-rata yield <span class="font-medium" :class="kelasPersen(divYield)">{{ persen(divYield, 1) }}</span> per tahun (dividen setahun ÷ harga, sebelum pajak 10%).
-          Harga sahamnya tetap bisa turun lebih dalam dari dividennya.
-        </p>
+          <div class="mt-4 text-xs text-muted">Pelajaran besar</div>
+          <div v-for="p in hip.pelajaran.slice(0, 3)" :key="p.judul" class="border-b border-garis py-2.5 last:border-0">
+            <div class="text-[13px] font-medium">{{ p.judul }}</div>
+            <div class="mt-0.5 line-clamp-2 text-xs leading-relaxed text-ink-2">{{ p.isi }}</div>
+          </div>
+        </template>
       </Panel>
     </div>
 
     <div class="flex items-baseline gap-3 px-1 pt-3"><h2 class="m-0 text-[17px] font-medium">Produk</h2><span class="text-xs text-muted">tempat menaruh uang yang bisa dibeli langsung</span></div>
     <div class="grid gap-5 lg:grid-cols-2">
-      <Panel class="h-full" judul="Reksa Dana" :ket="`${rdJumlah} produk syariah · terbaik per jenis menurut skor 1 tahun`" rapat>
-        <template #aksi><button class="tombol" @click="pindahTab('reksadana', 'katalog')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
+      <Panel class="h-full" judul="Reksa Dana" :ket="`${rdJumlah} produk syariah · urutan teratas per jenis (lencana)`" rapat>
+        <template #aksi><button class="tombol" @click="pindahTab('reksadana', 'mulai')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
         <Kerangka v-if="!siap" jenis="tabel" :n="4" />
         <table v-else class="tabel">
           <tbody>
-            <tr v-for="x in rdTerbaik" :key="x.id" class="cursor-pointer" @click="pindahTab('reksadana', 'katalog')">
+            <tr v-for="x in rdTerbaik" :key="x.id" class="cursor-pointer" @click="bukaRd(x.id)">
               <td><div class="flex items-center gap-3"><Logo jenis="mi" :kunci="kunciMi(x.mi)" :teks="x.mi" :ukuran="32" /><div class="min-w-0"><div class="text-xs text-muted">{{ x.kategori_label }}</div><div class="max-w-[240px] truncate text-[13px]">{{ x.nama }}</div></div></div></td>
-              <td class="text-right font-medium tabular-nums" :class="kelasPersen(x.ret_1th)">{{ persen(x.ret_1th) }}</td>
+              <td class="text-right"><div class="font-medium tabular-nums" :class="kelasPersen(x.cagr_3 ?? x.ret_1th)">{{ persen(x.cagr_3 ?? x.ret_1th, 1) }}</div><div class="text-[11px] text-muted">{{ x.cagr_3 != null ? "per th, 3 th" : "1 th" }}</div></td>
             </tr>
           </tbody>
         </table>
-        <p class="m-0 px-6 pt-1 pb-3 text-xs text-muted">Hasil 1 tahun terakhir, bukan jaminan ke depan.</p>
+        <p class="m-0 px-6 pt-1 pb-3 text-xs text-muted">Hasil masa lalu, bukan jaminan ke depan. Mulai dari tujuanmu di menu Reksa Dana.</p>
       </Panel>
       <Panel class="h-full" judul="ETF" :ket="`${etfSyariah.idx} ETF syariah IDX · ${etfSyariah.luar} ETF syariah luar negeri`" rapat>
         <template #aksi><button class="tombol" @click="pindahTab('etf', 'daftar')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
@@ -325,6 +326,27 @@ function waktu(s) {
           </tbody>
         </table>
         <p class="m-0 px-6 pt-1 pb-3 text-xs text-muted">ETF syariah dengan hasil 1 tahun tertinggi (ETF luar dalam rupiah).</p>
+      </Panel>
+      <Panel class="h-full lg:col-span-2" judul="Dividen" ket="Dividen saham syariah · jadwal, kalender, yield">
+        <template #aksi><button class="tombol" @click="pindahTab('dividen', 'daftar')">Buka <ArrowRight class="h-3.5 w-3.5" /></button></template>
+        <div class="flex flex-wrap gap-2">
+          <span class="chip bg-surface-2 text-muted">pernah diuji: H17</span>
+          <span class="chip bg-turun-bg text-turun">strategi gagal</span>
+        </div>
+        <p class="m-0 mt-3 text-xs leading-relaxed text-ink-2">Aturan "10 yield tertinggi" gagal di saham syariah dan non-syariah 2014-2026: penghasilan tinggi hanya saat boom batu bara.</p>
+        <div class="mt-4 text-xs text-muted">Yield tertinggi saat ini · rutin bayar ≥ 3 tahun · bukan rekomendasi</div>
+        <Kerangka v-if="!divSiap" class="mt-2" :n="5" />
+        <div class="mt-2 grid grid-cols-1 gap-x-6 sm:grid-flow-col sm:grid-cols-2 lg:grid-cols-5 lg:grid-rows-2!" :style="{ gridTemplateRows: `repeat(${Math.ceil(divPilihan.length / 2)}, auto)` }">
+          <div v-for="(x, i) in divPilihan" :key="x.kode" class="flex items-center gap-3 border-b border-garis py-2 text-[13px]">
+            <span class="w-4 text-right text-xs text-muted tabular-nums">{{ i + 1 }}</span>
+            <KodeSaham :kode="x.kode" />
+            <span v-if="x.yield != null" class="ml-auto font-medium tabular-nums" :class="kelasPersen(x.yield)">{{ persen(x.yield, 1) }}</span>
+          </div>
+        </div>
+        <p v-if="divYield != null" class="m-0 mt-3 text-xs leading-relaxed text-muted">
+          Rata-rata yield <span class="font-medium" :class="kelasPersen(divYield)">{{ persen(divYield, 1) }}</span> per tahun (dividen setahun ÷ harga, sebelum pajak 10%).
+          Harga sahamnya tetap bisa turun lebih dalam dari dividennya.
+        </p>
       </Panel>
     </div>
 

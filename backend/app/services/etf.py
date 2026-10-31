@@ -7,6 +7,24 @@ from backend.db import data as dt
 from backend.db import koneksi as d
 
 BATAS_LONJAKAN = 0.20
+BATAS_BALIK = 0.15
+SELISIH_DIVIDEN = 0.02
+DATA_ANDAL_SEJAK = {"ISWD.L": "2017-06-29"}
+
+
+def baca_luar(kode):
+    h = dt.baca(f"etf_luar/{kode}")
+    if h is None or h.empty:
+        return h
+    sejak = DATA_ANDAL_SEJAK.get(kode)
+    if sejak:
+        h = h[h.index >= pd.Timestamp(sejak)]
+    awal = h["close"].pct_change().iloc[:5].abs()
+    if (awal > BATAS_BALIK).any():
+        h = h[h.index >= awal[awal > BATAS_BALIK].index[-1]]
+    r = h["close"].pct_change()
+    lonjak = (r.abs() > BATAS_LONJAKAN) & (r.shift(-1).abs() > BATAS_BALIK) & (np.sign(r) != np.sign(r.shift(-1)))
+    return h[~lonjak]
 
 
 def bersihkan(h):
@@ -92,7 +110,18 @@ def cagr_sejak(s, mulai):
 
 
 def total(h):
-    return (h["adj_close"] if "adj_close" in h and h["adj_close"].notna().any() else h["close"]).dropna()
+    c = h["close"]
+    ada_adj = "adj_close" in h and h["adj_close"].notna().any()
+    if "dividends" in h and (h["dividends"].fillna(0) > 0).any():
+        sendiri = ((c + h["dividends"].fillna(0)) / c.shift(1)).fillna(1).cumprod() * c.iloc[0]
+        if not ada_adj:
+            return sendiri.dropna()
+        a = h["adj_close"]
+        rasio_adj = (a.iloc[-1] / a.iloc[0]) / (c.iloc[-1] / c.iloc[0])
+        rasio_sendiri = (sendiri.iloc[-1] / sendiri.iloc[0]) / (c.iloc[-1] / c.iloc[0])
+        if abs(rasio_sendiri / rasio_adj - 1) > SELISIH_DIVIDEN:
+            return sendiri.dropna()
+    return (h["adj_close"] if ada_adj else c).dropna()
 
 
 def daftar_luar():
@@ -108,7 +137,7 @@ def daftar_luar():
 
     hasil = []
     for m in db.etf_luar.find({}, {"_id": 0}):
-        h = dt.baca(f"etf_luar/{m['kode']}")
+        h = baca_luar(m['kode'])
         if h is None or h.empty:
             continue
         s = total(h)
@@ -131,13 +160,13 @@ def daftar_luar():
 
 
 def grafik_luar(kode, banding="SPY"):
-    h = dt.baca(f"etf_luar/{kode}")
+    h = baca_luar(kode)
     if h is None:
         return None
     s = total(h)
     b = None
     if banding and banding != kode:
-        hb = dt.baca(f"etf_luar/{banding}")
+        hb = baca_luar(banding)
         if hb is not None:
             sb = total(hb).reindex(s.index, method="ffill")
             if sb.notna().any():
@@ -172,7 +201,7 @@ def dividen_info(h):
 
 
 def _seri_luar(kode):
-    h = dt.baca(f"etf_luar/{kode}")
+    h = baca_luar(kode)
     return None if h is None or h.empty else h
 
 
@@ -189,7 +218,8 @@ def detail_luar(kode):
     hasil = {**x, **dividen_info(h), "isi_top": m.get("isi_top") or [], "sektor_bobot": sektor, "aset_bobot": aset,
              "cocok": info.COCOK.get(x["kelas"]), "wilayah_ket": info.WILAYAH_KET.get(x["wilayah"]),
              "pajak": {**pajak, "indonesia": info.PAJAK["indonesia"], "catatan": info.PAJAK["catatan"]}}
-    from backend.app.services import kesimpulan
+    from backend.app.services import etf_yakin, kesimpulan
+    hasil["keyakinan"] = etf_yakin.keyakinan(kode, x.get("mata_uang"))
     hasil["kesimpulan"] = kesimpulan.etf_luar(hasil, data)
     return rdn.bersih(hasil)
 

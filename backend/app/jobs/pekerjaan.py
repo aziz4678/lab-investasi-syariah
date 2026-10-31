@@ -20,6 +20,7 @@ PERINTAH = {
     "harga_unduh_ulang": ("Unduh ulang penuh harga saham riset & data pasar", ["-m", "backend.ingest.kumpul_data", "penuh"]),
     "makro_perbarui": ("Perbarui data makro (BI-Rate, inflasi)", ["-m", "backend.ingest.makro", "perbarui"]),
     "rd_perbarui": ("Perbarui reksa dana & sukuk", ["-m", "backend.ingest.reksadana"]),
+    "rd_platform_perbarui": ("Perbarui platform tempat beli reksa dana", ["-m", "backend.ingest.rd_platform"]),
     "isi_backtest": ("Hitung ulang hasil backtest", ["-m", "backend.db.isi_backtest"]),
     "eksplorasi_2020": ("Eksplorasi ulang 2020+ (bukan bukti)", ["-m", "backend.research.eksplorasi_2020"]),
     "impor_fundamental": ("Impor laporan keuangan", ["-m", "backend.ingest.impor_browser", "fundamental"]),

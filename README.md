@@ -44,11 +44,16 @@ Katalog lengkap 41 hipotesis (H0-H25) beserta kriteria, hasil, dan grafiknya ada
 
 - **Beranda**: pasar hari ini (IHSG, perputaran uang, naik/turun, sektor, pasar dunia, jadwal dividen), ringkasan strategi, produk, perawatan, dan sumber data.
 - **Follow Tren**: paper trade + pantauan harga, backtest, aturan, riset.
-- **Dividen**: daftar & kalender dividen saham syariah, kalkulator penghasilan, hasil uji, dividend trap.
 - **Hipotesis**: katalog semua uji, pelajaran, dan eksplorasi 2020+ (bukan bukti).
 - **Emiten**: profil, harga, valuasi, dividen, fundamental, kepemilikan KSEI, transaksi orang dalam, berita, pengumuman.
-- **Reksa Dana & Sukuk**: katalog + skor, sukuk & SBN, perbandingan, alokasi, kalkulator campuran lapisan.
-- **ETF**: ETF syariah Indonesia dan ETF luar negeri (yang bukan syariah diberi label).
+- **Dividen**: informasi dividen saham syariah (jadwal resmi IDX, daftar & kalender, kalkulator penghasilan, dividend trap), plus ringkasan hasil uji strategi dividen H17 yang gagal.
+- **Reksa Dana & Sukuk** (dibuat untuk pemula):
+  - *Mulai di sini*: pilih kapan uangnya dipakai (< 1 th / 1–3 th / 5 th+) dan profil risiko (rendah/sedang/tinggi), lalu dapat racikan sukuk negara, reksa dana pasar uang, pendapatan tetap, saham Indonesia, dan saham global (dalam rupiah), beserta perkiraan hasil dari data masa lalu.
+  - *Reksa Dana*: katalog dengan **lencana** (Konsisten, Kalahkan inflasi, Tahan banting, Biaya murah) dan peringatan otomatis (data pendek, NAV terlalu mulus, satu efek > 15%, dana kelolaan naik/turun tajam). Skor 0–100 tidak dipakai lagi.
+  - *Tersedia di*: logo Bibit, Ajaib, dan Makmur yang menautkan ke halaman produknya (diambil dari halaman/sitemap publik), plus daftar 93 aplikasi jual-beli reksa dana berizin OJK.
+  - Detail produk: ringkasan 30 detik, NAV/AUM, isi portofolio, "Seberapa bisa dipercaya" (hasil per tahun vs median sejenis/patokan/inflasi, posisi sekarang dari puncak, kenapa turun di tahun tertentu, berapa lama sebaiknya ditahan), dan kesimpulan.
+  - *Sukuk & SBN*, *Bandingkan* (2–5 produk, termasuk deposito/JII/emas), *Cara kerja & istilah* (panduan pemula).
+- **ETF**: ETF syariah Indonesia (detail produk + harga bursa) dan ETF luar negeri (yang bukan syariah diberi label), dengan panel "Seberapa bisa dipercaya" yang sama.
 - **Rencana** dan **Panduan**.
 
 Semua aksi (memperbarui data, menjalankan job, backup) dijalankan lewat tombol di dashboard.
@@ -82,7 +87,7 @@ Semua data disimpan di MongoDB lokal, tidak ada file data di folder proyek:
 
 Data keuangan 2010-2020 dibaca dari tabel "Financial Data & Ratios" di PDF IDX Monthly Statistics (arsip Wayback Machine dan situs IDX; hanya angka hasil bacaan yang disimpan), 2021+ dari statistik digital IDX. Hasil bacaan PDF dicocokkan dengan API IDX: 97,5% angka sama.
 
-Sumber: Yahoo Finance (harga, hanya bar harian yang sudah final), IDX, OJK, KSEI, Bank Indonesia, FRED, Pasardana. Data IDX/OJK yang dilindungi Cloudflare diambil lewat Chrome biasa dengan profil terpisah ("Chrome Lab"); pemeriksaan Cloudflare tetap dilewati manual.
+Sumber: Yahoo Finance (harga, hanya bar harian yang sudah final), IDX, OJK (termasuk NAB bulanan reksa dana sejak 2013 dan daftar aplikasi berizin), KSEI, Bank Indonesia, FRED, Pasardana, serta katalog publik Bibit, Ajaib, dan Makmur (hanya halaman/sitemap publik, tanpa login). Data IDX/OJK yang dilindungi Cloudflare diambil lewat Chrome biasa dengan profil terpisah ("Chrome Lab"); pemeriksaan Cloudflare tetap dilewati manual.
 
 ## Struktur
 

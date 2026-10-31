@@ -116,6 +116,9 @@ def jalan():
         urutan += ["paper_harian", "paper_cek"]
     urutan += ["harga_perbarui", "pasar_perbarui"]
     urutan.append("rd_perbarui")
+    from backend.app.services import sumber_data as sd
+    if sd.platform_perlu(db):
+        urutan.append("rd_platform_perbarui")
     urutan.append("etf_perbarui")
     urutan.append("makro_perbarui")
     urutan.append("browser")

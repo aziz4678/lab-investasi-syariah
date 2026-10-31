@@ -18,7 +18,7 @@ import RingkasHariIni from "@/components/produk/RingkasHariIni.vue";
 
 const props = defineProps({ sub: String });
 const emit = defineEmits(["sub"]);
-const SUB = [["daftar", "ETF Indonesia"], ["luar", "ETF luar negeri"], ["banding", "Bandingkan"], ["data", "Cara membaca"]];
+const SUB = [["data", "Cara membaca"], ["luar", "ETF luar negeri"], ["daftar", "ETF Indonesia"], ["banding", "Bandingkan"]];
 const SEPI = 50_000_000;
 
 const data = ref(null);
@@ -133,26 +133,25 @@ const FREK_PENDEK = { Mingguan: "mingguan", Bulanan: "bulanan", "Kuartalan (3 bu
 
     <template v-if="sub === 'daftar' && pilih && aktif">
       <button class="tombol" @click="pilih = null"><ArrowLeft class="h-3.5 w-3.5" />Kembali ke daftar ETF</button>
-      <div v-if="aktif.isi" class="panel flex gap-3 px-6 py-4 text-[13px] text-ink-2"><IkonInfo class="mt-0.5 h-4 w-4 shrink-0 text-muted" /><span><b class="font-medium text-ink">Apa isinya:</b> {{ aktif.isi }}</span></div>
-      <Panel v-if="aktif.kode" :judul="`Harga ${aktif.kode} di bursa`" :ket="`1D: harga per menit hari ini (tertunda ±10 menit) · rentang lain: harga penutupan harian sejak ${aktif.bursa_mulai} · lonjakan sesaat > 20% dari median 5 hari tidak ditampilkan`">
-        <GrafikRentang v-if="grafik && intraSiap" :key="aktif.kode" :tgl="grafik.tgl" :harga="grafik.close" :pembanding="grafik.ihsg" :nama="aktif.kode" nama-pembanding="IHSG"
-          :intraday="intra" :awal="intra ? '1D' : '1Y'" :format="(v) => v.toLocaleString('id-ID', { maximumFractionDigits: 0 })" />
-        <Kerangka v-else jenis="grafik" :tinggi="300" />
-        <RingkasHariIni :intra="intra" :format="(v) => v.toLocaleString('id-ID', { maximumFractionDigits: 0 })" :uang="(v) => uang(v)"
-          :catatan="intra && intra.nilai_transaksi < SEPI ? 'transaksi sepi, grafik per menit bisa putus-putus' : ''" />
-        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Modal minimal (1 lot)</div><div class="mt-0.5 text-[17px] font-medium">Rp{{ rupiah(Math.round(aktif.harga * 100)) }}</div><div class="text-[11px] text-muted">100 unit × harga terakhir</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Pertumbuhan per tahun</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(aktif.cagr_semua)">{{ aktif.cagr_semua == null ? "–" : persen(aktif.cagr_semua, 1) }}</div><div class="text-[11px] text-muted">sejak terdaftar ({{ aktif.tahun_data }} th)</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Turun terdalam</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(aktif.dd_semua)">{{ persen(aktif.dd_semua, 1) }}</div><div class="text-[11px] text-muted">harga bursa, sejak terdaftar</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Transaksi per hari</div><div class="mt-0.5 text-[17px] font-medium" :class="aktif.nilai_transaksi < SEPI ? 'text-kuning' : ''">{{ uang(aktif.nilai_transaksi) }}</div><div class="text-[11px] text-muted">rata-rata 20 hari{{ aktif.nilai_transaksi < SEPI ? " · sepi" : "" }}</div></div>
-        </div>
-        <p v-if="aktif.lonjakan_dibuang" class="m-0 mt-3 flex items-start gap-2 rounded-2xl bg-kuning-bg px-4 py-3 text-xs text-kuning">
-          <TriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Pernah ada {{ aktif.lonjakan_dibuang }} transaksi di harga yang jauh dari biasanya. ETF yang sepi bisa diperdagangkan jauh di atas/bawah nilai aslinya (NAV): selalu bandingkan harga beli dengan NAV terakhir di bawah.</span>
-        </p>
-      </Panel>
-      <p v-else class="panel m-0 px-6 py-4 text-[13px] text-ink-2">Kode bursa ETF ini belum ditemukan di Yahoo, jadi riwayat harga bursanya belum ada. Data NAV dari Pasardana di bawah tetap bisa dipakai.</p>
-      <ProdukRD :id="pilih" tanpa-kembali />
+      <ProdukRD :id="pilih" :kode-bursa="aktif.kode" :isi="aktif.isi" :tanpa-harga-bursa="!aktif.kode" tanpa-kembali>
+        <Panel v-if="aktif.kode" :judul="`Harga ${aktif.kode} di bursa`" :ket="`1D: harga per menit hari ini (tertunda ±10 menit) · rentang lain: harga penutupan harian sejak ${aktif.bursa_mulai} · lonjakan sesaat > 20% dari median 5 hari tidak ditampilkan`">
+          <GrafikRentang v-if="grafik && intraSiap" :key="aktif.kode" :tgl="grafik.tgl" :harga="grafik.close" :pembanding="grafik.ihsg" :nama="aktif.kode" nama-pembanding="IHSG"
+            :intraday="intra" :awal="intra ? '1D' : '1Y'" :format="(v) => v.toLocaleString('id-ID', { maximumFractionDigits: 0 })" />
+          <Kerangka v-else jenis="grafik" :tinggi="300" />
+          <RingkasHariIni :intra="intra" :format="(v) => v.toLocaleString('id-ID', { maximumFractionDigits: 0 })" :uang="(v) => uang(v)"
+            :catatan="intra && intra.nilai_transaksi < SEPI ? 'transaksi sepi, grafik per menit bisa putus-putus' : ''" />
+          <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Modal minimal (1 lot)</div><div class="mt-0.5 text-[17px] font-medium">Rp{{ rupiah(Math.round(aktif.harga * 100)) }}</div><div class="text-[11px] text-muted">100 unit × harga terakhir</div></div>
+            <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Pertumbuhan per tahun</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(aktif.cagr_semua)">{{ aktif.cagr_semua == null ? "–" : persen(aktif.cagr_semua, 1) }}</div><div class="text-[11px] text-muted">sejak terdaftar ({{ aktif.tahun_data }} th)</div></div>
+            <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Turun terdalam</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(aktif.dd_semua)">{{ persen(aktif.dd_semua, 1) }}</div><div class="text-[11px] text-muted">harga bursa, sejak terdaftar</div></div>
+            <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Transaksi per hari</div><div class="mt-0.5 text-[17px] font-medium" :class="aktif.nilai_transaksi < SEPI ? 'text-kuning' : ''">{{ uang(aktif.nilai_transaksi) }}</div><div class="text-[11px] text-muted">rata-rata 20 hari{{ aktif.nilai_transaksi < SEPI ? " · sepi" : "" }}</div></div>
+          </div>
+          <p v-if="aktif.lonjakan_dibuang" class="m-0 mt-3 flex items-start gap-2 rounded-2xl bg-kuning-bg px-4 py-3 text-xs text-kuning">
+            <TriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>Pernah ada {{ aktif.lonjakan_dibuang }} transaksi di harga yang jauh dari biasanya. ETF yang sepi bisa diperdagangkan jauh di atas/bawah nilai aslinya (NAV): selalu bandingkan harga beli dengan NAV terakhir di bawah.</span>
+          </p>
+        </Panel>
+      </ProdukRD>
     </template>
 
     <template v-else-if="sub === 'daftar' && !data">

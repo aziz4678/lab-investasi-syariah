@@ -1,51 +1,29 @@
 <script setup>
 import { ref, computed, watch } from "vue";
-import { ArrowLeft, FileText, ExternalLink } from "lucide-vue-next";
+import { ArrowLeft, FileText, ExternalLink, TriangleAlert, GitCompareArrows } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { persen, rupiah, ringkas, kelasPersen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
-import Stats from "@/components/common/Stats.vue";
 import GrafikRentang from "@/components/charts/GrafikRentang.vue";
 import Segmen from "@/components/common/Segmen.vue";
 import KesimpulanProduk from "@/components/produk/KesimpulanProduk.vue";
+import KeyakinanRD from "@/components/produk/KeyakinanRD.vue";
+import LencanaRD from "@/components/produk/LencanaRD.vue";
+import TersediaDi from "@/components/produk/TersediaDi.vue";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 
-const props = defineProps({ id: Number, tanpaKembali: Boolean });
-const emit = defineEmits(["kembali"]);
+const props = defineProps({ id: Number, tanpaKembali: Boolean, kodeBursa: String, isi: String, tanpaHargaBursa: Boolean });
+const emit = defineEmits(["kembali", "banding"]);
 const p = ref(null);
 const galat = ref("");
 const modeGrafik = ref("nav");
-const rentangRD = ref("ALL");
-const NAMA_RENTANG = { "1W": "1 Minggu", "1M": "1 Bulan", "3M": "3 Bulan", YTD: "YTD", "1Y": "1 Tahun", "3Y": "3 Tahun", "5Y": "5 Tahun", ALL: "Sejak Awal" };
-function awalRentang(tgl, k) {
-  const n = tgl.length;
-  if (n < 2 || k === "ALL") return 0;
-  const akhir = new Date(tgl[n - 1]);
-  const d = new Date(akhir);
-  if (k === "YTD") d.setFullYear(akhir.getFullYear() - 1, 11, 31);
-  else if (k === "1W") d.setDate(d.getDate() - 7);
-  else d.setMonth(d.getMonth() - { "1M": 1, "3M": 3, "1Y": 12, "3Y": 36, "5Y": 60 }[k]);
-  const batas = d.toISOString().slice(0, 10);
-  let i = n - 1;
-  while (i > 0 && tgl[i] > batas) i -= 1;
-  return i;
-}
-const kinerja = computed(() => {
-  const g = p.value?.grafik;
-  if (!g?.tgl?.length) return null;
-  const i = awalRentang(g.tgl, rentangRD.value);
-  const nav = g.nav.slice(i);
-  if (nav.length < 2) return null;
-  const tahun = (new Date(g.tgl.at(-1)) - new Date(g.tgl[i])) / 864e5 / 365.25;
-  const ret = (nav.at(-1) / nav[0] - 1) * 100;
-  let puncak = nav[0], dd = 0;
-  for (const v of nav) {
-    puncak = Math.max(puncak, v);
-    dd = Math.min(dd, (v / puncak - 1) * 100);
-  }
-  return { tahun, ret, cagr: tahun >= 1 ? (Math.pow(nav.at(-1) / nav[0], 1 / tahun) - 1) * 100 : null, dd, mulai: g.tgl[i] };
+const deskripsiRapi = computed(() => {
+  const d = (p.value?.deskripsi || "").trim();
+  const kata = (w) => (w.length <= 3 || /\d/.test(w) ? w : w[0] + w.slice(1).toLowerCase());
+  return d.replace(/^(?:[A-Z0-9&().\-]{2,}\s+){2,}/, (m) => m.split(/(\s+)/).map(kata).join(""));
 });
+const rentangRD = ref("ALL");
 
 watch(() => props.id, async (id) => {
   p.value = null;
@@ -58,110 +36,147 @@ watch(() => props.id, async (id) => {
   }
 }, { immediate: true });
 
+const COCOK = {
+  pasar_uang: "Dana darurat dan uang yang dipakai kurang dari 1 tahun",
+  pendapatan_tetap: "Tabungan untuk 1–3 tahun ke depan",
+  campuran: "Uang yang tidak dipakai 3–5 tahun",
+  saham: "Uang yang tidak dipakai 5 tahun atau lebih, dan siap melihat nilainya turun separuh",
+  indeks: "Uang yang tidak dipakai 5 tahun atau lebih",
+  global: "Jangka panjang, siap dengan naik-turun kurs dolar",
+  terproteksi: "Uang yang pasti tidak dipakai sampai jatuh tempo",
+  etf: "Lihat menu ETF",
+  penyertaan_terbatas: "Investor besar/profesional",
+};
 const uang = (v) => (v == null ? "–" : `${p.value?.mata_uang === "USD" ? "US$" : "Rp"}${ringkas(v)}`);
-
 const tglId = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "");
-const stat = computed(() => {
+const minBeli = (v) => (!v || v === "-" ? "–" : String(v).replace(/^Rp\.?\s*/i, "Rp").replace(/,-$/, ""));
+const sejutaJadi = computed(() => (p.value?.cagr_3 != null ? 1e6 * Math.pow(1 + p.value.cagr_3 / 100, 3) : null));
+const ringkasan = computed(() => {
   const x = p.value;
   if (!x) return [];
-  const mk = x.median_kategori || {};
   return [
-    { label: "NAV/Unit", nilai: x.nav == null ? "–" : x.nav.toLocaleString("id-ID", { maximumFractionDigits: 4 }), ket: tglId(x.nav_tgl), info: "Net Asset Value per unit penyertaan pada tanggal terakhir yang dipublikasikan." },
-    { label: "AUM", nilai: uang(x.aum), ket: [x.aum_tgl ? `Per ${tglId(x.aum_tgl)}` : "", x.aum_ubah != null ? `${persen(x.aum_ubah, 1)} dari bulan sebelumnya` : ""].filter(Boolean).join(" · "), info: "Asset Under Management: total dana kelolaan produk ini." },
-    { label: "Total AUM Manajer Investasi", nilai: x.aum_mi == null ? "–" : `Rp${ringkas(x.aum_mi)}`, ket: `${x.aum_mi_produk} reksa dana syariah`, info: `Jumlah AUM seluruh reksa dana syariah yang dikelola ${x.mi} dalam katalog.${x.aum_mi_kurs ? ` Produk berdenominasi USD dikonversi dengan kurs Rp${rupiah(Math.round(x.aum_mi_kurs))}.` : ""}` },
-    { label: "Tingkat Risiko", nilai: x.risiko == null ? "–" : `${Math.round(x.risiko)}/9`, ket: x.risiko_label ? `Risiko ${x.risiko_label.toLowerCase()}` : "Tidak tersedia", info: "Klasifikasi risiko skala 1 (terendah) sampai 9 (tertinggi) dari Pasardana berdasarkan prospektus: 1–3 rendah, 4–6 sedang, 7–9 tinggi." },
-    { label: "Imbal Hasil 1 Tahun", nilai: persen(x.ret_1th, 2), ket: mk.ret_1th != null ? `Median kategori ${persen(mk.ret_1th, 1)}` : "", info: "Perubahan NAV/Unit selama 12 bulan terakhir, setelah dikurangi biaya." },
-    kinerja.value?.cagr != null
-      ? { label: `CAGR ${NAMA_RENTANG[rentangRD.value]}`, nilai: persen(kinerja.value.cagr, 2), ket: `Sejak ${tglId(kinerja.value.mulai)} · ${kinerja.value.tahun.toLocaleString("id-ID", { maximumFractionDigits: 1 })} tahun`, info: "Compound Annual Growth Rate: pertumbuhan rata-rata NAV/Unit per tahun pada rentang yang dipilih di grafik." }
-      : { label: `Imbal Hasil ${NAMA_RENTANG[rentangRD.value]}`, nilai: persen(kinerja.value?.ret, 2), ket: kinerja.value ? `Sejak ${tglId(kinerja.value.mulai)} · tidak disetahunkan` : "", info: "Perubahan NAV/Unit pada rentang yang dipilih. Rentang di bawah 1 tahun tidak disetahunkan (CAGR hanya untuk rentang minimal 1 tahun)." },
-    { label: `Max Drawdown ${NAMA_RENTANG[rentangRD.value]}`, nilai: persen(kinerja.value?.dd, 2), ket: rentangRD.value === "1Y" && mk.dd != null ? `Median kategori ${persen(mk.dd, 1)}` : kinerja.value && new Date(kinerja.value.mulai) < new Date(Date.now() - 400 * 864e5) ? "Sebelum 12 bulan terakhir memakai NAV akhir bulan" : "Berdasarkan NAV harian", info: "Penurunan terbesar NAV/Unit dari titik tertinggi ke titik terendah pada rentang yang dipilih di grafik." },
-    { label: "Expense Ratio", nilai: x.biaya == null ? "–" : persen(x.biaya, 2, false), ket: mk.biaya != null ? `Median kategori ${persen(mk.biaya, 2, false)}` : "", info: "Total biaya operasional tahunan yang dibebankan pada dana, dalam persen dari AUM." },
-  ];
+    x.cagr_3 != null
+      ? { l: "Rata-rata per tahun", v: persen(x.cagr_3, 1), k: "3 tahun terakhir, setelah biaya", c: kelasPersen(x.cagr_3) }
+      : { l: "Hasil 12 bulan", v: persen(x.ret_1th, 1), k: "riwayat belum 3 tahun", c: kelasPersen(x.ret_1th) },
+    { l: "Tahun terburuk", v: x.tahun_terburuk ? persen(x.tahun_terburuk.ret, 1) : "–", k: x.tahun_terburuk ? `tahun ${x.tahun_terburuk.tahun}` : "belum ada tahun penuh", c: x.tahun_terburuk ? kelasPersen(x.tahun_terburuk.ret) : "" },
+    { l: "Turun terburuk", v: x.turun_terburuk == null ? "–" : persen(x.turun_terburuk, 1), k: "dari titik tertinggi, sepanjang riwayat", c: x.turun_terburuk < -0.05 ? "text-turun" : "" },
+    { l: "Biaya per tahun", v: x.biaya == null ? "–" : persen(x.biaya, 2, false), k: x.median_kategori?.biaya != null ? `nilai tengah sejenis ${persen(x.median_kategori.biaya, 2, false)}` : "", c: "" },
+    x.etf ? { l: "Minimal beli", v: "1 lot", k: "100 unit, dibeli di bursa", c: "" } : { l: "Minimal beli", v: minBeli(x.min_beli), k: "menurut manajer investasi; di aplikasi bisa beda", c: "" },
+    { l: "Dana kelolaan", v: uang(x.aum), k: x.aum_tgl ? `per ${tglId(x.aum_tgl)}` : "", c: "" },
+  ].filter((r) => r.v !== "–" && r.v != null);
 });
-
-const RET = [["ret_1bln", "1 bulan"], ["ret_3bln", "3 bulan"], ["ret_6bln", "6 bulan"], ["ret_ytd", "Year to date"], ["ret_1th", "1 tahun"], ["vol", "Volatilitas (tahunan)"], ["dd", "Max drawdown"]];
+const cocok = computed(() => {
+  const x = p.value;
+  if (!x) return "–";
+  if (x.kategori === "etf") {
+    const n = `${x.nama} ${props.isi || ""}`;
+    if (/emas|gold/i.test(n)) return "Simpanan jangka panjang dan penyeimbang saat pasar saham turun; harganya ikut harga emas dan kurs";
+    if (/sukuk|obligasi|bond|pendapatan tetap/i.test(n)) return "Tabungan 1–3 tahun";
+    return "Uang yang tidak dipakai 5 tahun atau lebih";
+  }
+  return COCOK[x.kategori] || "–";
+});
+const PERIODE = [["ret_1bln", "1 bln"], ["ret_3bln", "3 bln"], ["ret_6bln", "6 bln"], ["ret_ytd", "Sejak Jan"], ["ret_1th", "1 th"]];
 const infoProduk = computed(() => {
   const x = p.value;
   if (!x) return [];
-  const r = [["Minimum pembelian awal", x.min_beli], ["Minimum pembelian selanjutnya", x.min_beli_lagi], ["Imbalan jasa manajer investasi", x.biaya_mi],
-    ["Tingkat risiko", x.risiko == null ? null : `${Math.round(x.risiko)} dari 9 (${x.risiko_label})`], ["Tanggal peluncuran", x.terbit ? tglId(x.terbit) : null], ["Tolok ukur (benchmark)", x.pembanding], ["Kode ISIN", x.isin]];
-  if (x.dividen?.length) r.push(["Pembagian hasil investasi", `${x.dividen.length} kali`]);
+  const r = [["Minimal pembelian awal", minBeli(x.min_beli)], ["Minimal pembelian berikutnya", minBeli(x.min_beli_lagi)], ["Imbalan manajer investasi", x.biaya_mi],
+    ["Tingkat risiko (prospektus)", x.risiko == null ? null : `${Math.round(x.risiko)} dari 9 (${x.risiko_label})`], ["Diluncurkan", x.terbit ? tglId(x.terbit) : null],
+    ["Bank kustodian (penyimpan aset)", x.kustodian], ["Tolok ukur", x.pembanding], ["Total dana kelolaan MI ini", x.aum_mi ? `Rp${ringkas(x.aum_mi)} · ${x.aum_mi_produk} RD syariah` : null], ["Kode ISIN", x.isin]];
+  if (x.dividen?.length) r.push(["Pembagian hasil (dividen)", `${x.dividen.length} kali`]);
   return r.map(([l, v]) => [l, v == null || v === "" ? "–" : v]);
 });
 const kurva = computed(() => p.value?.grafik || { tgl: [], nav: [] });
 const maksAset = computed(() => Math.max(1, ...(p.value?.aset || []).map((a) => a.bobot || 0)));
+const namaPembanding = computed(() => (/7.?Day|BI|Rate/i.test(p.value?.pembanding || "") ? "BI-Rate (dibungakan)" : p.value?.pembanding || "Tolok ukur"));
 </script>
 
 <template>
   <div class="space-y-5">
-    <button v-if="!tanpaKembali" class="tombol" @click="emit('kembali')"><ArrowLeft class="h-3.5 w-3.5" />Kembali ke katalog</button>
+    <div class="flex flex-wrap gap-2">
+      <button v-if="!tanpaKembali" class="tombol" @click="emit('kembali')"><ArrowLeft class="h-3.5 w-3.5" />Kembali</button>
+      <button v-if="p && !tanpaKembali" class="tombol" @click="emit('banding', id)"><GitCompareArrows class="h-3.5 w-3.5" />Bandingkan dengan produk lain</button>
+    </div>
     <div v-if="galat" class="panel px-6 py-4 text-turun">{{ galat }}</div>
     <template v-else-if="!p">
       <Kerangka panel :n="3" />
+      <Kerangka panel jenis="stat" :n="6" :judul="false" kolom="grid-cols-2 md:grid-cols-3" />
       <Kerangka panel jenis="grafik" :tinggi="300" />
-      <Kerangka panel jenis="stat" :n="8" :judul="false" kolom="grid-cols-2 md:grid-cols-4" />
     </template>
     <template v-else>
       <div class="panel px-6 py-5">
-        <div class="flex flex-wrap items-center gap-3">
-          <Logo jenis="mi" :kunci="kunciMi(p.mi)" :teks="p.mi" :ukuran="48" />
-          <span class="mr-1 text-[19px] font-medium">{{ p.nama }}</span>
-          <span class="chip bg-aksen-lembut text-aksen">{{ p.kategori_label }}</span>
-          <span class="chip bg-naik-bg text-naik">Syariah</span>
-          <span v-if="p.mata_uang === 'USD'" class="chip bg-kuning-bg text-kuning">Dolar AS</span>
-          <span v-if="p.etf" class="chip bg-surface-2 text-ink-2">ETF (diperdagangkan di bursa)</span>
-          <span v-if="p.skor != null" class="chip bg-surface-2 text-ink-2" title="Skor 0–100 dibandingkan produk sekategori">Skor {{ Math.round(p.skor) }} · peringkat {{ p.peringkat }}/{{ p.jumlah_kategori }}</span>
-        </div>
-        <p class="m-0 mt-1.5 text-[13px] text-ink-2">Manajer investasi: {{ p.mi }}<template v-if="p.kustodian"> · Bank kustodian: {{ p.kustodian }}</template></p>
-        <p v-if="p.deskripsi" class="m-0 mt-3 max-w-[900px] text-[13px] leading-relaxed text-muted">{{ p.deskripsi }}</p>
-      </div>
-
-      <div class="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <Panel :judul="modeGrafik === 'nav' ? 'Riwayat NAV/Unit' : 'Riwayat AUM'" :ket="modeGrafik === 'aum' ? (kurva.aum?.tgl.length ? `Sejak ${tglId(kurva.aum.tgl[0])} · data akhir bulan dari laporan NAB OJK dan Pasardana` : 'Data AUM belum tersedia') : p.panjang ? `Sejak ${tglId(p.panjang.mulai)} · data akhir bulan dari laporan OJK dan data harian 12 bulan terakhir dari Pasardana` : `${kurva.tgl.length} hari bursa · data harian Pasardana`">
-          <GrafikRentang v-if="modeGrafik === 'aum'" key="aum" :tgl="kurva.aum?.tgl || []" :harga="kurva.aum?.nilai || []" nama="AUM" :awal="rentangRD" bulanan @rentang="(k) => (rentangRD = k)"
-            :tinggi="260" :format="uang" />
-          <GrafikRentang v-else key="nav" :tgl="kurva.tgl" :harga="kurva.nav" :pembanding="kurva.pembanding" :nama="'NAV'" :nama-pembanding="p.pembanding || 'Tolok ukur'" :awal="rentangRD" @rentang="(k) => (rentangRD = k)"
-            :tinggi="260" :format="(v) => v.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })" />
-          <div class="mt-4 flex justify-center"><Segmen v-model="modeGrafik" :pilihan="[['nav', 'NAV/Unit'], ['aum', 'AUM']]" /></div>
-        </Panel>
-        <Panel judul="Perbandingan dengan Kategori" :ket="`Median ${p.jumlah_kategori_semua} reksa dana ${p.kategori_label.toLowerCase()} syariah berdenominasi ${p.mata_uang === 'USD' ? 'USD' : 'rupiah'}`" rapat>
-          <table class="tabel">
-            <thead><tr><th>Periode</th><th class="!text-right">Produk</th><th class="!text-right">Median kategori</th></tr></thead>
-            <tbody>
-              <tr v-for="[k, l] in RET" :key="k">
-                <td class="text-ink-2">{{ l }}</td>
-                <td class="text-right font-medium" :class="k === 'vol' ? '' : kelasPersen(p[k])">{{ p[k] == null ? "–" : persen(p[k], 2, k !== "vol") }}</td>
-                <td class="text-right" :class="k === 'vol' ? 'text-muted' : kelasPersen(p.median_kategori?.[k])">{{ p.median_kategori?.[k] == null ? "–" : persen(p.median_kategori[k], 2, k !== "vol") }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </Panel>
-      </div>
-
-      <Stats :items="stat" kolom="grid-cols-2 md:grid-cols-4" />
-
-      <Panel v-if="p.panjang && p.panjang.tahun >= 2" judul="Kinerja Jangka Panjang" :ket="`Riwayat ${p.panjang.tahun.toLocaleString('id-ID')} tahun (${tglId(p.panjang.mulai)} s.d. sekarang) · setelah dikurangi biaya`">
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">CAGR 3 tahun terakhir</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(p.panjang.cagr_3)">{{ persen(p.panjang.cagr_3, 1) }}</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">CAGR 5 tahun terakhir</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(p.panjang.cagr_5)">{{ persen(p.panjang.cagr_5, 1) }}</div><div v-if="p.panjang.cagr_5 == null" class="text-[11px] text-muted">Riwayat belum mencapai 5 tahun</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">CAGR sejak awal data</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(p.panjang.cagr_semua)">{{ persen(p.panjang.cagr_semua, 1) }}</div></div>
-          <div class="rounded-2xl bg-surface-2 px-4 py-3"><div class="text-xs text-muted">Max drawdown (seluruh periode)</div><div class="mt-0.5 text-[17px] font-medium" :class="kelasPersen(p.panjang.dd)">{{ persen(p.panjang.dd, 1) }}</div><div class="text-[11px] text-muted">Berdasarkan NAV akhir bulan</div></div>
-        </div>
-        <div v-if="p.panjang.per_tahun.length" class="mt-5">
-          <div class="mb-2 text-xs text-muted">Imbal hasil per tahun kalender · positif {{ p.panjang.tahun_naik }} dari {{ p.panjang.tahun_dihitung }} tahun<template v-if="p.panjang.per_tahun.at(-1).tahun === new Date().getFullYear()"> ({{ p.panjang.per_tahun.at(-1).tahun }} = year to date)</template></div>
-          <div class="flex flex-wrap gap-2">
-            <div v-for="t in p.panjang.per_tahun" :key="t.tahun" class="min-w-[76px] rounded-xl px-3 py-2 text-center" :class="t.ret >= 0 ? 'bg-naik-bg' : 'bg-turun-bg'">
-              <div class="text-[11px] text-muted">{{ t.tahun }}</div>
-              <div class="text-[13px] font-medium tabular-nums" :class="t.ret >= 0 ? 'text-naik' : 'text-turun'">{{ persen(t.ret, 1) }}</div>
+        <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+          <div class="flex min-w-0 flex-1 basis-[420px] items-start gap-3.5">
+            <Logo jenis="mi" :kunci="kunciMi(p.mi)" :teks="p.mi" :ukuran="52" />
+            <div class="min-w-0">
+              <h2 class="m-0 text-[20px] leading-snug font-medium">{{ p.nama }}</h2>
+              <div class="mt-1 text-[13px] text-ink-2">
+                {{ p.mi }}<span class="text-muted"> · </span>{{ p.kategori_label }}<span class="text-muted"> · </span><span class="text-naik">Syariah</span><template v-if="p.mata_uang === 'USD'"><span class="text-muted"> · </span><span class="text-kuning">dalam dolar AS</span></template><template v-if="p.etf && p.kategori !== 'etf'"><span class="text-muted"> · </span>ETF</template>
+              </div>
+              <div v-if="p.lencana?.length || p.urut" class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <LencanaRD :lencana="p.lencana" tanpa-peringatan />
+                <span v-if="p.urut" class="text-xs text-muted" title="Urutan dari jumlah lencana, lalu peringatan paling sedikit, lalu hasil 3 tahun">Urutan {{ p.urut }} dari {{ p.jumlah_kategori }} {{ p.kategori_label.toLowerCase() }}</span>
+              </div>
             </div>
+          </div>
+          <div v-if="p.etf" class="max-w-[300px] shrink-0">
+            <div class="mb-1.5 text-[11px] text-muted">Beli di</div>
+            <div class="rounded-2xl bg-surface-2 px-4 py-2.5 text-[13px] text-ink-2">
+              <b class="font-medium text-ink">Bursa Efek Indonesia</b><template v-if="kodeBursa">, kode <b class="font-medium text-ink">{{ kodeBursa }}</b></template>
+              <div class="mt-0.5 text-xs text-muted">Lewat aplikasi sekuritas mana pun, seperti membeli saham (minimal 1 lot = 100 unit).</div>
+              <div v-if="tanpaHargaBursa" class="mt-1 text-xs text-kuning">Riwayat harga bursanya belum tersedia; angka di bawah memakai NAV dari Pasardana.</div>
+            </div>
+          </div>
+          <div v-else class="shrink-0">
+            <div class="mb-1.5 text-[11px] text-muted">Tersedia di</div>
+            <TersediaDi :platform="p.platform" lengkap />
+          </div>
+        </div>
+
+        <div v-if="p.deskripsi || isi" class="mt-4 space-y-2 border-t border-garis pt-4 text-[13px] leading-relaxed">
+          <p v-if="isi" class="m-0 text-ink-2"><b class="font-medium text-ink">Apa isinya:</b> {{ isi }}</p>
+          <p v-if="p.deskripsi" class="m-0 text-muted">{{ deskripsiRapi }}</p>
+        </div>
+        <div v-if="p.peringatan?.length" class="mt-4 rounded-2xl bg-kuning-bg px-4 py-3">
+          <div class="flex items-center gap-2 text-[13px] font-medium text-kuning"><TriangleAlert class="h-4 w-4" />Perlu dicek sebelum membeli</div>
+          <ul class="m-0 mt-2 space-y-1.5 pl-6 text-[13px] leading-relaxed text-ink-2">
+            <li v-for="w in p.peringatan" :key="w.kode"><span class="font-medium text-ink">{{ w.label }}.</span> {{ w.ket }}</li>
+          </ul>
+          <p class="m-0 mt-2 text-[11px] text-muted">Peringatan otomatis dari data; bukan vonis produk bermasalah.</p>
+        </div>
+      </div>
+
+      <slot />
+
+      <Panel judul="Ringkasan 30 detik" :ket="`Cocok untuk: ${cocok}`">
+        <p v-if="ringkasan.length < 3" class="m-0 mb-3 text-[13px] text-ink-2">Produk ini masih sangat baru (data {{ String(p.tahun_data ?? 0).replace(".", ",") }} tahun), jadi sebagian besar angka belum bisa dihitung.</p>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div v-for="x in ringkasan" :key="x.l" class="rounded-2xl bg-surface-2 px-4 py-3">
+            <div class="text-xs text-muted">{{ x.l }}</div>
+            <div class="mt-0.5 truncate text-[17px] font-medium tabular-nums" :class="x.c">{{ x.v }}</div>
+            <div class="text-[11px] text-muted">{{ x.k }}</div>
+          </div>
+        </div>
+        <p v-if="sejutaJadi" class="m-0 mt-4 text-[13px] text-ink-2">Contoh: <b class="font-medium text-ink">Rp1 juta</b> yang dibeli 3 tahun lalu sekarang menjadi sekitar <b class="font-medium" :class="kelasPersen(p.cagr_3)">Rp{{ rupiah(Math.round(sejutaJadi / 1000) * 1000) }}</b>{{ p.mata_uang === "USD" ? " (dalam dolar, belum termasuk kurs)" : "" }}. Hasil masa lalu, bukan jaminan.</p>
+      </Panel>
+
+      <Panel :judul="modeGrafik === 'nav' ? 'NAV/Unit' : 'AUM (dana kelolaan)'" :ket="modeGrafik === 'aum' ? (kurva.aum?.tgl.length ? `Sejak ${tglId(kurva.aum.tgl[0])} · akhir bulan dari laporan OJK dan Pasardana` : 'Data AUM belum tersedia') : p.panjang ? `Harga per unit · sejak ${tglId(p.panjang.mulai)} · akhir bulan dari laporan OJK, harian 12 bulan terakhir dari Pasardana` : `Harga per unit · ${kurva.tgl.length} hari bursa · harian Pasardana`">
+        <GrafikRentang v-if="modeGrafik === 'aum'" key="aum" :tgl="kurva.aum?.tgl || []" :harga="kurva.aum?.nilai || []" nama="AUM" :awal="rentangRD" bulanan @rentang="(k) => (rentangRD = k)"
+          :tinggi="260" :format="uang" />
+        <GrafikRentang v-else key="nav" :tgl="kurva.tgl" :harga="kurva.nav" :pembanding="kurva.pembanding" nama="NAV" :nama-pembanding="namaPembanding" :awal="rentangRD" @rentang="(k) => (rentangRD = k)"
+          :tinggi="260" :format="(v) => v.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })" />
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <Segmen v-model="modeGrafik" kecil :pilihan="[['nav', 'NAV'], ['aum', 'AUM']]" />
+          <div class="flex flex-wrap gap-1.5 text-xs">
+            <span v-for="[k, l] in PERIODE" :key="k" class="chip bg-surface-2 text-ink-2" :title="p.median_kategori?.[k] != null ? `Nilai tengah RD sejenis ${persen(p.median_kategori[k], 2)}` : ''">{{ l }} <b class="font-medium" :class="kelasPersen(p[k])">{{ p[k] == null ? "–" : persen(p[k], 1) }}</b></span>
           </div>
         </div>
       </Panel>
 
-      <div class="grid gap-5 lg:grid-cols-2">
-        <Panel judul="Komposisi Portofolio" :ket="p.aset.length || p.alokasi_aset.length ? 'Berdasarkan fund fact sheet terakhir · persentase terhadap AUM' : 'Data portofolio belum tersedia'">
+      <div class="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+        <Panel judul="Isi reksa dana ini" :ket="p.aset.length || p.alokasi_aset.length ? 'Dari fund fact sheet terakhir · persen dari dana kelolaan' : 'Data isi portofolio belum tersedia'">
           <div v-if="p.alokasi_aset.length" class="mb-5">
-            <div class="mb-2 text-xs text-muted">Alokasi aset</div>
+            <div class="mb-2 text-xs text-muted">Jenis aset</div>
             <div class="flex h-3 overflow-hidden rounded-full bg-surface-2">
               <div v-for="(a, i) in p.alokasi_aset" :key="a.nama" :style="{ width: `${a.bobot || 0}%` }" :class="['bg-s1', 'bg-s2', 'bg-s4', 'bg-s3'][i % 4]" class="border-r-2 border-surface last:border-r-0"></div>
             </div>
@@ -169,7 +184,7 @@ const maksAset = computed(() => Math.max(1, ...(p.value?.aset || []).map((a) => 
               <span v-for="(a, i) in p.alokasi_aset" :key="a.nama" class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full" :class="['bg-s1', 'bg-s2', 'bg-s4', 'bg-s3'][i % 4]"></span>{{ a.nama }} {{ persen(a.bobot, 1, false) }}</span>
             </div>
           </div>
-          <div v-if="p.aset.length" class="mb-2 text-xs text-muted">Kepemilikan efek terbesar</div>
+          <div v-if="p.aset.length" class="mb-2 text-xs text-muted">10 isi terbesar</div>
           <div v-if="p.aset.length" class="space-y-2.5">
             <div v-for="a in p.aset.slice(0, 10)" :key="a.nama">
               <div class="flex justify-between gap-3 text-[13px]"><span class="truncate">{{ a.nama }}</span><span class="shrink-0 tabular-nums">{{ a.bobot != null ? persen(a.bobot, 1, false) : "–" }}</span></div>
@@ -177,7 +192,7 @@ const maksAset = computed(() => Math.max(1, ...(p.value?.aset || []).map((a) => 
             </div>
           </div>
         </Panel>
-        <Panel judul="Informasi Produk" rapat>
+        <Panel judul="Informasi produk" rapat>
           <dl class="m-0">
             <div v-for="[l, v] in infoProduk" :key="l" class="flex items-start justify-between gap-6 border-t border-garis px-6 py-3 text-[13px]">
               <dt class="shrink-0 text-ink-2">{{ l }}</dt>
@@ -186,7 +201,7 @@ const maksAset = computed(() => Math.max(1, ...(p.value?.aset || []).map((a) => 
           </dl>
           <div class="px-6 pt-2 pb-4">
             <div class="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted">
-              <span>Dokumen produk</span>
+              <span>Dokumen (prospektus & fund fact sheet)</span>
               <a :href="p.url_sumber" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-aksen hover:underline">Buka di Pasardana<ExternalLink class="h-3 w-3" /></a>
             </div>
             <a v-for="dk in p.dokumen" :key="dk.id" :href="dk.url" target="_blank" rel="noopener" class="flex items-center gap-2 py-1 text-xs text-ink-2 hover:text-aksen">
@@ -199,8 +214,10 @@ const maksAset = computed(() => Math.max(1, ...(p.value?.aset || []).map((a) => 
           </div>
         </Panel>
       </div>
+      <KeyakinanRD :k="p.keyakinan" :p="p" />
+
       <KesimpulanProduk :k="p.kesimpulan" />
-      <p class="m-0 text-xs text-muted">Sumber: Pasardana dan laporan NAB OJK. Skor membandingkan produk dengan kategori yang sama berdasarkan kinerja 12 bulan terakhir dan bukan merupakan proyeksi. Informasi ini bukan nasihat keuangan.</p>
+      <p class="m-0 text-xs text-muted">Sumber: Pasardana, laporan NAB OJK, katalog publik Bibit/Ajaib/Makmur. Lencana dan urutan dihitung otomatis dari data masa lalu, bukan ramalan. Bukan nasihat keuangan.</p>
     </template>
   </div>
 </template>

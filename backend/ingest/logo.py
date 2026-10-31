@@ -88,6 +88,56 @@ def cari_logo(dom):
     return x + ("duckduckgo",) if x else None
 
 
+def ambil_merek(situs, alt):
+    import requests as rq
+    from urllib.parse import parse_qs, unquote, urlparse
+    ua = {"User-Agent": "LabInvestasiSyariah/1.0 (riset pribadi)"}
+    try:
+        r = rq.get(situs, headers=ua, timeout=30)
+    except Exception:
+        return None
+    for tag in re.findall(r"<img[^>]+>", r.text, re.I):
+        a = re.search(r"""alt=["']([^"']*)""", tag, re.I)
+        if not a or not re.fullmatch(alt, a.group(1).strip(), re.I):
+            continue
+        src = re.search(r"""\ssrc=["']([^"']+)""", tag, re.I) or re.search(r"""srcSet=["']([^"'\s]+)""", tag, re.I)
+        if not src:
+            continue
+        u = src.group(1).replace("&amp;", "&")
+        if "/_next/image" in u:
+            u = unquote(parse_qs(urlparse(u).query).get("url", [u])[0])
+        u = urljoin(r.url, u)
+        if re.search(r"white|putih", u, re.I):
+            continue
+        try:
+            g = rq.get(u, headers=ua, timeout=30)
+        except Exception:
+            continue
+        isi = g.content
+        if g.status_code == 200 and len(isi) >= MIN_BYTE and (b"<svg" in isi[:400] or isi[:4] == bytes([0x89, 0x50, 0x4E, 0x47]) or isi[8:12] == b"WEBP"):
+            return isi, u
+    return None
+
+
+def merek(paksa=False):
+    from backend.ingest.rd_platform import PLATFORM
+    db = dt.db()
+    batas = datetime.now() - timedelta(days=UMUR_HARI)
+    for k, p in PLATFORM.items():
+        kunci = f"merek/{k}"
+        lama = db.logo_info.find_one({"_id": kunci}) or {}
+        if not paksa and lama.get("ada") and lama.get("dicek", datetime.min) > batas:
+            continue
+        x = ambil_merek(p["situs"], p["logo_alt"])
+        if x:
+            dt.simpan_arsip(f"logo/{kunci}", x[0], "logo")
+            db.logo_info.replace_one({"_id": kunci}, {"_id": kunci, "domain": domain(p["situs"]), "ada": True, "sumber": x[1], "dicek": datetime.now()}, upsert=True)
+            print(f"Logo merek {p['nama']}: {len(x[0])} byte dari {x[1]}")
+        else:
+            db.logo_info.update_one({"_id": kunci}, {"$set": {"dicek": datetime.now(), "ada": bool(lama.get("ada"))}}, upsert=True)
+            print(f"Logo merek {p['nama']}: tidak ditemukan di halaman utama (alt '{p['logo_alt']}'), memakai ikon")
+
+
 def target():
     db = d.koneksi()
     hasil = {}
@@ -108,6 +158,9 @@ def target():
         if dom:
             hasil[f"etf/{e['kode']}"] = dom
     hasil["negara/kemenkeu"] = "kemenkeu.go.id"
+    from backend.ingest.rd_platform import PLATFORM
+    for k, p in PLATFORM.items():
+        hasil[f"platform/{k}"] = domain(p["situs"])
     return hasil
 
 
@@ -139,6 +192,7 @@ def jalan(paksa=False):
                 gagal += 1
             if (i + 1) % 50 == 0:
                 print(f"  {i + 1}/{len(antre)} diproses ({ok} ada, {gagal} tanpa logo)")
+    merek(paksa)
     total = db.logo_info.count_documents({"ada": True})
     print(f"SELESAI: {ok} logo baru, {gagal} tidak ketemu (pakai inisial). Total logo tersimpan: {total}")
 

@@ -13,7 +13,7 @@ def logo_ada():
 
 @router.get("/logo/{jenis}/{kunci}")
 def logo(jenis: str, kunci: str):
-    if jenis not in ("emiten", "mi", "etf", "negara"):
+    if jenis not in ("emiten", "mi", "etf", "negara", "platform", "merek"):
         raise HTTPException(404, "jenis logo tidak dikenal")
     isi, tipe = dt.baca_arsip_jenis(f"logo/{jenis}/{kunci}")
     if isi is None:

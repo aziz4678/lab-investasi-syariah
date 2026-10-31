@@ -10,6 +10,8 @@ def impor_untuk(sid):
         return kepemilikan_idx.impor
     if sid in ("keuangan_idx", "idx_statistik"):
         return lambda: ib.jalankan_modul("backend.ingest.keuangan_idx", ["gabung"])
+    if sid in ("bibit_rd", "ojk_pto"):
+        return lambda: ib.jalankan_modul("backend.ingest.rd_platform")
     if sid == "ojk_nab":
         return lambda: ib.jalankan_modul("backend.ingest.ojk_nab")
     return {"pengumuman": ib.pengumuman, "idx_harian": ib.idx_harian, "lapkeu": ib.lapkeu, "fundamental": ib.fundamental,

@@ -15,6 +15,9 @@ JEDA_LAPORAN = 10
 JEDA_KSEI = 25
 MIN_EMITEN = 300
 JEDA_DIVIDEN = 30
+JEDA_PLATFORM = 7
+JEDA_PLATFORM_BROWSER = 30
+JEDA_PTO = 90
 JEDA_PENGUMUMAN = 7
 JEDA_IDX_HARIAN = 5
 BULAN = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
@@ -87,6 +90,25 @@ SUMBER = [
                  "Tunggu sampai muncul '[ojk] SELESAI' (±15-30 menit untuk 2013 s/d sekarang). Satu file ojk_nab_<tahun>.json per tahun masuk Downloads.",
                  "Tekan 'Impor NAB OJK'. Untuk pembaruan bulanan, ubah TAHUN_MULAI di baris pertama script ke tahun berjalan."],
      "tombol": "impor_ojk_nab", "label_tombol": "Impor NAB OJK"},
+    {"id": "bibit_rd", "nama": "Daftar reksa dana syariah yang dijual di Bibit", "dipakai": ["Reksa Dana (Tersedia di)"], "strategi": False,
+     "sumber": "Halaman publik bibit.id/reksadana (tanpa login), filter Syariah, dibaca lewat Chrome Lab", "cara": "browser",
+     "frekuensi": f"Tiap {JEDA_PLATFORM_BROWSER} hari",
+     "skrip": "bibit_rd_browser.js", "url": "https://bibit.id/reksadana",
+     "langkah": ["Tekan 'Ambil otomatis' (Chrome Lab membuka bibit.id/reksadana, memilih filter Syariah, membaca semua halaman).",
+                 "File bibit_rd_<tanggal>.json masuk Downloads lalu diimpor otomatis bersama Ajaib & Makmur."],
+     "tombol": "rd_platform_perbarui", "label_tombol": "Impor & cocokkan platform"},
+    {"id": "ojk_pto", "nama": "Daftar aplikasi jual-beli reksa dana berizin OJK", "dipakai": ["Reksa Dana (tanda berizin OJK)"], "strategi": False,
+     "sumber": "Portal reksa dana OJK, halaman Portal Transaksi Online, lewat Chrome Lab", "cara": "browser",
+     "frekuensi": f"Tiap {JEDA_PTO} hari",
+     "skrip": "ojk_pto_browser.js", "url": "https://reksadana.ojk.go.id/Public/PTOPublic.aspx",
+     "langkah": ["Tekan 'Ambil otomatis' (Chrome Lab membuka halaman OJK dan membaca semua halaman tabel).",
+                 "File ojk_pto_<tanggal>.json masuk Downloads lalu diimpor otomatis."],
+     "tombol": "rd_platform_perbarui", "label_tombol": "Impor & cocokkan platform"},
+    {"id": "rd_platform", "nama": "Reksa dana yang ada di katalog Ajaib & Makmur", "dipakai": ["Reksa Dana (Tersedia di)"], "strategi": False,
+     "sumber": "Sitemap publik ajaib.co.id dan makmur.id, dicocokkan ke katalog RD syariah (nama + kelas)", "cara": "otomatis",
+     "frekuensi": f"Tiap {JEDA_PLATFORM} hari lewat jadwal",
+     "langkah": ["Otomatis lewat jadwal, atau tekan 'Perbarui platform'. Data Bibit & OJK terakhir ikut dicocokkan ulang."],
+     "tombol": "rd_platform_perbarui", "label_tombol": "Perbarui platform"},
     {"id": "dividen_idx", "nama": "Jadwal dividen resmi (cum, ex, bayar)", "dipakai": ["Pemburu Dividen (jadwal, kalkulator)", "Emiten (panel Dividen)"], "strategi": False,
      "sumber": "Kalender IDX + profil emiten, lewat browser. Nilai dividen lama tetap dari Yahoo Finance", "cara": "browser",
      "frekuensi": f"Tiap {JEDA_DIVIDEN} hari; paling ramai April-Juli (musim RUPS)",
@@ -305,6 +327,23 @@ def status():
                         "diimpor": oj["diimpor"].isoformat(timespec="minutes") if oj else None, "perlu": kurang_ojk,
                         "alasan": "Belum pernah diimpor" if oj is None else f"Data {harap_ojk} seharusnya sudah terbit" if kurang_ojk else None,
                         "berikutnya": f"tanggal 8 bulan depan"}
+    for sid, kunci, jeda, awalan in (("bibit_rd", "bibit", JEDA_PLATFORM_BROWSER, "bibit_rd_"), ("ojk_pto", None, JEDA_PTO, "ojk_pto_")):
+        arsip = sorted(dt.daftar_arsip(folder="rd_platform", awalan=awalan))
+        w = datetime.fromtimestamp(dt.waktu_arsip(arsip[-1])) if arsip else None
+        umur = (sekarang - w).days if w else None
+        info = db.rd_platform_info.find_one({"_id": kunci}) if kunci else None
+        ket = f"{info['cocok']} RD syariah cocok" if info else f"{db.rd_pto.count_documents({})} aplikasi berizin" if sid == "ojk_pto" else None
+        hasil[sid] = {"terakhir": ket if w else None, "diimpor": w.isoformat(timespec="minutes") if w else None,
+                      "perlu": w is None or umur > jeda,
+                      "alasan": "Belum pernah diambil" if w is None else f"Sudah {umur} hari sejak diambil" if umur > jeda else None,
+                      "berikutnya": (w + timedelta(days=jeda)).strftime("%Y-%m-%d") if w else "sekarang"}
+    pf = db.rd_platform_info.find_one({"_id": "ajaib"})
+    umur_pf = (sekarang - pf["diambil"]).days if pf else None
+    hasil["rd_platform"] = {"terakhir": f"{len(db.rd_platform.distinct('fund'))} RD syariah ada di minimal 1 platform" if pf else None,
+                            "diimpor": pf["diambil"].isoformat(timespec="minutes") if pf else None,
+                            "perlu": platform_perlu(db),
+                            "alasan": "Belum pernah diambil" if pf is None else f"Sudah {umur_pf} hari" if umur_pf > JEDA_PLATFORM else None,
+                            "berikutnya": (pf["diambil"] + timedelta(days=JEDA_PLATFORM)).strftime("%Y-%m-%d") if pf else "sekarang"}
     di = db.dividen_idx_info.find_one({"_id": "ringkas"})
     umur = (sekarang - di["diimpor"]).days if di else None
     cek = (di or {}).get("cek") or {}
@@ -384,6 +423,11 @@ def idx_harian_terakhir():
 
 def jumlah_perlu():
     return sum(1 for s in status() if s.get("perlu"))
+
+
+def platform_perlu(db):
+    pf = db.rd_platform_info.find_one({"_id": "ajaib"})
+    return pf is None or (datetime.now() - pf["diambil"]).days > JEDA_PLATFORM
 
 
 def skrip(nama):
