@@ -1010,3 +1010,48 @@ c. **Sensitivitas wajib, semua harus lolos (a dan b tetap terpenuhi)**: S1 biaya
 d. **Harus lolos di dev DAN holdout.** Holdout dibuka sekali, hanya kalau dev lulus semua.
 
 Alasan: kriteria lama tidak seragam (H11a per trade tanpa sensitivitas, H22 relatif pasar dengan 3 sensitivitas), ditemukan di audit 2026-11-01. Standar ini berlaku ke depan saja: vonis hipotesis lama (H0-H28) tidak diubah.
+
+## H29: gabungan 50/50 H11a + H22 (dikunci 2026-11-01 atas permintaan user, SETELAH melihat data dev dan 2020+)
+**Ditemukan setelah melihat hasil.** Ide gabungan muncul dari audit 2026-11-01 setelah return H11a dan H22 di dev dan 2020+ terlihat. Angka historisnya (simulasi dev Feb 2011-2019 CAGR 14,8%, DD -27,8%, Sharpe 0,50; 2020-Okt 2026 CAGR 14,7%, DD -32,7%, Sharpe 0,49; median 30 simulasi Monte Carlo bagian H11a) **bukan bukti**. Satu-satunya bukti yang sah adalah paper trade mulai 2026-11-01. Tidak ada parameter yang disetel atau diubah; standar seragam tidak dipakai menilai H29 karena H29 tidak punya data uji bersih.
+
+Aturan (persis simulasi gabungan `audit/h22_ulang.py`, `satu_periode`):
+- **Porsi modal**: 50% bagian H11a, 50% bagian H22.
+- **Pengembalian ke 50/50**: tiap akhir bulan kalender (close hari bursa terakhir). Return bulanan H29 = 0,5 × return bulanan bagian H11a + 0,5 × return bulanan bagian H22. Pemindahan dana antar bagian dianggap tanpa biaya.
+- **Bagian H11a**: aturan H11a persis. Saham syariah DES pada tanggal sinyal, lolos likuiditas (nilai transaksi 20 hari ≥ Rp5 M, ATR% 1,5-5, harga ≥ Rp50, tanpa volume nol 5 hari). Close ≥ close tertinggi 250 hari sebelumnya → beli open besok 10% ekuitas bagian, maks 10 posisi, sinyal > slot dipilih acak. Stop awal entry − 3×ATR14, trailing = max(stop, close tertinggi sejak entry − 3×ATR14), close < stop → jual open besok, batas 500 hari.
+- **Bagian H22**: aturan H22 persis. Momentum = return close adjusted akhir bulan t−12 → akhir bulan t−1. Sinyal di close hari bursa terakhir bulan, eksekusi open hari bursa pertama bulan berikutnya. Universe DES pada tanggal sinyal + median nilai transaksi 60 hari ≥ Rp5 M + harga ≥ Rp100 + ≥ 250 hari data + volume > 0 di ≥ 90% dari 250 hari. N = maks(10, bulat(20% × saham lolos)). Pegang selama peringkat ≤ 2N dan masih lolos, slot kosong diisi peringkat teratas, saham baru 1/N ekuitas bagian, pangkas ke 1/N kalau bobot > 2/N. Transaksi ditunda kalau volume 0 atau candle satu harga dengan return ≥ +6,5% (beli) / ≤ -6,5% (jual).
+- **Biaya**: fee beli 0,15% + jual 0,25% + 1 tick per sisi (fraksi IDX) di kedua bagian, termasuk pemangkasan.
+
+Paper trade (mulai 2026-11-01, modal setara Rp100 jt, sama dengan H11a). Perbedaan eksekusi dari simulasi (realisme, bukan parameter):
+- Bagian H11a = **paper H11a yang sudah berjalan** (sejak 21 Okt 2026): lot 100, beli dibatalkan di candle ARA terkunci, jual ditunda di candle terkunci (sama dengan versi konservatif), ukuran posisi dari ekuitas close hari sebelumnya mulai 2026-11-02.
+- Bagian H22 = paper baru `backend/paper/h22_harian.py` (job `paper_h22`, koleksi `paper_h22_*`), modal Rp100 jt, titik awal close 30 Okt 2026, rebalance pertama di open 2 Nov 2026: lot 100, transaksi tertunda di candle terkunci (aturan H22), ukuran posisi dari ekuitas close hari sinyal, harga mentah + dividen tunai dipotong pajak 10% (simulasi memakai harga adjusted tanpa pajak), split menyesuaikan jumlah lembar.
+- H29 dihitung dari kedua kurva paper (`backend/paper/h29.py`, API `/api/paper/h29`, panel di tab Paper Follow Tren): titik awal 30 Okt 2026 = Rp100 jt, dikembalikan ke 50/50 tiap akhir bulan secara virtual (tanpa biaya, sama dengan simulasi). Uang nyata butuh pemindahan dana antar dua bagian tiap bulan; biayanya tidak dimodelkan.
+- Pengecekan mesin H22 (2026-11-01, db tes, Agu-Okt 2026): keputusan rebalance sama persis dengan `uji_h21_h22.simulasi`, selisih ekuitas maks 0,09% (lot, harga mentah, pajak dividen).
+
+**Kriteria evaluasi paper (dikunci 2026-11-01, untuk H11a dan H29; keputusan zona 2026-11-01):**
+- Evaluasi 12 bulan pada **2027-11-01**.
+- **H11a GAGAL** kalau salah satu terjadi: (1) zona `batas_paper` h11a_v1 menyatakan GAGAL, yaitu return di bawah persentil 1 sejak hari ke-63, drawdown lebih dalam dari persentil 1, atau rugi beruntun di atas persentil 99. Zona ini tetap berlaku karena sudah dikunci 2026-10-22, sebelum kriteria baru. (2) Drawdown ekuitas paper lebih dalam dari **-45%**. (3) Ada bug eksekusi yang membuat hasil paper tidak sesuai aturan.
+- **H29 GAGAL** kalau drawdown ekuitas paper (angka utama) lebih dalam dari **-45%**, atau ada bug eksekusi.
+- Hasil 12 bulan yang biasa-biasa saja atau rugi kecil **tidak** otomatis gagal (kecuali H11a jatuh ke zona GAGAL h11a_v1): audit 2026-11-01 menunjukkan tahun tanpa lonjakan besar itu normal (H11a tanpa tahun terbaiknya ±8-9%/th, 2022-2023 rugi).
+- Di evaluasi, H11a, H29, bobot sama universe syariah likuid (dihitung harian di `paper_h22_ekuitas.ew`, tanpa biaya, dividen tanpa pajak), dan JII (indeks harga, `harian_indeks/JII`) dibandingkan pada periode yang sama.
+
+**Angka kedua: H29 setelah estimasi biaya rebalance** (permintaan user 2026-11-01, laporan saja, bukan syarat). Angka utama H29 tetap tanpa biaya pemindahan (sama dengan simulasi). Angka kedua memotong biaya dari nilai yang dipindah tiap akhir bulan: nilai dipindah = |nilai bagian H11a − 50% nilai H29|, biaya = nilai dipindah × (fee jual 0,25% + fee beli 0,15% + 2 × 0,47%) = 1,34%. 0,47% = rata-rata biaya 1 tick per sisi trade backtest H11a 2020+ (median 0,42%), karena data posisi per bagian di tiap akhir bulan tidak tersimpan. Dihitung di `backend/paper/h29.py`, tampil berdampingan di panel Paper H29.
+
+**Selisih metode paper vs simulasi (disengaja, bukan bug).** Saat evaluasi, angka paper tidak akan sama persis dengan simulasi audit karena:
+1. Bagian H22 paper memakai **harga mentah + dividen tunai dipotong pajak 10%**, simulasi memakai **harga adjusted Yahoo (dividen masuk tanpa pajak)**. Paper sedikit lebih rendah di saham yang membagi dividen.
+2. **Lot 100 lembar** di kedua bagian paper; simulasi memakai lembar pecahan. Sisa kas kecil tiap pembelian, dan saham mahal bisa batal kalau 1 lot melebihi jatah.
+3. Bagian H11a paper **membatalkan beli di candle ARA terkunci dan menunda jual di candle terkunci** (versi konservatif); simulasi audit H11a memakai versi dasar.
+4. **Ukuran posisi dari ekuitas close hari sebelumnya** (H11a sejak 2026-11-02, H22 dari ekuitas close hari sinyal); simulasi H22 memakai ekuitas di harga open hari rebalance.
+5. Bagian H22 paper menyesuaikan jumlah lembar saat split dan mengunduh harga saham yang dipegang tapi sudah keluar dari DES; simulasi memakai data historis yang sudah disesuaikan.
+6. Paper H11a memakai koreksi hari tanpa transaksi (`koreksi_tanpa_transaksi`); simulasi tidak.
+7. Pemilihan acak sinyal H11a di paper memakai seed = tanggal; simulasi = median 30/100 seed.
+Pengecekan 2026-11-01 (db tes, Agu-Okt 2026): mesin paper H22 vs `uji_h21_h22.simulasi` di data yang sama, keputusan rebalance identik, selisih ekuitas maks 0,09% (poin 1, 2, 4).
+
+**Cek ulang otomatis bagian H22** (`backend/paper/cek_h22.py`, job `paper_h22_cek`, jadwal harian setelah `paper_h22`): paper H22 dijalankan ulang dari nol di db `swing_cek_h22` dengan data harga lokal, lalu transaksi, posisi, ekuitas, rebalance, dan status dibandingkan dengan yang tersimpan. Hasil di koleksi `paper_h22_cek` dan di panel H29. Diuji 2026-11-01 di db tes: 64 hari COCOK, transaksi yang sengaja diubah terdeteksi BEDA.
+
+Kelemahan (dicatat sebelum paper berjalan):
+- Pasca hasil: dibentuk setelah melihat dev dan 2020+ kedua strategi; stabilnya angka gabungan (14,8% vs 14,7%) bisa kebetulan.
+- **H22 gagal S2 (likuiditas Rp20 M)**, H11a juga hampir separuh di Rp20 M, jadi H29 tidak menyelesaikan masalah kapasitas: tetap hanya cocok untuk modal kecil.
+- Korelasi bulanan H11a vs H22 0,64 (dev) / 0,51 (2020+); saham yang dipegang bersamaan hanya 19-21% dari posisi H11a.
+- Dev kedua bagian memakai universe bias (H11a daftar 217, H22 kode DES 2019-2026); 2020+ H22 = eksplorasi.
+- Pemindahan dana bulanan antar bagian tanpa biaya; di uang nyata ada biaya dan jeda.
+- Bagian H11a bergantung pada paper H11a: reset paper H11a ikut memutus H29 (peringatan ditampilkan di tombol Reset).

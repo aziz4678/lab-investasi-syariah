@@ -11,6 +11,7 @@ import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import ZonaPaper from "@/components/tren/ZonaPaper.vue";
+import PaperH29 from "@/components/tren/PaperH29.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 
 const muatStatus = inject("muatStatus");
@@ -191,8 +192,9 @@ const stat = computed(() => {
     >
       <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-turun"></span
       ><span class="flex-1 text-ink-2"
-        >Mulai ulang? Posisi dan riwayat dipindah ke arsip, tidak hilang. Ketik
-        <b class="text-ink">RESET</b> untuk konfirmasi.</span
+        >Mulai ulang? Posisi dan riwayat dipindah ke arsip, tidak hilang.
+        <b class="text-turun">Paper H29 ikut terputus</b>: bagian H11a dari H29 memakai paper ini, jadi kurva H29 tidak bisa dihitung lagi setelah reset.
+        Ketik <b class="text-ink">RESET</b> untuk konfirmasi.</span
       >
       <input v-model="konfirmasi" placeholder="RESET" class="w-28" />
       <button
@@ -297,6 +299,8 @@ const stat = computed(() => {
       </div>
 
       <ZonaPaper :muat-ulang="versiMuat" />
+
+      <PaperH29 />
 
       <Panel
         :judul="infoAksi(r.tgl_terakhir).judul"

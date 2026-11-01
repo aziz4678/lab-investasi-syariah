@@ -207,6 +207,36 @@ def paper_arsip():
     return hasil
 
 
+@router.get("/paper/h29")
+def paper_h29():
+    from backend.paper import h22_harian as h22
+    from backend.paper import h29
+
+    st = DB[h22.K_STATUS].find_one({"_id": "status"}, {"_id": 0, "ew": 0})
+    if not st:
+        return {"ada": False, "kriteria": h29.KRITERIA, "evaluasi": h29.EVALUASI}
+    data = h29.seri() or []
+    rk = h29.ringkas(data) if data else {}
+    batas = pd.Timestamp(st["tgl_terakhir"])
+    posisi = []
+    for p in DB[h22.K_POSISI].find({}, {"_id": 0}):
+        h = harga(p["ticker"])
+        h = h[h.index <= batas] if h is not None else None
+        close = float(h.iloc[-1]) if h is not None and len(h) else None
+        nilai = close * p["lembar"] if close else None
+        hasil = (nilai + p.get("terima_rp", 0) + p.get("dividen_rp", 0)) / p["modal_rp"] * 100 - 100 if nilai and p.get("modal_rp") else None
+        posisi.append({**p, "close": close, "nilai_rp": nilai, "untung_pct": hasil})
+    reb = list(DB[h22.K_REBALANCE].find({}, {"_id": 0}).sort("eksekusi", -1).limit(1))
+    return {
+        "ada": True, "mulai": st.get("mulai"), "tgl_terakhir": st["tgl_terakhir"], "kas": st["kas"],
+        "tunda_beli": st.get("tunda_beli") or {}, "tunda_jual": st.get("tunda_jual") or [], "rencana": st.get("rencana"),
+        "seri": data, "ringkas": rk, "evaluasi": h29.evaluasi(rk, paper_zona()) if rk else {"tanggal": h29.EVALUASI, "kriteria": h29.KRITERIA},
+        "cek": bersih(DB.paper_h22_cek.find_one(sort=[("waktu", -1)]) or {}) or None,
+        "posisi": sorted(posisi, key=lambda x: -(x["nilai_rp"] or 0)), "rebalance": reb[0] if reb else None,
+        "transaksi": list(DB[h22.K_TRANSAKSI].find({}, {"_id": 0}).sort("tgl", -1).limit(40)),
+    }
+
+
 @router.get("/paper/langsung")
 def paper_langsung():
     status = DB.paper_status.find_one({"_id": "status"}, {"_id": 0})

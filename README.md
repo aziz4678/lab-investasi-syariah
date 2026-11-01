@@ -23,6 +23,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Strategi | Status | Ringkasan |
 |---|---|---|
 | **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo): CAGR +22,8%, penurunan maks -38,0%. Audit 2026-11-01: gagal standar seragam di dev, kapasitas kecil (universe Rp20 M ±separuh). Belum terbukti di uang nyata. |
+| **Gabungan 50/50** (H29) | Paper trade sejak 1 Nov 2026, modal Rp100 jt | 50% Follow Tren + 50% momentum 12-1 (H22), dikembalikan ke 50/50 tiap akhir bulan. Ditemukan setelah melihat data, jadi angka historisnya bukan bukti; evaluasi 1 Nov 2027. |
 | Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
 | Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
 | Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |
@@ -31,7 +32,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Ikut pembelian saham oleh direksi/komisaris (H25) | Gagal di dev 2023-2024 | Rata-rata terlihat bagus, tapi separuh lebih trade kalah dari pasar; hasil ditarik beberapa saham yang melonjak di 2024. |
 | Faktor kualitas ala Buffett (ROE, utang, harga wajar), seri K | Gagal di dev 2011-2019 | Semua varian kalah dari memegang semua saham syariah likuid secara rata. Kolam saham syariah likuid terlalu kecil (28-62 saham) untuk membedakan keunggulan faktor dari kebetulan. Lihat [docs/RISET_KUALITAS.md](docs/RISET_KUALITAS.md). |
 
-Katalog lengkap 44 hipotesis (H0-H28) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
+Katalog lengkap 45 hipotesis (H0-H29) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
 
 ## Cara riset
 

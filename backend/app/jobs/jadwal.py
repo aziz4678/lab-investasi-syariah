@@ -114,6 +114,8 @@ def jalan():
         urutan.append("des_perbarui")
     if db.paper_status.find_one({"_id": "status"}):
         urutan += ["paper_harian", "paper_cek"]
+    if db.paper_h22_status.find_one({"_id": "status"}):
+        urutan += ["paper_h22", "paper_h22_cek"]
     urutan += ["harga_perbarui", "pasar_perbarui"]
     urutan.append("rd_perbarui")
     from backend.app.services import sumber_data as sd
