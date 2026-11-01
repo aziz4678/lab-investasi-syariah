@@ -127,6 +127,10 @@ def peringkat(S, t, jenis, calon):
     if jenis == "h21":
         s = S["P"]["vol250"].loc[t, calon].dropna()
         return list(s.sort_values(kind="mergesort").index)
+    if jenis == "h30":
+        from backend.research import uji_h30
+        s = uji_h30.skor(S, t).reindex(calon).dropna()
+        return list(s.sort_values(ascending=False, kind="mergesort").index)
     s = momentum(S, t).reindex(calon).dropna()
     return list(s.sort_values(ascending=False, kind="mergesort").index)
 

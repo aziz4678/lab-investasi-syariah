@@ -60,7 +60,7 @@ def buang(r, e0, pnl, ids):
     return r2
 
 
-def h22_log(S, min_nilai=5e9, min_harga=100, tick=1, keluar=frozenset()):
+def h22_log(S, min_nilai=5e9, min_harga=100, tick=1, keluar=frozenset(), jenis="h22"):
     P, tgl = S["P"], S["tgl"]
     rb = m.jadwal(S)
     mulai = rb[0][1]
@@ -89,7 +89,7 @@ def h22_log(S, min_nilai=5e9, min_harga=100, tick=1, keluar=frozenset()):
                 kas += a
             tunda_beli = {}
             calon = [k for k in m.lolos(S, t, min_nilai, min_harga) if k not in keluar]
-            urut = m.peringkat(S, t, "h22", calon)
+            urut = m.peringkat(S, t, jenis, calon)
             n = max(10, int(math.floor(0.2 * len(calon) + 0.5)))
             rank = {k: i + 1 for i, k in enumerate(urut)}
             harga_o = {k: (P["o"].at[d, k] if P["o"].at[d, k] > 0 else cn.at[d, k]) for k in pegang}

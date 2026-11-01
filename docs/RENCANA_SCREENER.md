@@ -1057,3 +1057,107 @@ Kelemahan (dicatat sebelum paper berjalan):
 - Bagian H11a bergantung pada paper H11a: reset paper H11a ikut memutus H29 (peringatan ditampilkan di tombol Reset).
 
 **Simulasi harian untuk halaman Backtest Momentum Blend** (2026-11-01, `backend/research/simulasi_h29.py`, job `isi_backtest_h29`, versi `h29_dev` / `h29_2020` di `backtest_*`; dibuat setelah lihat hasil, bukan bukti): 50% kurva harian cara paper Follow Tren (100 simulasi Monte Carlo) + 50% kurva harian RS 12-1 (`uji_h21_h22.simulasi`, dicek identik), dikembalikan ke 50/50 tiap akhir bulan. Feb 2011-Des 2019: median CAGR 14,9% (p5-p95 14,4-15,2%), turun terdalam harian -28,6%, setelah biaya rebalance 14,7%. Jan 2020-Okt 2026: median 15,2% (13,8-17,3%), **turun terdalam harian -42,4% (rentang -40,3% s/d -44,2%)**, setelah biaya 14,9%. Angka turun terdalam audit (-27,8% / -32,7%) dihitung dari return bulanan; versi harian lebih dalam. Catatan: batas GAGAL H29 (-45%, dikunci 2026-11-01) hanya 1-5 poin dari penurunan yang sudah terjadi di simulasi 2020-2026. Kriteria tidak diubah.
+
+## H30: Residual Momentum (dikunci 2026-11-01 atas permintaan user, sebelum kode uji dibuat dan sebelum ada angka return apa pun)
+Uji ke ±46. **Dipilih dari literatur, bukan dari data kita.** Dikunci 2026-11-01. Saat dikunci belum ada kode H30 dan belum ada angka return (strategi, pembanding, maupun r_m). Yang sudah dilakukan hanya cek ketersediaan data: rentang tanggal dan jumlah saham, tanpa return (lihat "Cek data sebelum dikunci"). Gagal = ditutup tanpa variasi (lookback, jendela regresi, faktor, skala, N, buffer, filter).
+
+**Latar belakang.** H22 (momentum 12-1) kuat di dev 2011-2019, tapi gagal S1 dan S2. Di 2020+ (eksplorasi audit, bukan holdout resmi) hasilnya ambruk: 5,3%, DD -53,7%. Laba H22 juga terkonsentrasi di sedikit saham kecil/volatil. Literatur menunjukkan residual momentum (momentum dari return saham setelah pengaruh pasar dibuang) punya Sharpe sekitar 2× momentum biasa dengan volatilitas sekitar separuhnya. Hasilnya juga lebih konsisten antar periode, dan pemenangnya tidak terkumpul di saham kecil/volatil atau di industri tertentu.
+Rujukan:
+- Blitz, D., Huij, J. & Martens, M. (2011). "Residual Momentum". *Journal of Empirical Finance* 18(3), 506-521.
+- Huij, J. & Lansdorp, S. (2017). "Residual Momentum and Reversal Strategies Revisited". ERIM, hdl.handle.net/1765/100801.
+Beda dengan paper asli: hanya faktor pasar (paper memakai Fama-French 3 faktor). Faktor ukuran dan value tidak dipakai karena butuh kapitalisasi dan book value point-in-time.
+
+**Hipotesis.** Di saham syariah likuid IDX, memegang saham dengan residual momentum tertinggi (return spesifik saham 12-1 bulan setelah pengaruh pasar dibuang, diskalakan dengan volatilitas residualnya) menghasilkan return di atas pembanding setelah biaya, dan lolos standar seragam 2026-11-01.
+
+**Kerangka = H22 persis (dipakai ulang dari `backend/research/uji_h21_h22.py`, bukan ditulis ulang); hanya cara meranking yang berubah:**
+- Universe dev: 766 kode yang pernah masuk DES 2019-2026, punya data Yahoo ≥ 250 hari, dianggap syariah sepanjang dev (sama dengan H22: DES point-in-time baru ada sejak 1 Des 2019). Universe holdout: DES OJK pada tanggal sinyal (`des_ojk.syariah_pada`) + 10 kode dari data resmi IDX (TECH, ENVY, DUCK, HKMU, JSKY, PURE, CBMF, FREN, META, WBSA).
+- Filter di tanggal sinyal t (`lolos`): median nilai transaksi 60 hari bursa ≥ Rp5 M, close mentah ≥ Rp100, ≥ 250 hari data, volume > 0 di ≥ 90% dari 250 hari bursa terakhir. Kalender IHSG.
+- Jadwal (`jadwal`): sinyal di close hari bursa terakhir tiap bulan, eksekusi di open hari bursa pertama bulan berikutnya. Transaksi ditunda ke hari bisa berikutnya kalau volume 0, atau kalau candle satu harga (high = low) dengan return ≤ -6,5% untuk jual / ≥ +6,5% untuk beli (`bisa`).
+- Ukuran & buffer (`simulasi`): N = maks(10, bulat(20% × jumlah saham lolos filter)). Beli peringkat ≤ N. Yang dipegang tetap dipegang selama peringkat ≤ 2N dan masih lolos, selain itu dijual. Slot kosong diisi peringkat teratas yang belum dipegang. Kalau pegangan > N, peringkat terburuk dijual sampai N. Saham lolos yang tidak bisa diranking (butir 5 sinyal) tidak dapat peringkat, jadi kalau sedang dipegang ikut dijual.
+- Bobot: saham baru dibeli 1/N ekuitas (kalau kas kurang, kas dibagi rata ke saham baru). Saham lama tidak diseimbangkan ulang, kecuali bobot > 2/N → dipangkas ke 1/N. Kas tidak berbunga. Lembar pecahan (simulasi H22 tidak memakai lot).
+- Biaya: fee beli 0,15% + jual 0,25% + 1 tick per sisi (fraksi IDX, harga mentah) di setiap transaksi nyata, termasuk pemangkasan.
+- Harga & saham hilang: Yahoo adjusted (dividen masuk tanpa pajak). 10 kode holdout memakai harga mentah IDX. Saham yang tidak aktif lagi sampai akhir data dinilai 0 sejak hari terakhir aktif. FREN → EXCL di close 14 Apr 2025. META dibekukan Rp238.
+
+**Sinyal H30 (satu-satunya perubahan dari H22).** Di akhir bulan t, untuk tiap saham yang lolos filter:
+1. Return bulanan saham r_i,τ = c_nilai(akhir bulan τ) / c_nilai(akhir bulan τ−1) − 1, dengan c_nilai = close adjusted ffill (sama dengan harga penilaian H22). Return pasar r_m,τ = rata-rata sederhana r_i,τ semua saham yang lolos filter di akhir bulan τ−1 (universe dan filter sama dengan pembanding bobot sama H22). Dihitung untuk τ = t−35 s/d t (36 bulan).
+2. Excess return (lihat keputusan di bawah): y_i = r_i − rf, x = r_m − rf. Regresi OLS dengan konstanta: y_i,τ = a + b × x_τ + e_i,τ, pakai 36 bulan tersebut.
+3. Ambil residual e_i,τ untuk τ = t−11 s/d t−1 (11 bulan; bulan t dilewati, sama dengan "12-1" di H22).
+4. Sinyal = jumlah residual t−11..t−1 ÷ standar deviasi residual t−11..t−1 (ddof = 1; jumlah bulan sama untuk semua saham, jadi pilihan ddof tidak mengubah urutan). Peringkat 1 = tertinggi.
+5. Saham tanpa 36 bulan return lengkap tidak diranking: c_nilai harus > 0 di ke-37 akhir bulan t−36..t, dan r_m harus ada di ke-36 bulan. Saham dengan standar deviasi residual 0 tidak diranking.
+
+**Return yang dipakai di regresi: excess return terhadap bunga antarbank.** Alasan, dari ketersediaan data saja: `lab_data.makro/bunga_antarbank` (FRED `IRSTCI01IDM156N`, rata-rata bulanan % per tahun) ada lengkap 1990-01 s/d 2026-08 tanpa bulan bolong, jadi tersedia lengkap sejak 2010. Konversi bulanan = (1 + nilai/100)^(1/12) − 1, sama dengan `audit/h22_ulang.rf_bulanan`, memakai nilai bulan τ untuk return bulan τ. Bulan yang belum terbit di FRED (saat dikunci: Sep dan Okt 2026) memakai nilai terakhir yang ada (ffill). Dicatat: karena regresi memakai konstanta, beda excess vs mentah hanya lewat naik-turun rf × (1 − b), jadi kecil.
+
+**Periode.**
+- Dev: sinyal pertama di akhir bulan pertama yang punya 36 r_m. r_m pertama = Feb 2011 (filter H22 baru meloloskan saham di akhir Jan 2011, 49 saham; akhir Des 2010 masih 0 karena syarat 250 hari data). Jadi 36 r_m lengkap pertama ada di **sinyal akhir Jan 2014, eksekusi open hari bursa pertama Feb 2014**. Portofolio dev Feb 2014 s/d close 31 Des 2019 (harga dipotong 2019-12-31). Return saham sendiri bisa dihitung sejak Jan 2013, tapi r_m menjadi batasnya.
+- Holdout: portofolio Jan 2020 s/d close 30 Okt 2026 (sinyal akhir Des 2019 s/d akhir Sep 2026). Dibuka sekali, hanya kalau dev lulus semua.
+- **Holdout tidak sepenuhnya bersih**: data 2020+ sudah pernah terlihat lewat eksplorasi H22 (audit 2026-11-01: 5,3%, DD -53,7%), H11a (lulus di 2020+), H29, dan eksplorasi 2020+ hipotesis lain. **Dev juga tidak buta**: hasil H22 per tahun 2011-2019 sudah terbuka (dan residual momentum berkorelasi dengan momentum biasa).
+
+**Kriteria lulus = standar seragam 2026-11-01 apa adanya, tanpa pengecualian (dev DAN holdout, semua):**
+- a1. CAGR bersih > CAGR pembanding bobot sama (semua saham lolos, universe dan filter sama, rebalance bulanan, tanpa biaya; `pembanding_sama` / `audit.ew`).
+- a2. CAGR bersih > CAGR JII (`indeks/JKII` close + dividen 2,5%/th diakru harian, tanpa biaya; sama dengan H22).
+- b1. Tanpa 5 saham penyumbang laba terbesar: CAGR strategi > CAGR pembanding bobot sama tanpa 5 saham penyumbang terbesarnya.
+- b2. Sama untuk 10 saham.
+  Cara buang (sama untuk strategi dan pembanding): untung/rugi saham-saham itu dikeluarkan dari return bulanan (dianggap kas), seperti `audit/h22_ulang.buang` + `top_ticker`. Penyumbang = total laba per ticker sepanjang periode.
+- b3. Tanpa tahun kalender terbaik: CAGR strategi tanpa tahun terbaiknya > CAGR pembanding bobot sama tanpa tahun terbaiknya, **dan** > CAGR JII tanpa tahun terbaiknya (JII ikut tes ini karena data anggota historis JII baru ada sejak Mar 2024). Cara audit `tanpa_tahun_terbaik`, return bulanan.
+- c. Sensitivitas, masing-masing terpisah, a1-a2 dan b1-b3 harus tetap terpenuhi: S1 biaya 2 tick per sisi; S2 likuiditas median ≥ Rp20 M (pembanding ikut universe ini); S3 harga ≥ Rp200 (pembanding ikut).
+- d. Lolos dev dulu, baru holdout dibuka sekali; lulus = lolos semua di keduanya. Lulus dev + holdout = kandidat uji maju (bukan langsung uang nyata).
+- Metrik: CAGR dan tes konsentrasi dari return bulanan (`cagr_bln`), max DD harian juga dilaporkan.
+
+**Laporan saja (bukan syarat):** dibandingkan dengan H22 di periode yang sama (H22 dijalankan ulang Feb 2014-2019 dan, kalau holdout H30 dibuka, Jan 2020-Okt 2026): CAGR, DD, volatilitas, Sharpe (rf bunga antarbank), turnover, N rata-rata, % kas, porsi laba 5/10 saham terbesar, korelasi bulanan dengan H22 dan Follow Tren, irisan saham yang dipegang H30 dan H22, per tahun.
+
+**Cek data sebelum dikunci (2026-11-01, hanya tanggal dan jumlah saham, tanpa return):**
+- `harga`: 921 ticker, 4 Jan 2010 s/d 30 Okt 2026. Ticker yang punya data per tahun: 2010 349, 2011 374, 2012 395, 2013 419, 2014 441, 2015 458, 2016 472, 2017 505, 2018 555, 2019 606, 2020 655, 2021 709, 2022 768, 2023 847, 2024 888, 2025 914, 2026 921 (survivorship: hanya saham yang masih ada).
+- DES OJK (`des`): 823 kode, periode point-in-time paling awal mulai 1 Des 2019.
+- Saham lolos filter H22 / lolos + 36 bulan return lengkap, di akhir Desember: dev 2013 58/53, 2014 61/55, 2015 52/48, 2016 60/53, 2017 59/56, 2018 58/51, 2019 68/61. Holdout (DES pada tanggal itu) 2019 63/56, 2020 72/68, 2021 87/79, 2022 88/75, 2023 86/74, 2024 97/83, 2025 129/111, 23 Okt 2026 108/103. Hitungan "ketat" (harga ada tepat di hari akhir bulan) sama persis dengan hitungan ffill.
+
+**Keputusan user 2026-11-01 (sebelum kode H30 dibuat dan sebelum ada angka return; final, tidak diubah lagi):**
+1. r_m di holdout untuk bulan yang universe-nya sebelum 1 Des 2019 (dibutuhkan regresi sinyal 2020-2022) memakai universe dev (kode DES 2019-2026), karena DES point-in-time belum ada. Mulai 1 Des 2019 memakai DES pada tanggal itu.
+2. Holdout sampai close **30 Okt 2026** (hari bursa terakhir Okt 2026). Pembanding H22 dihitung ulang di periode yang sama.
+3. r_m di S2/S3 tetap memakai universe dasar (Rp5 M, Rp100). Sensitivitas hanya mengubah saham yang boleh dipegang dan pembandingnya, bukan faktor pasar.
+4. N dihitung dari semua saham lolos filter, sama dengan H22 (bukan hanya dari yang bisa diranking).
+5. Dev Feb 2014 - Des 2019 (r_m dari universe H22).
+
+Kelemahan (dicatat sebelum uji):
+- Dev bukan point-in-time (status syariah dari DES 2019-2026, survivorship Yahoo), sama dengan H22.
+- Dev hanya ±6 tahun (Feb 2014-2019, 71 rebalance) dan universe kecil (48-61 saham bisa diranking per akhir tahun). Pelajaran seri K: noise portofolio acak di universe sekecil ini bisa lebih besar dari keunggulan faktor beberapa poin per tahun.
+- Hanya faktor pasar, dan r_m = bobot sama universe likuid (bukan indeks berbobot kapitalisasi). Sebagian efek ukuran/sektor bisa masih tersisa di residual.
+- Regresi 36 bulan di saham yang baru 3 tahun lolos data → estimasi beta kasar.
+- Holdout tidak bersih (lihat Periode). Dev juga tidak buta terhadap pola momentum.
+- Pembanding bobot sama tanpa biaya (konservatif, disengaja). META/FREN/10 kode IDX sama kelemahannya dengan H22.
+- Uji ke ±46: risiko lulus karena kebetulan tetap ada.
+- **Kekuatan statistik dev rendah** (dicatat 2026-11-01 atas permintaan user, SEBELUM backtest): universe dev 48-61 saham, N sekitar 10-12, dev hanya 6 tahun. Hasil dev, lolos atau gagal, berbobot ringan.
+
+### Hasil H30 dev Feb 2014 - Des 2019 (2026-11-01, dijalankan sekali, `backend/research/uji_h30.py --periode dev`, hasil `hasil_riset/h30_dev`): GAGAL, holdout tidak dibuka
+Sebelum uji: cabang `h30` ditambahkan di `uji_h21_h22.peringkat`, dan `audit/h22_ulang.h22_log` diberi parameter `jenis` (bawaan `"h22"`). H22 dijalankan dengan kode lama dan kode baru (`PYTHONHASHSEED=0`) di 8 skenario (dev 2011 dan dev 2014 × dasar/S1/S2/S3): ekuitas, rekap rebalance, posisi, dan turnover **identik, selisih 0,0**. Tanpa seed hash tetap, selisihnya ±1e-15 karena urutan iterasi set (pembulatan floating point, keputusan sama persis). H30 dijalankan dengan `PYTHONHASHSEED=0`. Ekuitas `h22_log` = `simulasi` (selisih 0).
+71 rebalance (sinyal 30 Jan 2014 - 29 Nov 2019). Rata-rata 60,9 saham lolos, 54,8 bisa diranking (min 42, maks 65), N rata-rata 12,2. Pembanding: bobot sama CAGR 7,27%, DD bulanan -30,53%; JII + dividen 2,5% CAGR 5,07%, DD -22,68%. CAGR dari return bulanan.
+
+| Skenario | CAGR H30 vs bobot sama | a2 vs JII 5,07% | b1 tanpa 5 saham | b2 tanpa 10 saham | b3 tanpa tahun terbaik (vs bobot sama / JII 2,63%) | Hasil |
+|---|---|---|---|---|---|---|
+| Dasar | 11,20% vs 7,27% ✔ | ✔ | -2,87% vs 1,85% ✘ | -5,69% vs -0,08% ✘ | 5,69% vs 2,92% / 2,63% ✔ | gagal 3/5 |
+| S1 biaya 2 tick | 9,07% vs 7,27% ✔ | ✔ | -4,81% vs 1,85% ✘ | -7,70% vs -0,08% ✘ | 3,72% vs 2,92% / 2,63% ✔ | gagal 3/5 |
+| S2 likuiditas ≥ Rp20 M | 5,37% vs 3,26% ✔ | ✔ (5,37%) | -2,59% vs -0,16% ✘ | -6,16% vs -2,17% ✘ | 2,04% vs -0,29% / 2,63% ✘ | gagal 2/5 |
+| S3 harga ≥ Rp200 | 10,01% vs 7,59% ✔ | ✔ | -2,74% vs 2,16% ✘ | -6,16% vs 0,16% ✘ | 3,42% vs 3,73% / 2,63% ✘ | gagal 2/5 |
+
+Laporan saja, H30 vs H22 di periode yang sama (Feb 2014 - Des 2019, H22 dihitung ulang):
+
+| | H30 | H22 | Bobot sama |
+|---|---|---|---|
+| CAGR (bulanan / harian) | 11,20% / 11,22% | 13,42% / 13,44% | 7,27% |
+| Max DD bulanan / harian | -47,0% / -49,0% | -35,5% / -37,6% | -30,5% |
+| Volatilitas tahunan | 21,9% | 21,4% | |
+| Sharpe (rf bunga antarbank) | 0,33 | 0,42 | |
+| Turnover/th | 149,2% | 129,3% | |
+| Kas rata-rata | 4,0% | 4,7% | |
+| Posisi / saham berbeda | 134 / 85 | 122 / 95 | |
+| Laba 5 saham terbesar (% laba total) | 127% (INKP, TKIM, NIKL, BRPT, SMBR) | 134% (NIKL, TKIM, INKP, BRPT, PTPP) | 85% |
+| Laba 10 saham terbesar | 162% | 176% | 114% |
+| Standar seragam (dasar + S1-S3) | gagal di semua skenario | gagal di semua skenario | |
+| Korelasi bulanan dengan Follow Tren (h11a_dev) | 0,65 | 0,57 | |
+Korelasi bulanan H30 vs H22 0,89; rata-rata 53% saham H30 juga dipegang H22 di akhir bulan.
+Per tahun H30 / H22 / bobot sama / JII: 2014 (Feb-Des) 15,0 / 33,5 / 20,1 / 17,2; 2015 -32,4 / -25,2 / -23,0 / -10,5; 2016 42,8 / 54,8 / 31,4 / 17,9; 2017 35,1 / 29,0 / 10,3 / 12,1; 2018 26,3 / 26,6 / 12,6 / -7,5; 2019 -1,0 / -16,5 / 0,3 / 4,4.
+
+Catatan:
+- H30 di atas bobot sama dan JII, tapi seluruh kelebihannya berasal dari segelintir saham (INKP, TKIM, NIKL, BRPT, SMBR). Tanpa 5 saham itu CAGR -2,9%, padahal bobot sama tanpa 5 penyumbang terbesarnya masih +1,9%. Gagal b1 dan b2 di semua skenario, b3 juga gagal di S2 dan S3.
+- Klaim literatur (lebih stabil, tidak terkonsentrasi, volatilitas separuh) **tidak terlihat di data ini**: konsentrasi laba hampir sama dengan H22, drawdown lebih dalam (-47% vs -35,5%), turnover lebih tinggi, Sharpe lebih rendah. Sebagian besar pegangannya sama dengan H22 (korelasi 0,89).
+- Sesuai kelemahan yang dicatat sebelum uji, kekuatan statistik dev rendah (6 tahun, ±55 saham, N ±12). Hasil ini berbobot ringan, tapi aturan pra-registrasi tetap berlaku: dev gagal → holdout tidak dibuka, ditutup tanpa variasi.
+- **Temuan data (terpisah dari vonis)**: harga Yahoo MAPI (2, 4, 14 Mei 2018), ELTY (beberapa hari 2-14 Mei 2018) dan ATIC (2 Mei 2018) tercatat 1/10 dari seharusnya di sekitar aksi korporasi; TMAS sekali (23 Mei 2023). Pembanding bobot sama dev "membeli" MAPI di open 2 Mei 2018 seharga 82,5 lalu menilainya 815, sehingga MAPI menyumbang +22,9 poin laba palsu ke pembanding (saham berikutnya 6,7). H30 dan H22 tidak memegang saham itu di tanggal tersebut. Efeknya: pembanding bobot sama terlalu tinggi (merugikan strategi di a1, a1 tetap lulus); tes b1/b2 membuang MAPI dari pembanding, jadi vonis tidak berubah. Pembanding bobot sama H21/H22 dev lama juga terkena; vonis lama tidak diubah. Perbaikan data menunggu keputusan user.
