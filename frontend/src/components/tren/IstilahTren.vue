@@ -3,9 +3,10 @@ import { ref, computed } from "vue";
 import { Search } from "lucide-vue-next";
 import Panel from "@/components/common/Panel.vue";
 
+const props = defineProps({ tambahan: Array, nama: { type: String, default: "Follow Tren" } });
 const cari = ref("");
 const semua = ref(false);
-const ISTILAH = [
+const DASAR = [
   ["Close (harga penutupan)", "Harga terakhir di akhir hari bursa. Semua keputusan beli/jual memakai close final, dicek setelah pukul 17.00."],
   ["Open (harga pembukaan)", "Harga pertama saat bursa buka pagi hari. Beli dan jual Follow Tren dilakukan di harga ini."],
   ["Cut loss (CL)", "Menjual saham dalam keadaan rugi supaya ruginya tidak membesar. Di Follow Tren: batas jual tersentuh saat masih di bawah harga beli."],
@@ -39,15 +40,16 @@ const ISTILAH = [
   ["Backtest", "Menjalankan aturan pada data harga masa lalu untuk melihat hasilnya seandainya dulu dipakai."],
   ["Paper trade", "Menjalankan aturan setiap hari ke depan dengan uang pura-pura, untuk menguji tanpa risiko."],
 ];
+const ISTILAH = computed(() => [...(props.tambahan || []), ...DASAR]);
 const tampil = computed(() => {
   const q = cari.value.trim().toLowerCase();
-  const a = q ? ISTILAH.filter(([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q)) : ISTILAH;
+  const a = q ? ISTILAH.value.filter(([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q)) : ISTILAH.value;
   return q || semua.value ? a : a.slice(0, 9);
 });
 </script>
 
 <template>
-  <Panel judul="Istilah" ket="Arti istilah yang dipakai di halaman Follow Tren">
+  <Panel judul="Istilah" :ket="`Arti istilah yang dipakai di halaman ${nama}`">
     <template #aksi>
       <label class="flex h-8 items-center gap-2 rounded-full bg-surface-2 px-3 text-xs">
         <Search class="h-3.5 w-3.5 text-muted" /><input v-model="cari" class="w-40 bg-transparent outline-none" placeholder="Cari istilah…" />

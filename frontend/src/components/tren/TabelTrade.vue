@@ -13,6 +13,7 @@ const akar = ref(null);
 const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const cari = ref("");
 const status = ref("");
+const bagian = ref("");
 const urut = ref({ kunci: "tgl_sinyal", naik: false });
 const halaman = ref(1);
 const PER = 50;
@@ -36,6 +37,7 @@ const tersaring = computed(() => {
   if (periode.value) t = t.filter((x) => masuk(x, periode.value));
   if (cari.value) t = t.filter((x) => x.ticker.includes(cari.value.toUpperCase()));
   if (status.value) t = t.filter((x) => x.status === status.value);
+  if (bagian.value) t = t.filter((x) => x.bagian === bagian.value);
   const { kunci, naik } = urut.value;
   return [...t].sort((a, b) => (a[kunci] > b[kunci] ? 1 : a[kunci] < b[kunci] ? -1 : 0) * (naik ? 1 : -1));
 });
@@ -50,7 +52,7 @@ const ringkas = computed(() => {
 
 const tampil = computed(() => tersaring.value.slice((halaman.value - 1) * PER, halaman.value * PER));
 const jumlahHal = computed(() => Math.max(1, Math.ceil(tersaring.value.length / PER)));
-watch([tahun, bulan, dasar, cari, status], () => (halaman.value = 1));
+watch([tahun, bulan, dasar, cari, status, bagian], () => (halaman.value = 1));
 watch(tahun, (v) => !v && (bulan.value = ""));
 
 function hapusPeriode() {
@@ -75,10 +77,12 @@ function urutkan(k) {
   urut.value = { kunci: k, naik: urut.value.kunci === k ? !urut.value.naik : false };
 }
 
-const KOLOM = [
-  ["ticker", "Saham", 0], ["tgl_beli", "Tanggal beli", 0], ["harga_beli", "Harga beli", 1], ["tgl_jual", "Tanggal jual", 0],
-  ["harga_jual", "Harga jual", 1], ["hari", "Hari", 1], ["stop_awal_pct", "Stop awal", 1], ["net", "Hasil", 1], ["status", "Status", 0],
-];
+const adaBagian = computed(() => (props.trade || []).some((t) => t.bagian));
+const adaStop = computed(() => (props.trade || []).some((t) => t.stop_awal_pct != null));
+const KOLOM = computed(() => [
+  ["ticker", "Saham", 0], ...(adaBagian.value ? [["bagian", "Bagian", 0]] : []), ["tgl_beli", "Tanggal beli", 0], ["harga_beli", "Harga beli", 1], ["tgl_jual", "Tanggal jual", 0],
+  ["harga_jual", "Harga jual", 1], ["hari", "Hari", 1], ...(adaStop.value ? [["stop_awal_pct", "Stop awal", 1]] : []), ["net", "Hasil", 1], ["status", "Status", 0],
+]);
 </script>
 
 <template>
@@ -87,6 +91,7 @@ const KOLOM = [
       <select v-model="tahun"><option value="">Semua tahun</option><option v-for="t in daftarTahun" :key="t" :value="t">{{ t }}</option></select>
       <select v-model="bulan" :disabled="!tahun"><option value="">Semua bulan</option><option v-for="(b, i) in BULAN" :key="b" :value="String(i + 1).padStart(2, '0')">{{ b }}</option></select>
       <select v-if="tahun" v-model="dasar"><option value="beli">Dibeli di periode ini</option><option value="pegang">Dipegang selama periode ini</option></select>
+      <select v-if="adaBagian" v-model="bagian"><option value="">Kedua bagian</option><option value="Follow Tren">Follow Tren</option><option value="RS 12-1">RS 12-1</option></select>
       <select v-model="status"><option value="">Semua status</option><option value="selesai">Selesai</option><option value="terbuka">Masih dipegang</option></select>
       <input v-model="cari" placeholder="Cari saham" class="w-32" />
     </template>
@@ -112,14 +117,15 @@ const KOLOM = [
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in tampil" :key="t.ticker + t.tgl_sinyal">
+          <tr v-for="t in tampil" :key="t.ticker + t.tgl_sinyal + (t.bagian || '')">
             <td><KodeSaham :kode="t.ticker" /></td>
+            <td v-if="adaBagian"><span class="chip" :class="t.bagian === 'RS 12-1' ? 'bg-kuning-bg text-ink-2' : 'bg-aksen-lembut text-aksen'">{{ t.bagian }}</span></td>
             <td class="text-ink-2">{{ tanggal(t.tgl_beli) }}</td>
             <td class="text-right">{{ rupiah(t.harga_beli) }}</td>
             <td class="text-ink-2">{{ t.status === "terbuka" || !t.tgl_jual ? "–" : tanggal(t.tgl_jual) }}</td>
-            <td class="text-right">{{ rupiah(t.harga_jual) }}</td>
+            <td class="text-right">{{ t.harga_jual != null ? rupiah(t.harga_jual) : "–" }}</td>
             <td class="text-right text-ink-2">{{ t.hari }}</td>
-            <td class="text-right text-turun/80">{{ persen(-t.stop_awal_pct, 1) }}</td>
+            <td v-if="adaStop" class="text-right text-turun/80">{{ t.stop_awal_pct != null ? persen(-t.stop_awal_pct, 1) : "–" }}</td>
             <td class="text-right font-medium" :class="t.net >= 0 ? 'text-naik' : 'text-turun'">{{ persen(t.net) }}</td>
             <td><span class="chip" :class="t.status === 'terbuka' ? 'bg-aksen-lembut text-aksen' : 'bg-surface-2 text-muted'">{{ t.status === "terbuka" ? "Dipegang" : "Selesai" }}</span></td>
           </tr>

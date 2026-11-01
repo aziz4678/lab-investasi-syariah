@@ -15,13 +15,16 @@ import TabelTrade from "@/components/tren/TabelTrade.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import TeksWarna from "@/components/common/TeksWarna.vue";
-import BacktestTabel from "@/components/tren/BacktestTabel.vue";
+import CaraKerjaBlend from "@/components/tren/CaraKerjaBlend.vue";
+import { TriangleAlert } from "lucide-vue-next";
 import { persen } from "@/utils/format";
 
 const props = defineProps({ s: Object });
-const pakaiVersi = computed(() => props.s?.backtest?.jenis === "versi");
+const b = computed(() => props.s?.backtest || {});
+const blend = computed(() => b.value.cara_kerja === "blend");
+const OLAH = computed(() => b.value.olah || []);
 const daftar = ref([]);
-const KET = computed(() => props.s?.backtest?.versi || {});
+const KET = computed(() => b.value.versi || {});
 const versi = ref("");
 const ringkasan = ref(null);
 const ekuitas = ref([]);
@@ -38,7 +41,7 @@ async function isi(v) {
   galat.value = "";
   try {
     contohTrade.value = undefined;
-    ambil(`tren52/contoh/${v}`).then((c) => { if (versi.value === v) contohTrade.value = c; }).catch(() => { if (versi.value === v) contohTrade.value = null; });
+    if (!blend.value) ambil(`tren52/contoh/${v}`).then((c) => { if (versi.value === v) contohTrade.value = c; }).catch(() => { if (versi.value === v) contohTrade.value = null; });
     [ringkasan.value, ekuitas.value, trade.value] = await Promise.all([ambil(`ringkasan/${v}`), ambil(`ekuitas/${v}`), ambil(`trade/${v}`)]);
   } catch (e) {
     galat.value = `Gagal memuat data: ${e.message}. Pastikan API jalan (python -m uvicorn backend.api.main:app --port 8765).`;
@@ -51,7 +54,7 @@ const { kerja, galat: galatKerja, sibuk, mulai, lanjutkan } = pakaiPekerjaan();
 
 async function muatVersi() {
   try {
-    daftar.value = await ambil("versi");
+    daftar.value = (await ambil("versi")).filter((d) => KET.value[d.versi]);
     if (!daftar.value.some((d) => d.versi === versi.value)) versi.value = daftar.value[0]?.versi || "";
     else await isi(versi.value);
   } catch (e) {
@@ -60,14 +63,15 @@ async function muatVersi() {
 }
 
 function jalankan(jenis) {
-  mulai(`aksi/${jenis}`, {}, jenis === "isi_backtest" ? muatVersi : null);
+  mulai(`aksi/${jenis}`, {}, jenis.startsWith("isi_backtest") ? muatVersi : null);
 }
 
 onMounted(async () => {
-  if (!pakaiVersi.value) return;
   await muatVersi();
-  await lanjutkan("isi_backtest", muatVersi);
-  if (!sibuk.value) await lanjutkan("impor_fundamental");
+  for (const [jenis] of OLAH.value) {
+    if (sibuk.value) break;
+    await lanjutkan(jenis, jenis.startsWith("isi_backtest") ? muatVersi : null);
+  }
 });
 
 watch(versi, (v) => v && isi(v));
@@ -76,8 +80,9 @@ watch(versi, (v) => v && isi(v));
 <template>
   <div class="space-y-5">
     <HipotesisTren :h="s?.hipotesis" :perjalanan="s?.perjalanan" />
-    <BacktestTabel v-if="!pakaiVersi" :b="s?.backtest" />
-    <template v-else>
+    <p v-if="b.peringatan" class="m-0 flex items-start gap-2.5 rounded-2xl bg-kuning-bg px-5 py-3.5 text-[13px] leading-relaxed text-ink-2">
+      <TriangleAlert class="mt-0.5 h-4 w-4 shrink-0 text-kuning" /><span>{{ b.peringatan }}</span>
+    </p>
     <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">{{ KET[versi]?.isi || "Simulasi aturan di data masa lalu." }}<template v-if="ringkasan"> Periode {{ ringkasan.mulai }} s/d {{ ringkasan.akhir }}.</template> Bukan jaminan hasil ke depan.</p>
       <Pemutar v-if="muat && ringkasan" teks="Memuat versi..." />
@@ -95,7 +100,7 @@ watch(versi, (v) => v && isi(v));
       <Kerangka panel jenis="tabel" :n="6" logo />
     </template>
     <div v-else class="space-y-5 transition-opacity" :class="muat ? 'opacity-50' : ''">
-    <KpiTiles :r="ringkasan" :jii="KET[versi]?.jii" />
+    <KpiTiles :r="ringkasan" :jii="KET[versi]?.jii ?? ringkasan?.cagr_jii" />
     <details v-if="ringkasan?.monte_carlo" class="group -mt-2 rounded-2xl bg-surface-2/60 px-4 py-2.5 text-xs leading-relaxed text-ink-2">
       <summary class="flex cursor-pointer list-none items-center gap-2 text-muted [&::-webkit-details-marker]:hidden">
         <span>Return per tahun dan penurunan terburuk = median {{ ringkasan.monte_carlo.n }} simulasi Monte Carlo. Angka lain, kurva, peta bulanan, dan tabel trade = {{ contoh }}.</span>
@@ -106,25 +111,25 @@ watch(versi, (v) => v && isi(v));
         <p class="m-0"><b class="font-medium text-ink">Caranya:</b> backtest diulang {{ ringkasan.monte_carlo.n }} kali dengan aturan sama, tiap kali memakai seed berbeda (seed = angka awal pengacak; seed sama selalu menghasilkan pilihan sama, jadi bisa diulang persis).</p>
         <p class="m-0"><b class="font-medium text-ink">Cara membaca:</b> median = hasil tengah dari {{ ringkasan.monte_carlo.n }} simulasi. p5–p95 = rentang tempat 90 dari {{ ringkasan.monte_carlo.n }} simulasi berada. Contoh seed {{ ringkasan.monte_carlo.contoh_seed }}: CAGR <TeksWarna :teks="persen(ringkasan.monte_carlo.contoh.cagr, 1)" />, DD <TeksWarna :teks="persen(ringkasan.monte_carlo.contoh.dd, 1)" />.</p>
         <p class="m-0"><b class="font-medium text-ink">Artinya untuk paper trade:</b> paper juga memilih acak (seed = tanggal), jadi hasil nyata bisa jatuh di mana saja dalam rentang ini, atau di luarnya.</p>
+        <p v-if="b.mc_catatan" class="m-0"><b class="font-medium text-ink">Khusus strategi ini:</b> {{ b.mc_catatan }}</p>
       </div>
     </details>
-    <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Cara kerjanya</span><span class="text-xs text-muted">beli → hold → take profit / cut loss, dengan data backtest {{ periode }}</span><span class="h-px flex-1 bg-garis" /></div>
-    <CaraKerjaTrade :trade="trade" :r="ringkasan" :contoh="contohTrade" :periode="periode" />
+    <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Cara kerjanya</span><span class="text-xs text-muted">{{ b.cara_ket || "beli → hold → take profit / cut loss" }}, dengan data backtest {{ periode }}</span><span class="h-px flex-1 bg-garis" /></div>
+    <CaraKerjaBlend v-if="blend" :r="ringkasan" :periode="periode" />
+    <CaraKerjaTrade v-else :trade="trade" :r="ringkasan" :contoh="contohTrade" :periode="periode" />
     <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Hasil portofolio</span><span class="text-xs text-muted">semua trade digabung jadi satu modal</span><span class="h-px flex-1 bg-garis" /></div>
-    <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" />
+    <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" :seri="b.seri" :ket="b.kurva_ket" :info="b.kurva_info" />
     <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''"
       :terpilih="{ tahun: tabel?.tahun || '', bulan: +(tabel?.bulan || 0) }" @pilih="(th, bl) => tabel?.saring(th, bl)" />
     <TabelTrade ref="tabel" :trade="trade" />
     </div>
-    <IstilahTren />
-    <Panel judul="Olah ulang data" ket="Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit">
+    <IstilahTren :tambahan="s?.istilah" :nama="s?.nama" />
+    <Panel judul="Olah ulang data" :ket="b.olah_ket || 'Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit'">
       <template #aksi>
-        <button class="tombol" :disabled="sibuk" @click="jalankan('impor_fundamental')">Impor fundamental</button>
-        <button class="tombol" :disabled="sibuk" @click="jalankan('isi_backtest')">Hitung ulang backtest</button>
+        <button v-for="[jenis, label] in OLAH" :key="jenis" class="tombol" :disabled="sibuk" @click="jalankan(jenis)">{{ label }}</button>
       </template>
       <p class="m-0 text-muted">Hasil di halaman ini otomatis diperbarui setelah perhitungan selesai.</p>
     </Panel>
     <PanelPekerjaan :kerja="kerja" :galat="galatKerja" />
-    </template>
   </div>
 </template>

@@ -207,6 +207,14 @@ def paper_arsip():
     return hasil
 
 
+def rebalance_berikutnya(tgl_terakhir):
+    t = pd.Timestamp(tgl_terakhir)
+    awal = (t + pd.offsets.MonthBegin(1)).normalize()
+    while awal.weekday() >= 5:
+        awal += pd.Timedelta(days=1)
+    return str(awal.date())
+
+
 @router.get("/paper/h29")
 def paper_h29():
     from backend.paper import h22_harian as h22
@@ -218,6 +226,10 @@ def paper_h29():
     data = h29.seri() or []
     rk = h29.ringkas(data) if data else {}
     batas = pd.Timestamp(st["tgl_terakhir"])
+    reb = list(DB[h22.K_REBALANCE].find({}, {"_id": 0}).sort("eksekusi", -1))
+    peringkat = {t["ticker"]: (i + 1, t["momentum_pct"]) for i, t in enumerate(reb[0]["peringkat"])} if reb else {}
+    e22 = DB[h22.K_EKUITAS].find_one(sort=[("tgl", -1)]) or {}
+    ek22 = float(e22.get("ekuitas") or h22.MODAL)
     posisi = []
     for p in DB[h22.K_POSISI].find({}, {"_id": 0}):
         h = harga(p["ticker"])
@@ -225,16 +237,56 @@ def paper_h29():
         close = float(h.iloc[-1]) if h is not None and len(h) else None
         nilai = close * p["lembar"] if close else None
         hasil = (nilai + p.get("terima_rp", 0) + p.get("dividen_rp", 0)) / p["modal_rp"] * 100 - 100 if nilai and p.get("modal_rp") else None
-        posisi.append({**p, "close": close, "nilai_rp": nilai, "untung_pct": hasil})
-    reb = list(DB[h22.K_REBALANCE].find({}, {"_id": 0}).sort("eksekusi", -1).limit(1))
+        pr = peringkat.get(p["ticker"])
+        posisi.append({**p, "close": close, "nilai_rp": nilai, "untung_pct": hasil, "bobot_pct": nilai / ek22 * 100 if nilai else None,
+                       "peringkat": pr[0] if pr else None, "momentum_pct": pr[1] if pr else None})
+    transaksi = list(DB[h22.K_TRANSAKSI].find({}, {"_id": 0}).sort("tgl", -1).limit(1000))
+    jual = [t["net_pct"] for t in transaksi if t.get("aksi") == "jual" and t.get("net_pct") is not None]
     return {
-        "ada": True, "mulai": st.get("mulai"), "tgl_terakhir": st["tgl_terakhir"], "kas": st["kas"],
+        "ada": True, "mulai": st.get("mulai"), "tgl_terakhir": st["tgl_terakhir"], "kas": st["kas"], "ekuitas_h22": ek22,
         "tunda_beli": st.get("tunda_beli") or {}, "tunda_jual": st.get("tunda_jual") or [], "rencana": st.get("rencana"),
+        "rebalance_berikutnya": rebalance_berikutnya(st["tgl_terakhir"]),
         "seri": data, "ringkas": rk, "evaluasi": h29.evaluasi(rk, paper_zona()) if rk else {"tanggal": h29.EVALUASI, "kriteria": h29.KRITERIA},
         "cek": bersih(DB.paper_h22_cek.find_one(sort=[("waktu", -1)]) or {}) or None,
         "posisi": sorted(posisi, key=lambda x: -(x["nilai_rp"] or 0)), "rebalance": reb[0] if reb else None,
-        "transaksi": list(DB[h22.K_TRANSAKSI].find({}, {"_id": 0}).sort("tgl", -1).limit(40)),
+        "rebalance_riwayat": [{k: x.get(k) for k in ["sinyal", "eksekusi", "lolos", "n", "baru", "jual", "tetap", "ekuitas_dasar", "anggaran_rp"]} for x in reb],
+        "transaksi": transaksi,
+        "stat_h22": {"selesai": len(jual), "win_rate": float(np.mean([x > 0 for x in jual]) * 100) if jual else None,
+                     "rata": float(np.mean(jual)) if jual else None,
+                     "dividen_rp": float(sum(t.get("nilai_rp") or 0 for t in transaksi if t.get("aksi") == "dividen"))},
     }
+
+
+@router.get("/paper/h29/langsung")
+def paper_h29_langsung():
+    from backend.paper import h22_harian as h22
+
+    posisi = list(DB[h22.K_POSISI].find({}, {"_id": 0, "ticker": 1, "lembar": 1, "harga_masuk": 1}))
+    st = DB[h22.K_STATUS].find_one({"_id": "status"}, {"_id": 0, "kas": 1, "tunda_beli": 1})
+    if not st:
+        return {"ada": False}
+    try:
+        kini = ps.harga_kini([p["ticker"] for p in posisi]) if posisi else {}
+    except Exception:
+        kini = {}
+    lengkap = all(p["ticker"] in kini for p in posisi)
+    nilai = sum(kini[p["ticker"]]["harga"] * p["lembar"] for p in posisi if p["ticker"] in kini)
+    e22 = DB[h22.K_EKUITAS].find_one(sort=[("tgl", -1)]) or {}
+    ft = paper_langsung()
+    e11 = DB.paper_ekuitas.find_one(sort=[("tgl", -1)]) or {}
+    sesi = max((x["sesi"] for x in kini.values()), default=ft.get("sesi"))
+    jam = max((x["jam"] for x in kini.values() if x["sesi"] == sesi), default=ft.get("jam"))
+    ek22 = st["kas"] + sum((st.get("tunda_beli") or {}).values()) + nilai if lengkap else None
+    ek11 = ft.get("ekuitas")
+    gabung = None
+    if ek22 is not None and ek11 is not None and e22.get("ekuitas") and e11.get("ekuitas"):
+        gabung = 0.5 * (ek11 / e11["ekuitas"] - 1) + 0.5 * (ek22 / e22["ekuitas"] - 1)
+    return {"ada": bool(kini or ft.get("ada")), "sesi": sesi, "jam": jam, "lengkap": lengkap,
+            "posisi": {p["ticker"]: {**kini[p["ticker"]], "untung_pct": (kini[p["ticker"]]["harga"] / p["harga_masuk"] - 1) * 100 if p.get("harga_masuk") else None}
+                       for p in posisi if p["ticker"] in kini},
+            "h22_hari_ini_pct": (ek22 / e22["ekuitas"] - 1) * 100 if ek22 is not None and e22.get("ekuitas") else None,
+            "h11a_hari_ini_pct": (ek11 / e11["ekuitas"] - 1) * 100 if ek11 is not None and e11.get("ekuitas") else None,
+            "gabung_hari_ini_pct": gabung * 100 if gabung is not None else None}
 
 
 @router.get("/paper/langsung")

@@ -6,7 +6,7 @@ import { opsiDasar, warna, gradien } from "@/utils/chart";
 import { persen, ringkas, kelasPersen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 
-const props = defineProps({ ekuitas: Array, catatan: String });
+const props = defineProps({ ekuitas: Array, catatan: String, seri: Array, ket: String, info: String });
 const tema = pakaiTema();
 let modalAwal = 100000000;
 try {
@@ -25,18 +25,19 @@ watch(modal, (v) => {
 const arah = ref(null);
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const namaBulan = (b) => (b ? `${BULAN[Number(b.slice(5, 7)) - 1]} ${b.slice(0, 4)}` : "");
-const SERI = [
+const SERI_DASAR = [
   { label: "Follow Tren", kunci: "ekuitas", var: "--series-1", lebar: 2.5, putus: [], isi: true },
   { label: "Beli-tahan", kunci: "beli_tahan", var: "--series-2", lebar: 2, putus: [], isi: false },
   { label: "IHSG", kunci: "ihsg", var: "--series-3", lebar: 1.5, putus: [5, 4], isi: false },
 ];
+const SERI = computed(() => props.seri || SERI_DASAR);
 
 const dataModal = computed(() => {
   tema.value;
   const e = props.ekuitas || [];
   return {
     labels: e.map((x) => x.bulan),
-    datasets: SERI.map((s) => ({
+    datasets: SERI.value.map((s) => ({
       label: s.label, data: e.map((x) => x[s.kunci]), borderColor: warna(s.var), pointBackgroundColor: warna(s.var),
       pointHoverBorderColor: warna("--surface-1"), backgroundColor: s.isi ? gradien(s.var) : "transparent", fill: s.isi ? "origin" : false,
       borderWidth: s.lebar, borderDash: s.putus, pointRadius: 0, tension: 0.4, cubicInterpolationMode: "monotone",
@@ -62,7 +63,7 @@ const simulasi = computed(() => {
   const tahun = (i + 1) / 12;
   return {
     dari: namaBulan(e[0].bulan), sampai: namaBulan(x.bulan), kursor: arah.value != null, tahun,
-    seri: SERI.map((s) => {
+    seri: SERI.value.filter((s) => x[s.kunci] != null).map((s) => {
       const v = x[s.kunci];
       return { ...s, nilai: m * v, total: (v - 1) * 100, cagr: tahun >= 1 && v > 0 ? (Math.pow(v, 1 / tahun) - 1) * 100 : null };
     }),
@@ -94,13 +95,13 @@ const opsiDd = computed(() => {
 const akhir = computed(() => {
   const e = props.ekuitas || [];
   const x = e[e.length - 1];
-  return x ? SERI.map((s) => ({ ...s, nilai: x[s.kunci] })) : [];
+  return x ? SERI.value.filter((s) => x[s.kunci] != null).map((s) => ({ ...s, nilai: x[s.kunci] })) : [];
 });
 </script>
 
 <template>
-  <Panel judul="Pertumbuhan modal" :ket="`Modal awal = 1x · 10 posisi @ 10% ekuitas saat beli · harga pasar akhir bulan · dihitung sama seperti paper${catatan ? ` · ${catatan}` : ''}`"
-    info="Strategi dibandingkan dengan membeli semua saham syariah likuid lalu didiamkan (beli-tahan), dan IHSG.">
+  <Panel judul="Pertumbuhan modal" :ket="`${ket || 'Modal awal = 1x · 10 posisi @ 10% ekuitas saat beli · harga pasar akhir bulan · dihitung sama seperti paper'}${catatan ? ` · ${catatan}` : ''}`"
+    :info="info || 'Strategi dibandingkan dengan membeli semua saham syariah likuid lalu didiamkan (beli-tahan), dan IHSG.'">
     <template #aksi>
       <span v-for="s in akhir" :key="s.label" class="inline-flex items-center gap-2 rounded-full bg-surface-2 py-1.5 pr-3 pl-2.5 text-xs text-ink-2">
         <i class="h-2 w-2 rounded-full" :style="{ background: `var(${s.var})` }"></i>{{ s.label }}
@@ -115,7 +116,7 @@ const akhir = computed(() => {
         </label>
         <span class="text-xs text-muted">{{ simulasi.dari }} → <b class="font-medium text-ink">{{ simulasi.sampai }}</b> · {{ simulasi.tahun.toFixed(1).replace(".", ",") }} tahun{{ simulasi.kursor ? " · ikut kursor" : " · geser kursor di grafik" }}</span>
       </div>
-      <div class="mt-4 grid gap-4 sm:grid-cols-3">
+      <div class="mt-4 grid gap-4" :class="SERI.length > 3 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-3'">
         <div v-for="s in simulasi.seri" :key="s.label" class="min-w-0">
           <div class="flex items-center gap-2 text-xs text-muted"><i class="h-2 w-2 rounded-full" :style="{ background: `var(${s.var})` }"></i>{{ s.label }}</div>
           <div class="mt-1 text-[22px] leading-tight font-medium tracking-tight tabular-nums" :class="s.isi ? '' : 'text-ink-2'">Rp{{ ringkas(Math.round(s.nilai)) }}</div>
