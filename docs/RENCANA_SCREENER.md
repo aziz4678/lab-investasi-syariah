@@ -1000,3 +1000,13 @@ Script: `audit/h11a_minimal.py` (implementasi ulang H11a dari nol) dan `audit/h2
 
 - **H22 dengan tes simetris**: dev lebih kuat dari H11a (18,8% vs bobot sama 7,8%; tanpa 5 saham 7,7% vs 3,7%; Sharpe 0,58 vs 0,23); 2020+ (eksplorasi) runtuh: 5,3%, DD -53,7%, tanpa 5 saham -7,3%, 8 dari 10 pemenang terbesar di 2025. Sensitivitas dev tetap 1/3 (S1 gagal tipis, S2 gagal nyata).
 - **Status tidak berubah.** H11a tetap paper trade (catatan ditambahkan di registry), H22 tetap gagal.
+
+## Standar seragam (berlaku mulai 2026-11-01)
+Dikunci 2026-11-01 atas persetujuan user, **sebelum hipotesis berikutnya diuji**. Berlaku untuk SEMUA hipotesis yang dikunci sesudah tanggal ini, apa pun jenisnya (trend-following, mean-reversion, faktor, dividen, rotasi aset, dst.). Tidak boleh dilonggarkan, diganti, atau dikecualikan setelah melihat hasil. Hipotesis boleh menambah kriteria khusus (ditulis sebelum uji), tapi tidak boleh mengurangi standar ini.
+
+a. **Pembanding**: (1) bobot sama semua saham universe syariah likuid (universe dan filter sama dengan strategi, syariah point-in-time bila datanya ada, rebalance bulanan, tanpa biaya) dan (2) JII. Strategi wajib di atas keduanya.
+b. **Tes konsentrasi simetris**: strategi tanpa 5 dan tanpa 10 saham penyumbang laba terbesar vs pembanding tanpa 5 dan tanpa 10 saham penyumbang terbesarnya (cara buang sama untuk keduanya); strategi tanpa tahun kalender terbaiknya vs pembanding tanpa tahun terbaiknya. Strategi harus tetap di atas pembanding di semua tes ini. JII hanya ikut tes tahun terbaik bila data anggota historisnya tidak ada.
+c. **Sensitivitas wajib, semua harus lolos (a dan b tetap terpenuhi)**: S1 biaya 2 tick per sisi; S2 likuiditas ≥ Rp20 M (pembanding ikut universe ini); S3 harga ≥ Rp200 (pembanding ikut).
+d. **Harus lolos di dev DAN holdout.** Holdout dibuka sekali, hanya kalau dev lulus semua.
+
+Alasan: kriteria lama tidak seragam (H11a per trade tanpa sensitivitas, H22 relatif pasar dengan 3 sensitivitas), ditemukan di audit 2026-11-01. Standar ini berlaku ke depan saja: vonis hipotesis lama (H0-H28) tidak diubah.
