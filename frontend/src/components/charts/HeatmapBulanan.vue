@@ -5,7 +5,10 @@ import { warnaDivergen } from "@/utils/chart";
 import { persen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 
-const props = defineProps({ ekuitas: Array, perTahun: Object, catatan: String });
+const props = defineProps({ ekuitas: Array, perTahun: Object, catatan: String, terpilih: Object });
+const emit = defineEmits(["pilih"]);
+const bisaKlik = computed(() => !!props.terpilih);
+const aktif = (th, bl) => props.terpilih?.tahun === th && (props.terpilih?.bulan || 0) === bl;
 const tema = pakaiTema();
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
@@ -25,7 +28,7 @@ const baris = computed(() => {
 </script>
 
 <template>
-  <Panel judul="Return per bulan" :ket="`Hijau = untung, merah = rugi · warna penuh di ±15% · ekuitas harga pasar akhir bulan${catatan ? ` · ${catatan}` : ''}`" rapat>
+  <Panel judul="Return per bulan" :ket="`Hijau = untung, merah = rugi · warna penuh di ±15% · ekuitas harga pasar akhir bulan${catatan ? ` · ${catatan}` : ''}${bisaKlik ? ' · klik bulan atau tahun untuk melihat trade-nya' : ''}`" rapat>
     <div class="overflow-x-auto px-6 pb-4">
       <table class="w-full min-w-[780px] border-separate border-spacing-1 text-xs tabular-nums">
         <thead>
@@ -37,12 +40,14 @@ const baris = computed(() => {
         </thead>
         <tbody>
           <tr v-for="r in baris" :key="r.tahun">
-            <th class="pr-2 text-left font-normal text-muted">{{ r.tahun }}</th>
+            <th class="pr-2 text-left font-normal text-muted"><button v-if="bisaKlik" class="rounded-lg px-1 hover:text-aksen" :class="aktif(r.tahun, 0) ? 'font-medium text-aksen' : ''" title="Lihat trade tahun ini" @click="emit('pilih', r.tahun, 0)">{{ r.tahun }}</button><template v-else>{{ r.tahun }}</template></th>
             <td v-for="(s, i) in r.sel" :key="i" class="h-9 min-w-[54px] rounded-xl text-center transition-transform hover:scale-105"
-              :style="s ? { background: s.bg, color: s.fg } : {}" :title="s ? `${s.bulan} ${r.tahun}: ${persen(s.v)}` : ''">
+              :class="[s && bisaKlik ? 'cursor-pointer' : '', s && aktif(r.tahun, i + 1) ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : '']"
+              :style="s ? { background: s.bg, color: s.fg } : {}" :title="s ? `${s.bulan} ${r.tahun}: ${persen(s.v)}${bisaKlik ? ' · klik untuk lihat trade' : ''}` : ''"
+              @click="s && bisaKlik && emit('pilih', r.tahun, i + 1)">
               {{ s ? persen(s.v, 1) : "" }}
             </td>
-            <td class="text-center font-medium" :class="r.total >= 0 ? 'text-naik' : 'text-turun'">{{ persen(r.total, 0) }}</td>
+            <td class="text-center font-medium" :class="[r.total >= 0 ? 'text-naik' : 'text-turun', bisaKlik ? 'cursor-pointer hover:underline' : '']" @click="bisaKlik && emit('pilih', r.tahun, 0)">{{ persen(r.total, 0) }}</td>
           </tr>
         </tbody>
       </table>

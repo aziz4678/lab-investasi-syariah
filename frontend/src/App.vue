@@ -19,7 +19,7 @@ const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H25" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H28" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -39,9 +39,9 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan", "riset"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
-const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["tren52", "riset"] };
-const SUB_LAMA = { dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
+const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
+const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
 const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
 const LABEL_TEMA = { sistem: "Tema: ikuti sistem", terang: "Tema: terang", gelap: "Tema: gelap" };
@@ -118,6 +118,7 @@ onMounted(() => {
     tab.value = h;
     if (SUB_TAB[h]?.includes(x)) subTab.value = { ...subTab.value, [h]: x };
     if (h === "emiten" && x) kodeEmiten.value = x.toUpperCase();
+    if (x !== xAsli) tulisHash();
   }
   muatStatus();
 });

@@ -7,7 +7,7 @@ const pindahTab = inject("pindahTab");
 
 const STRUKTUR = [
   ["Beranda", "Kondisi pasar hari ini (IHSG per menit, perputaran uang, saham paling naik/turun, sektor, pasar dunia), ringkasan semua menu, aktivitas, perawatan, dan sumber data.", "beranda"],
-  ["Follow Tren", "Strategi saham syariah yang sedang diuji dengan uang pura-pura. Isinya Paper trade (dengan pantauan harga hari ini), Backtest (dengan simulasi modal), Aturan & variabel, dan Riset (semua ide yang pernah diuji).", "tren52"],
+  ["Follow Tren", "Strategi saham syariah yang sedang diuji dengan uang pura-pura. Isinya Paper trade (dengan pantauan harga hari ini), Backtest (dengan simulasi modal), dan Aturan & variabel (termasuk kapan cut loss / take profit dan arti istilahnya). Semua ide yang pernah diuji ada di menu Hipotesis.", "tren52"],
   ["Emiten", "Riset satu saham: profil, harga (per menit untuk hari ini), valuasi, dividen, fundamental, kepemilikan, dan riwayat sinyal Follow Tren.", "emiten"],
   ["Dividen", "Informasi dividen saham syariah: jadwal resmi IDX, daftar & kalender, kalkulator penghasilan, dividend trap. Pernah diuji sebagai strategi (H17 Pemburu Dividen) dan gagal; hasilnya ada di tab Hasil riset dan menu Hipotesis.", "dividen"],
   ["Reksa Dana", "Mulai dari tujuan (dana darurat, tabungan, jangka panjang), katalog dengan lencana & peringatan, tempat beli (Bibit/Ajaib/Makmur, berizin OJK), bandingkan produk, sukuk & SBN, dan istilah awam.", "reksadana"],

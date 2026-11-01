@@ -52,3 +52,12 @@ def distribusi(versi: str):
     hit, _ = np.histogram(net, bins=tepi)
     label = ["< -30", "-30..-20", "-20..-15", "-15..-10", "-10..-5", "-5..0", "0..5", "5..10", "10..20", "20..50", "50..100", "> 100"]
     return [{"rentang": l, "jumlah": int(h)} for l, h in zip(label, hit)]
+
+
+@router.get("/tren52/contoh/{versi}")
+def tren52_contoh(versi: str):
+    from backend.app.services import tren_penjelasan
+    isi = tren_penjelasan.contoh(versi)
+    if not isi:
+        raise HTTPException(404, f"versi {versi} tidak ada")
+    return isi

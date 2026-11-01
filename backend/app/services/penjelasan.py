@@ -44,6 +44,9 @@ BAGIAN = {
     "H22": [("## H21", None)],
     "H23": [("## H23:", None)],
     "H25": [("## H25:", None)],
+    "H26": [("## H26:", None)],
+    "H27": [("## H27:", None)],
+    "H28": [("## H28:", None)],
 }
 for _k in "abcdefg":
     BAGIAN[f"H19{_k}"] = [("## H19:", None)]

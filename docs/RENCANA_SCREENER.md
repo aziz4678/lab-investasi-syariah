@@ -810,3 +810,174 @@ Laporan saja: tahan 21 hari excess +2,73% (131 trade); tahan 126 hari +4,06% (81
 - Rata-rata bagus tapi tidak tahan uji: separuh lebih trade kalah dari pembanding (median -2,81%), dan hasil bergantung pada segelintir saham yang melonjak di 2024 (CUAN/PTRO grup Barito, RAJA, SSIA, LABA). Tanpa 10 trade terbaik rata-ratanya -6,27%.
 - Selisih Komisaris vs Direksi menarik tapi BUKAN bukti (32 trade, diduga terpusat di saham grup yang sama, dan dilihat setelah hasil). Tidak boleh dijadikan varian baru tanpa hipotesis baru + data baru.
 - Sesuai aturan: GAGAL = ditutup, tanpa variasi batas nilai, daftar kata, masa tahan, universe, atau jabatan. Holdout 2025-2026 tidak dibuka.
+
+## H26: Follow Tren dengan batas jual dirapatkan setelah untung besar (dikunci 2026-11-01, sebelum kode uji dibuat dan sebelum hasil aturan ini dihitung)
+Permintaan user 2026-11-01 setelah melihat eksplorasi MFE/MAE trade backtest H11a (bukan bukti): pemenang rata-rata hanya membawa pulang ±45% dari untung tertingginya (median 2020+: sempat +43%, dijual +19%). TP tetap (+5% s/d +50%) dan cut loss ketat (-3/-5/-7%) sudah terlihat kalah di semua data saat eksplorasi, jadi TIDAK diuji (sudah diketahui hasilnya). Satu hipotesis, tanpa varian pilihan. Lencana **pasca hasil**: idenya muncul dari data MFE, dan semua data 2010-2026 sudah pernah dibuka untuk H11a, jadi tidak ada holdout bersih. Lulus = paling jauh kandidat uji maju; paper H11a tetap berjalan dengan aturan lama, tidak diganti.
+
+Pertanyaan: kalau batas jual (trailing stop) dirapatkan dari 3×ATR14 ke 2×ATR14 setelah posisi untung besar, apakah Follow Tren menyimpan lebih banyak untung dari puncak tanpa kehilangan trade besarnya, sehingga hasil portofolio lebih baik?
+
+Aturan (semua sama dengan H11a kecuali butir keluar):
+- Universe, sinyal (close ≥ close tertinggi 250 hari sebelumnya), masuk open besok, stop awal entry − 3×ATR14, maks 10 posisi @10% ekuitas, pemilihan acak bila sinyal > slot, batas 500 hari, biaya ±1,2% pulang-pergi: sama persis dengan H11a.
+- Keluar: trailing = max(stop, close tertinggi sejak entry − M×ATR14 hari itu). M = 3 sampai close (harga disesuaikan) pernah ≥ **harga masuk × 1,30**; mulai hari itu dan seterusnya M = **2** (tidak kembali ke 3). Stop tidak pernah turun. Close < stop → jual open besok (gap dihitung).
+
+Data & cara uji (mesin `isi_backtest`, cara paper: kurva harian, 10% ekuitas saat beli, harga pasar, dividen dipotong pajak):
+- **Dev**: 2010-2019, universe 217 saham (sama dengan H11a dev).
+- **Cek kedua**: 2020 s/d data terakhir, DES historis (sama dengan versi `h11a_2020`).
+- Ukuran: median CAGR dan median max drawdown harian dari **100 simulasi Monte Carlo** (seed 1-100). H11a dihitung ulang dengan kode yang sama (pembanding; tersimpan dev 9,1% / -25,5%, 2020+ 23,6%).
+
+Kriteria lulus (semua wajib):
+1. Median CAGR H26 dev ≥ median CAGR H11a dev + 1 poin.
+2. Median max DD H26 dev tidak lebih buruk dari H11a dev lebih dari 2 poin.
+3. Median CAGR H26 2020+ ≥ median CAGR H11a 2020+.
+4. Tanpa 5 trade terbesar (bersih) masing-masing strategi, dev: median CAGR H26 ≥ median CAGR H11a.
+5. Sensitivitas dev (hanya cek ketahanan, bukan memilih varian): ambang {+20%, +40%} × M {1,5; 2,5} = 4 kombinasi; minimal 3 dari 4 punya median CAGR ≥ H11a dev.
+
+Hanya dilaporkan (bukan syarat): win rate, rata-rata menang/kalah, rata-rata bersih per trade, lama tahan, porsi untung puncak yang dibawa pulang (kotor / MFE pemenang), jumlah trade yang mencapai ambang.
+
+Hasil: lulus semua = kandidat uji maju (catatan pasca hasil), bukan pengganti H11a di paper. Gagal = status **tidak diadopsi**, ditutup tanpa variasi ambang/M lain.
+
+Kelemahan (dicatat sebelum uji):
+- Pasca hasil: ide dari data MFE yang sudah dilihat; tidak ada data bersih.
+- Ambang +30% dipilih dekat median MFE pemenang (+29,5% dev, +43% 2020+).
+- Dev memakai 217 saham daftar hari ini (survivorship), sama dengan H11a dev.
+- Merapatkan stop menambah jumlah jual-beli ulang (sinyal baru bisa masuk lagi), biaya ikut naik.
+
+### Hasil H26 (2026-11-01, dijalankan sekali, `backend/research/uji_h26.py`, hasil `hasil_riset/h26_hasil`): GAGAL 1/5 → tidak diadopsi
+Cek mesin: tanpa ambang, simulasi H26 identik dengan `uji_tren.simulasi` (495 sinyal dev), dan H11a dev dihitung ulang = angka tersimpan (9,1% / -25,5%). H11a 2020+ dihitung ulang 22,7% (tersimpan 23,6%; data harga sudah bertambah).
+
+| Kriteria | Hasil | |
+|---|---|---|
+| 1. Dev CAGR ≥ H11a + 1 | 6,1% vs 9,1% + 1 | ✘ |
+| 2. Dev DD tidak lebih buruk > 2 poin | -25,5% vs -25,5% | ✔ |
+| 3. 2020+ CAGR ≥ H11a | 20,2% vs 22,7% | ✘ |
+| 4. Dev tanpa 5 terbesar | 3,1% vs 4,2% | ✘ |
+| 5. Sensitivitas ≥ 3/4 | 0 dari 4 (5,1 / 7,8 / 6,2 / 7,2% vs 9,1%) | ✘ |
+
+Laporan tambahan: sinyal dev 512 vs 495 (jual lebih awal → masuk lagi), bersih/trade +1,61% vs +2,10%, lama tahan 30,9 vs 32,8 hari, 80 trade menyentuh +30%, porsi untung puncak yang dibawa pulang pemenang 46% vs 44%. 2020+: bersih/trade +4,48% vs +6,22%, DD -36,7% vs -38,2%.
+
+Kenapa: batas jual rapat menjual tren besar saat koreksi biasa di tengah jalan; untung yang "diselamatkan" kecil dibanding kenaikan lanjutan yang hilang. Ditutup tanpa variasi ambang/M lain. Pelajaran: untung yang dilepas dari puncak adalah ongkos memegang tren besar.
+
+## H27: bottom reversal di tren naik (dikunci 2026-11-01 atas persetujuan user, sebelum kode uji dibuat dan sebelum melihat hasil apa pun)
+Asal ide: screener "Swing Bottom Reversal" IPOT yang dibagikan di X (contoh BLES, EMAS, GULA, VERN). Kriteria asli: Bottom Reversal = 1 (indikator IPOT, rumus tidak dibuka), Net Foreign Flow 1 minggu > 0, harga ≥ SMA100, SMA100 > SMA200, SMA50 > SMA100. Contoh yang dibagikan hanya yang naik, jadi bukan bukti. Satu versi saja, tanpa varian pilihan.
+
+Pertanyaan: membeli pantulan setelah koreksi di saham syariah yang MA-nya tersusun naik, apakah untung setelah biaya, dan memberi sesuatu di atas Follow Tren?
+
+Penyesuaian dari rumus asli (diputuskan sebelum melihat hasil):
+- "Bottom Reversal" diganti definisi terbuka di bawah (rumus IPOT tidak diketahui).
+- Syarat asing dibuang: H7/H15 sudah gagal, dan data asing per saham tidak ada untuk 2010-2019.
+- Universe saham syariah saja, bukan semua IHSG.
+
+Kerangka (sama dengan H19 kecuali disebut lain):
+- Sinyal di close hari t, saham harus `lolos` (nilai 20 hari ≥ Rp5 M, ATR% 1,5-5, harga ≥ 50, tanpa hari volume 0 dalam 5 hari). Entry open t+1.
+- Sinyal = semua terpenuhi di hari t:
+  1. Tren: MA50 > MA100 > MA200 **dan** close ≥ MA100.
+  2. Sempat koreksi: close kemarin ≤ MA20 kemarin.
+  3. Pantulan: close hari ini > MA20 hari ini **dan** close hari ini > high kemarin.
+- Keluar, mana yang lebih dulu: stop pelindung (stop awal entry − 3×ATR14, trailing = max(stop, close tertinggi sejak entry − 3×ATR14), close < stop → open besok); close < MA50 → open besok; batas 20 hari bursa → close hari ke-20.
+- Satu posisi per ticker, maks 10 posisi @10% ekuitas, sinyal > slot dipilih acak. CAGR & DD = median 100 simulasi Monte Carlo (seed 1-100). Biaya ±1,2% pulang-pergi (fee 0,15% beli + 0,25% jual + 1 tick per sisi).
+- Pembanding P = rata-rata semua tahanan open t+1 s/d close t+20 saham lolos.
+- MA = rata-rata sederhana close disesuaikan.
+- **Dev 2010-2019**: 217 saham (`syariah_tickers`, bias survivorship), harga dipotong 2019-12-31.
+- **Holdout 2020 s/d data terakhir**: DES historis. Hanya dibuka bila lulus SEMUA kriteria dev, sekali jalan. Data 2020+ sudah dipakai H11a & eksplorasi 2020 (aturan berbeda), dicatat sebagai kelemahan.
+
+Kriteria lulus (dev, lalu holdout bila dibuka), semua wajib:
+1-6. Sama dengan H19 (exp net > 0, di atas pembanding, bootstrap 90% batas bawah > 0, tahun positif ≥ 70%, tanpa 10 trade terbaik > 0, tanpa 5 ticker terbaik > 0).
+7. Median CAGR portofolio > CAGR beli-tahan bobot sama universe (tanpa biaya) di periode yang sama.
+8. Bootstrap bulanan 98% batas bawah (persentil 1) > 0 (uji ke-43, rawan kebetulan).
+9. Nilai tambah atas Follow Tren: median CAGR / |median max DD| > H11a di periode yang sama (dev H11a 9,1% / 25,5% = 0,36; dihitung ulang dengan kode yang sama).
+
+Hanya dilaporkan (bukan syarat): jumlah trade, winrate, untung vs rugi rata-rata, return kotor, profit factor, lama tahan, porsi keluar per alasan (stop / MA50 / 20 hari), korelasi return bulanan dengan H11a, persen trade yang saat masuk juga dipegang H11a.
+
+Hasil: lulus dev + holdout = kandidat paper kedua, bukan pengganti Follow Tren. Gagal = ditutup tanpa variasi MA, batas hari, atau aturan keluar.
+
+Kelemahan (dicatat sebelum uji):
+- Mirip H19c/H19d (pantulan + filter MA200) yang gagal karena biaya; peluang lulus rendah.
+- Definisi reversal buatan sendiri, bukan rumus IPOT.
+- Dev 217 saham daftar hari ini (survivorship); holdout 2020+ tidak buta.
+
+### Hasil H27 dev 2010-2019 (2026-11-01, dijalankan sekali, `backend/research/uji_h27.py --periode dev`, hasil `hasil_riset/h27_dev`): GAGAL 0/9, holdout tidak dibuka
+Cek mesin: H11a dev dihitung ulang dengan kode yang sama = 9,1% / -25,5% (sama dengan angka tersimpan). Beli-tahan bobot sama 217 saham 8,1%/th.
+
+| Kriteria | Hasil | |
+|---|---|---|
+| 1. Exp net > 0 | -1,23% (kotor -0,02%, median -2,48%) | ✘ |
+| 2. Di atas pembanding (tahan 20 hari) | -1,23% vs -0,65% (kotor +0,60%) | ✘ |
+| 3. Bootstrap 90% batas bawah > 0 | -1,79% | ✘ |
+| 4. Tahun positif ≥ 70% | 10% (hanya 2012, +0,17%) | ✘ |
+| 5. Tanpa 10 trade terbaik > 0 | -1,53% | ✘ |
+| 6. Tanpa 5 ticker terbaik > 0 | -1,47% (tanpa ASRI, SSIA, TINS, BMTR, ANTM) | ✘ |
+| 7. Median CAGR > beli-tahan | -8,2% (p5-p95 -8,7 s/d -7,7%) vs 8,1% | ✘ |
+| 8. Bootstrap bulanan persentil 1 > 0 | -2,00% | ✘ |
+| 9. CAGR/|DD| > H11a | -8,2/59,9 = -0,14 vs 9,1/25,5 = 0,36 | ✘ |
+
+Laporan: 1.005 trade, 76 ticker, winrate 30%, untung +6,74% vs rugi -4,58%, profit factor 0,62, tahan 10,4 hari; keluar MA50 65%, 20 hari 25%, stop 10%. Korelasi bulanan dengan H11a 0,62 (contoh 1 simulasi), 22% trade sahamnya sedang dipegang H11a. Per tahun (bersih/trade): 2010 -2,45, 2011 -1,80, 2012 +0,17, 2013 -1,56, 2014 -1,01, 2015 -2,80, 2016 -1,08, 2017 -0,18, 2018 -2,07, 2019 -1,55.
+
+Kenapa: bahkan sebelum biaya hasilnya nol dan kalah dari saham acak dengan lama tahan sama. Pantulan di atas MA20 sering tidak berlanjut; 65% trade keluar karena close jatuh di bawah MA50. Ditutup tanpa variasi MA, batas hari, atau aturan keluar. Pelajaran: contoh screener di media sosial yang hanya menampilkan saham yang naik bukan bukti.
+
+## H28: gap up yang belum ditutup (dikunci 2026-11-01 atas permintaan user, sebelum kode uji dibuat dan sebelum melihat hasil apa pun)
+Asal ide: postingan X (@thesmallmoney) "cari saham yang gap-nya belum ditutup dan masih lebar, risknya masuk akal, hanya untuk short term", digabung dengan running trade, orderbook, dan tradebook. Bagian orderbook/running trade/tradebook TIDAK bisa diuji (data historis tidak ada); yang diuji hanya saringan gap. Kalau gagal, artinya gap saja tidak cukup; klaim orderbook tetap tidak terbukti maupun terbantah. Satu versi, tanpa varian pilihan. Gap belum pernah diuji di H0-H27.
+
+Pertanyaan: saham syariah yang gap up dan celahnya tetap terbuka sampai penutupan, apakah lanjut naik dalam jangka pendek cukup untuk menutup biaya?
+
+Aturan (angka dipilih sebelum melihat data apa pun):
+- Hari g (sinyal, dilihat di close g), semua terpenuhi:
+  1. Gap lebar dan belum ditutup: low g ≥ high (g−1) × 1,02 (celah ≥ 2% bertahan sepanjang hari).
+  2. Risiko masuk akal: close g ≤ high (g−1) × 1,10 (jarak ke batas gap ≤ ±10%).
+  3. Saham `lolos` (nilai 20 hari ≥ Rp5 M, ATR% 1,5-5, harga ≥ 50, tanpa hari volume 0 dalam 5 hari).
+- Masuk open g+1. Kalau open g+1 ≤ high (g−1) (gap sudah tertutup sebelum masuk) → tidak masuk.
+- Stop awal = high (g−1) (gap tertutup). Trailing = max(stop, close tertinggi sejak entry − 3×ATR14). Close < stop → jual open besok.
+- Batas waktu 10 hari bursa setelah sinyal → jual di close hari ke-10. Mana yang lebih dulu.
+- Satu posisi per ticker, maks 10 posisi @10% ekuitas, sinyal > slot dipilih acak; CAGR & DD = median 100 simulasi Monte Carlo. Biaya ±1,2% pulang-pergi.
+- Pembanding P = rata-rata semua tahanan open t+1 s/d close t+10 saham lolos.
+- **Dev 2010-2019**: 217 saham (survivorship), harga dipotong 2019-12-31. **Holdout 2020+**: DES historis, hanya dibuka bila lulus SEMUA kriteria dev, sekali jalan (data 2020+ sudah dipakai H11a & eksplorasi).
+
+Kriteria lulus: sama persis dengan H27 (1-6 seperti H19, 7 median CAGR > beli-tahan bobot sama, 8 bootstrap bulanan persentil 1 > 0, 9 median CAGR/|median max DD| > H11a periode sama).
+
+Hanya dilaporkan: jumlah trade, winrate, untung vs rugi, kotor, profit factor, lama tahan, alasan keluar, korelasi bulanan dengan H11a, persen trade yang sahamnya sedang dipegang H11a.
+
+Gagal = ditutup tanpa variasi lebar gap, batas risiko, atau masa tahan.
+
+Kelemahan (dicatat sebelum uji):
+- Bagian inti rumus asli (orderbook/running trade) tidak diuji.
+- Ambang 2% dan 10% dipilih sendiri (postingan tidak memberi angka).
+- Mirip breakout H4 (gagal di 2024+) dan momentum jangka pendek yang biasanya kalah biaya.
+- Dev 217 saham (survivorship); holdout tidak buta.
+
+### Hasil H28 dev 2010-2019 (2026-11-01, dijalankan sekali, `backend/research/uji_h28.py --periode dev`, hasil `hasil_riset/h28_dev`): GAGAL 0/9, holdout tidak dibuka
+| Kriteria | Hasil | |
+|---|---|---|
+| 1. Exp net > 0 | -2,42% (kotor -1,20%, median -3,72%) | ✘ |
+| 2. Di atas pembanding (tahan 10 hari) | -2,42% vs -0,97% (kotor +0,28%) | ✘ |
+| 3. Bootstrap 90% batas bawah > 0 | -4,63% | ✘ |
+| 4. Tahun positif ≥ 70% | 22% (2010, 2011; 2017 tanpa sinyal) | ✘ |
+| 5. Tanpa 10 trade terbaik > 0 | -6,87% | ✘ |
+| 6. Tanpa 5 ticker terbaik > 0 | -4,77% (tanpa SMSM, ACES, PGAS, ITMG, ASGR) | ✘ |
+| 7. Median CAGR > beli-tahan | -0,7% vs 8,1% | ✘ |
+| 8. Bootstrap bulanan persentil 1 > 0 | -5,63% | ✘ |
+| 9. CAGR/|DD| > H11a | -0,7/9,7 = -0,07 vs 0,36 | ✘ |
+
+Laporan: hanya 29 trade (19 saham) dalam 10 tahun, 83% bulan tanpa posisi; winrate 31%, untung +6,87% vs rugi -6,60%, profit factor 0,47, tahan 8,1 hari; keluar 10 hari 55%, gap tertutup 41%, trailing 3%. Korelasi bulanan dengan H11a 0,04.
+
+Kenapa: gap up yang celahnya bertahan jarang terjadi di saham syariah likuid (syarat ATR% ≤ 5 membuang saham paling liar), dan setelahnya harga rata-rata turun. Sampel kecil, tapi tidak ada tanda keunggulan; ditutup tanpa variasi lebar gap, batas risiko, masa tahan, atau syarat likuiditas. Klaim orderbook/running trade tetap tidak teruji.
+
+### Pemeriksaan ulang H27 & H28 + kualitas open Yahoo (2026-11-01, atas permintaan user; EKSPLORASI, bukan bukti, status tidak berubah)
+Cek manual 6 trade acak: sinyal, harga masuk/keluar, dan alasan keluar sesuai aturan. Ditemukan tiga kelemahan:
+1. **H27 cacat rancangan**: syarat masuk tidak mewajibkan close > MA50, padahal aturan jual close < MA50 → 23% trade dibeli di bawah MA50 dan dijual 2-3 hari kemudian (30% trade keluar ≤ 3 hari). Trade lainnya juga minus (-1,25%).
+2. **H28 saringan salah pilih**: 1.554 gap ≥ 2% yang bertahan (217 saham 2010-2019), hanya 38 lolos `lolos` standar. Tanpa batas ATR pun tinggal 47 trade (syarat nilai ≥ Rp5 M ikut membuang): saham yang gap besar umumnya tidak likuid.
+3. **Open Yahoo 2010-2012 rusak**: open = close hari yang sama di 96-99% hari (2013 47%, 2014 63%, 2015-2019 17-23%). Pemeriksaan lama hanya membandingkan open dengan close kemarin. Semua uji yang membeli di open memakai harga close di tahun-tahun itu.
+
+Eksplorasi (setelah melihat hasil, bukan bukti):
+| Uji | Trade | Kotor | Pembanding kotor | Bersih | Median CAGR | Kriteria |
+|---|---|---|---|---|---|---|
+| H27 + close > MA50, 2010-2019 | 782 | 0,00% | +0,60% | -1,21% | -7,0% | 0/9 |
+| H27 + close > MA50, 2015-2019 | 378 | -0,44% | +0,13% | -1,61% | -7,7% | 0/9 |
+| H28 tanpa batas ATR, 2010-2019 | 47 | -1,59% | +0,35% | -2,87% | -1,4% | 0/9 |
+| H28 tanpa batas ATR, 2015-2019 | 18 | -4,57% | +0,11% | -5,73% | -2,1% | 0/9 |
+
+Dampak open rusak ke Follow Tren (H11a, median 100 simulasi Monte Carlo, kode sama):
+| Periode | Open asli | Open diganti close |
+|---|---|---|
+| 2015-2019 (open bagus) | CAGR 8,5%, DD -17,5%, bersih/trade +1,90% | CAGR 9,5%, DD -20,2%, +2,49% |
+| 2010-2019 (dev) | CAGR 9,1%, DD -25,5%, +2,10% (angka resmi) | CAGR 9,4%, DD -28,9%, +2,46% |
+
+Kesimpulan: perbaikan rancangan tidak menolong H27 maupun H28; kesimpulan gagal tetap. Beli di close hari masuk ±1 poin/th lebih baik dari beli di open untuk H11a, jadi tahun 2010-2012 (open = close) sedikit terlalu bagus; perkiraan dampak ke dev H11a ±0,3 poin/th (9,1% kemungkinan ±8,8%). Tidak mengubah status H11a, aturan, atau batas paper.

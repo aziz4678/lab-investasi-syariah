@@ -8,7 +8,9 @@ import Segmen from "@/components/common/Segmen.vue";
 import KpiTiles from "@/components/tren/KpiTiles.vue";
 import KurvaModal from "@/components/charts/KurvaModal.vue";
 import HeatmapBulanan from "@/components/charts/HeatmapBulanan.vue";
-import Distribusi from "@/components/charts/Distribusi.vue";
+import HipotesisTren from "@/components/tren/HipotesisTren.vue";
+import CaraKerjaTrade from "@/components/tren/CaraKerjaTrade.vue";
+import IstilahTren from "@/components/tren/IstilahTren.vue";
 import TabelTrade from "@/components/tren/TabelTrade.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
@@ -24,19 +26,21 @@ const KET = {
 const versi = ref("");
 const ringkasan = ref(null);
 const ekuitas = ref([]);
-const distribusi = ref([]);
+const contohTrade = ref(undefined);
+const tabel = ref(null);
 const trade = ref([]);
 const galat = ref("");
 const muat = ref(false);
+const periode = computed(() => (ringkasan.value ? `${ringkasan.value.mulai.slice(0, 4)}-${ringkasan.value.akhir.slice(0, 4)}` : ""));
 const contoh = computed(() => `contoh 1 simulasi Monte Carlo (seed ${ringkasan.value?.monte_carlo?.contoh_seed ?? 7})`);
 
 async function isi(v) {
   muat.value = true;
   galat.value = "";
   try {
-    [ringkasan.value, ekuitas.value, distribusi.value, trade.value] = await Promise.all([
-      ambil(`ringkasan/${v}`), ambil(`ekuitas/${v}`), ambil(`distribusi/${v}`), ambil(`trade/${v}`),
-    ]);
+    contohTrade.value = undefined;
+    ambil(`tren52/contoh/${v}`).then((c) => { if (versi.value === v) contohTrade.value = c; }).catch(() => { if (versi.value === v) contohTrade.value = null; });
+    [ringkasan.value, ekuitas.value, trade.value] = await Promise.all([ambil(`ringkasan/${v}`), ambil(`ekuitas/${v}`), ambil(`trade/${v}`)]);
   } catch (e) {
     galat.value = `Gagal memuat data: ${e.message}. Pastikan API jalan (python -m uvicorn backend.api.main:app --port 8765).`;
   } finally {
@@ -71,7 +75,8 @@ watch(versi, (v) => v && isi(v));
 
 <template>
   <div class="space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <HipotesisTren />
+    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">{{ KET[versi]?.isi || "Simulasi aturan di data masa lalu." }}<template v-if="ringkasan"> Periode {{ ringkasan.mulai }} s/d {{ ringkasan.akhir }}.</template> Bukan jaminan hasil ke depan.</p>
       <Pemutar v-if="muat && ringkasan" teks="Memuat versi..." />
       <Segmen v-model="versi" :pilihan="daftar.map((d) => [d.versi, KET[d.versi]?.pendek || d.label])" />
@@ -101,20 +106,15 @@ watch(versi, (v) => v && isi(v));
         <p class="m-0"><b class="font-medium text-ink">Artinya untuk paper trade:</b> paper juga memilih acak (seed = tanggal), jadi hasil nyata bisa jatuh di mana saja dalam rentang ini, atau di luarnya.</p>
       </div>
     </details>
+    <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Cara kerjanya</span><span class="text-xs text-muted">beli → hold → take profit / cut loss, dengan data backtest {{ periode }}</span><span class="h-px flex-1 bg-garis" /></div>
+    <CaraKerjaTrade :trade="trade" :r="ringkasan" :contoh="contohTrade" :periode="periode" />
+    <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Hasil portofolio</span><span class="text-xs text-muted">semua trade digabung jadi satu modal</span><span class="h-px flex-1 bg-garis" /></div>
     <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" />
-    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''" />
-    <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-      <Distribusi :distribusi="distribusi" />
-      <Panel judul="Cara membaca">
-        <div class="space-y-3 text-ink-2">
-          <p class="m-0 mb-3">Kebanyakan trade berakhir rugi kecil. Untung datang dari sedikit trade besar di sisi kanan grafik sebaran.</p>
-          <p class="m-0 mb-3">Itu sebabnya tidak ada target untung dan stop tidak dilonggarkan: memotong trade besar merusak strategi.</p>
-          <p class="m-0">Bulan merah beruntun dan penurunan 30-40% dari puncak adalah bagian normal strategi ini.</p>
-        </div>
-      </Panel>
+    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''"
+      :terpilih="{ tahun: tabel?.tahun || '', bulan: +(tabel?.bulan || 0) }" @pilih="(th, bl) => tabel?.saring(th, bl)" />
+    <TabelTrade ref="tabel" :trade="trade" />
     </div>
-    <TabelTrade :trade="trade" />
-    </div>
+    <IstilahTren />
     <Panel judul="Olah ulang data" ket="Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit">
       <template #aksi>
         <button class="tombol" :disabled="sibuk" @click="jalankan('impor_fundamental')">Impor fundamental</button>

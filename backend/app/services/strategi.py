@@ -18,8 +18,8 @@ TREN52 = {
     "langkah": [
         {"judul": "Cari", "teks": "Tiap sore dicari saham syariah yang ramai diperdagangkan dan harga penutupannya menembus rekor tertinggi 52 minggu."},
         {"judul": "Beli", "teks": "Besok pagi dibeli di harga pembukaan, masing-masing 10% dari modal, maksimal 10 saham sekaligus."},
-        {"judul": "Jaga", "teks": "Pasang batas jual di bawah harga tertinggi sejak beli (±10%). Batas ini ikut naik saat harga naik, tidak pernah turun."},
-        {"judul": "Jual", "teks": "Kalau harga penutupan jatuh di bawah batas itu, saham dijual besok pagi. Untung dikunci, rugi dibatasi."},
+        {"judul": "Cut loss", "jenis": "cl", "teks": "Batas jual dipasang ±10% di bawah harga beli. Kalau harga penutupan jatuh di bawahnya sebelum sempat naik, dijual besok pagi. Terjadi di ±2 dari 3 trade."},
+        {"judul": "Take profit", "jenis": "tp", "teks": "Tanpa target angka. Batas jual ikut naik mengikuti harga tertinggi, tidak pernah turun. Dijual saat harga turun ±10% dari puncak. Contoh: beli 1.000, puncak 1.500 → jual ±1.380 (+38%)."},
     ],
     "harapan": "Lebih sering rugi kecil daripada untung (cuma ±1 dari 3 trade yang untung, rugi rata-rata ±10%), tapi trade yang untung rata-rata naik ±35% dan sesekali sampai ratusan persen. Hasil backtest 2020-2026 ±23% per tahun, tapi itu terbantu reli saham kecil, jadi harapan realistis lebih rendah. Pernah turun hampir 40% dari puncak.",
     "variabel": [
