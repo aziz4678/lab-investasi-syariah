@@ -1,12 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
-import { House, TrendingUp, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-vue-next";
+import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { modeTema, setTema, temaGelap } from "@/composables/tema";
 import logoTerang from "@/assets/logo/logo.svg";
 import logoGelap from "@/assets/logo/logo-gelap.svg";
 import BerandaView from "@/views/BerandaView.vue";
-import FollowTrenView from "@/views/riset/FollowTrenView.vue";
+import StrategiView from "@/views/riset/StrategiView.vue";
 import DividenView from "@/views/produk/DividenView.vue";
 import ReksadanaView from "@/views/produk/ReksadanaView.vue";
 import EtfView from "@/views/produk/EtfView.vue";
@@ -19,7 +19,7 @@ const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H29" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H29" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -39,7 +39,7 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
 const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
@@ -47,7 +47,7 @@ const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
 const LABEL_TEMA = { sistem: "Tema: ikuti sistem", terang: "Tema: terang", gelap: "Tema: gelap" };
 
 const tab = ref("beranda");
-const subTab = ref({ tren52: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar" });
+const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar" });
 const sub = computed(() => subTab.value[tab.value]);
 const status = ref(null);
 const kodeEmiten = ref("");
@@ -125,9 +125,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen transition-[padding] duration-200" :class="lebar ? 'md:pl-[248px]' : 'md:pl-[88px]'">
+  <div class="min-h-screen transition-[padding] duration-200" :class="lebar ? 'md:pl-[264px]' : 'md:pl-[88px]'">
     <aside class="fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-garis bg-sidebar py-6 transition-[width] duration-200 md:flex"
-      :class="lebar ? 'w-[248px] px-4' : 'w-[88px] items-center px-0'">
+      :class="lebar ? 'w-[264px] px-4' : 'w-[88px] items-center px-0'">
       <div class="mb-7 flex items-center gap-3" :class="lebar ? 'px-2' : ''">
         <img :src="logo" alt="" class="h-10 w-10 shrink-0" :title="NAMA_APP" />
         <div v-if="lebar" class="min-w-0 leading-tight">
@@ -203,7 +203,7 @@ onMounted(() => {
         </div>
       </div>
       <BerandaView v-if="tab === 'beranda'" />
-      <FollowTrenView v-else-if="tab === 'tren52'" :sub="sub" @sub="gantiSub" />
+      <StrategiView v-else-if="tab === 'tren52' || tab === 'blend'" :id="tab" :key="tab" :judul="judul" :sub="sub" @sub="gantiSub" />
       <DividenView v-else-if="tab === 'dividen'" :sub="sub" @sub="gantiSub" />
       <ReksadanaView v-else-if="tab === 'reksadana'" :sub="sub" @sub="gantiSub" />
       <EtfView v-else-if="tab === 'etf'" :sub="sub" @sub="gantiSub" />

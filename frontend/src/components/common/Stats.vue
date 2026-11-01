@@ -28,7 +28,7 @@ function nada(s) {
           <TeksWarna v-if="!s.nada && jumlahTanda(s.nilai) > 1" :teks="s.nilai" />
           <template v-else>{{ pecahAngka(s.nilai)[0] }}<span class="font-light opacity-50">{{ pecahAngka(s.nilai)[1] }}</span></template>
         </div>
-        <div v-if="s.ket" class="mt-0.5 line-clamp-2 text-xs leading-snug text-muted" :title="s.ket"><TeksWarna :teks="s.ket" /></div>
+        <div v-if="s.ket" class="mt-0.5 text-xs leading-snug text-muted" :class="s.baris === 3 ? 'line-clamp-3' : 'line-clamp-2'" :title="s.ket"><TeksWarna :teks="s.ket" /></div>
       </div>
     </div>
   </div>

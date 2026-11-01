@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { persen } from "@/utils/format";
 import Stats from "@/components/common/Stats.vue";
 
-const props = defineProps({ r: Object });
+const props = defineProps({ r: Object, jii: Number });
 
 const items = computed(() => {
   const r = props.r;
@@ -13,9 +13,9 @@ const items = computed(() => {
   const cagr = u ? u.cagr.median : r.cagr;
   const dd = u ? u.dd.median : r.dd_maks;
   return [
-    { label: u ? `Return per tahun (median)` : "Return per tahun", nilai: persen(cagr), nada: cagr >= 0 ? "naik" : "turun",
-      ket: u ? `p5–p95 ${persen(u.cagr.p5)} s/d ${persen(u.cagr.p95)} · beli-tahan ${persen(r.cagr_beli_tahan)}` : `beli-tahan ${persen(r.cagr_beli_tahan)} · IHSG ${persen(r.cagr_ihsg)}`,
-      info: `CAGR: rata-rata pertumbuhan modal per tahun. Dihitung seperti paper: 10 posisi @ 10% ekuitas saat beli, harga pasar harian, dividen dipotong pajak.${u ? `${UNDI}${persen(r.cagr)}.` : ""} IHSG ${persen(r.cagr_ihsg)}.` },
+    { label: u ? `Return per tahun (median)` : "Return per tahun", nilai: persen(cagr), nada: cagr >= 0 ? "naik" : "turun", baris: 3,
+      ket: `${u ? `p5–p95 ${persen(u.cagr.p5)} s/d ${persen(u.cagr.p95)} · ` : ""}bobot sama ${persen(r.cagr_beli_tahan)}${props.jii != null ? ` · JII ${persen(props.jii)}` : ""}`,
+      info: `CAGR: rata-rata pertumbuhan modal per tahun. Dihitung seperti paper: 10 posisi @ 10% ekuitas saat beli, harga pasar harian, dividen dipotong pajak.${u ? `${UNDI}${persen(r.cagr)}.` : ""} Pembanding standar seragam: bobot sama semua saham syariah likuid (beli-tahan) ${persen(r.cagr_beli_tahan)}${props.jii != null ? ` dan JII (indeks harga, tanpa dividen) ${persen(props.jii)}` : ""}. Info: IHSG ${persen(r.cagr_ihsg)}.` },
     { label: u ? "Penurunan terburuk (median)" : "Penurunan terburuk", nilai: persen(dd, 1, false), nada: "turun",
       ket: u ? `p5–p95 ${persen(u.dd.p5, 1, false)} s/d ${persen(u.dd.p95, 1, false)}` : "dari puncak modal",
       info: `Seberapa dalam modal pernah turun dari titik tertingginya sebelum pulih.${u ? `${UNDI}${persen(r.dd_maks, 1, false)}.` : ""}` },

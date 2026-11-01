@@ -81,7 +81,7 @@ const baris = computed(() => {
 <template>
   <Kerangka v-if="z === null" panel jenis="grafik" :tinggi="240" />
   <Panel v-if="z?.ada" judul="Zona normal" :ket="`Rentang hasil wajar dari backtest, dikunci ${z.dibuat.slice(0, 10)} sebelum paper berjalan`"
-    info="Dari 5000 simulasi ulang (bootstrap) kurva harian backtest 2020-2026 versi konservatif, dihitung dengan cara paper. Pita gelap = 50% hasil tengah, pita terang = 90%.">
+    info="Dari 5000 simulasi ulang (bootstrap) kurva harian backtest 2020-2026 versi konservatif ARA/ARB, dihitung dengan cara paper. Pita gelap = 50% hasil tengah, pita terang = 90%.">
     <template #aksi>
       <span class="chip !h-7 !px-3 !text-xs" :class="ZONA[z.zona].k">{{ ZONA[z.zona].l }}</span>
     </template>

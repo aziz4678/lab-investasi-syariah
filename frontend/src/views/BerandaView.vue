@@ -277,7 +277,7 @@ function waktu(s) {
           </div>
           <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
             <div><div class="text-[11px] text-muted">Total</div><div class="font-medium tabular-nums" :class="kelasPersen(btTotal)">{{ persen(btTotal, 0) }}</div><div class="text-[11px] text-muted">IHSG <span :class="kelasPersen(btIhsg)">{{ persen(btIhsg, 0) }}</span></div></div>
-            <div><div class="text-[11px] text-muted">Per tahun</div><div class="font-medium tabular-nums" :class="kelasPersen(bt.cagr)">{{ persen(bt.cagr, 1) }}</div><div class="text-[11px] text-muted">konservatif <span :class="kelasPersen(btKons?.cagr)">{{ persen(btKons?.cagr, 1) }}</span></div></div>
+            <div><div class="text-[11px] text-muted">Per tahun</div><div class="font-medium tabular-nums" :class="kelasPersen(bt.cagr)">{{ persen(bt.cagr, 1) }}</div><div class="text-[11px] text-muted">konservatif ARA/ARB <span :class="kelasPersen(btKons?.cagr)">{{ persen(btKons?.cagr, 1) }}</span></div></div>
             <div><div class="text-[11px] text-muted">Turun terdalam</div><div class="font-medium text-turun tabular-nums">{{ persen(bt.dd_maks, 0) }}</div><div class="text-[11px] text-muted">dari puncak</div></div>
             <div><div class="text-[11px] text-muted">Trade untung</div><div class="font-medium tabular-nums">{{ persen(bt.win_rate, 0, false) }}</div><div class="text-[11px] text-muted"><span class="text-naik">{{ persen(bt.rata_menang, 0) }}</span> / <span class="text-turun">{{ persen(bt.rata_kalah, 0) }}</span></div></div>
           </div>

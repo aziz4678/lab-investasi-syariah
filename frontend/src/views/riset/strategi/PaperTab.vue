@@ -11,10 +11,11 @@ import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import ZonaPaper from "@/components/tren/ZonaPaper.vue";
-import PaperH29 from "@/components/tren/PaperH29.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 
+const props = defineProps({ s: Object });
 const muatStatus = inject("muatStatus");
+const pindahTab = inject("pindahTab");
 const statusApp = inject("status");
 const bedaIdx = computed(() => {
   const x = statusApp?.value?.paper_cek?.idx;
@@ -298,9 +299,11 @@ const stat = computed(() => {
         </p>
       </div>
 
-      <ZonaPaper :muat-ulang="versiMuat" />
+      <ZonaPaper v-if="props.s?.fitur?.zona_paper" :muat-ulang="versiMuat" />
 
-      <PaperH29 />
+      <p v-if="props.s?.fitur?.tautan_blend" class="m-0 text-[13px]">
+        <button class="text-aksen hover:underline" @click="pindahTab('blend', 'paper')">H11a juga jadi bagian Momentum Blend (H29) →</button>
+      </p>
 
       <Panel
         :judul="infoAksi(r.tgl_terakhir).judul"

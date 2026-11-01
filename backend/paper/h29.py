@@ -11,11 +11,11 @@ EVALUASI = "2027-11-01"
 TICK_ESTIMASI = 0.0047
 BIAYA_PINDAH = sc.FEE_JUAL / 100 + sc.FEE_BELI / 100 + 2 * TICK_ESTIMASI
 KRITERIA = [
-    "Evaluasi 12 bulan pada 2027-11-01, untuk H11a dan H29.",
-    "H11a GAGAL kalau salah satu: zona h11a_v1 (dikunci 2026-10-22) menyatakan GAGAL (return di bawah persentil 1 sejak hari ke-63, drawdown lebih dalam dari persentil 1, atau rugi beruntun di atas persentil 99), drawdown lebih dalam dari -45%, atau ada bug eksekusi.",
-    "H29 GAGAL kalau drawdown lebih dalam dari -45% atau ada bug eksekusi.",
+    "Momentum Blend (H29): evaluasi 12 bulan pada 2027-11-01. GAGAL kalau drawdown lebih dalam dari -45% atau ada bug eksekusi.",
+    "Follow Tren (H11a), jadwal yang dikunci 21 Okt 2026 tetap: keputusan utama Okt 2027, kalau tidak pernah WASPADA/GAGAL di zona h11a_v1 → uang nyata kecil 10-20%.",
+    "H11a GAGAL kalau zona h11a_v1 (dikunci 2026-10-22) menyatakan GAGAL (return di bawah persentil 1 sejak hari ke-63, drawdown lebih dalam dari persentil 1, atau rugi beruntun di atas persentil 99). Ditambahkan 1 Nov 2026, bukan pengganti: juga GAGAL kalau drawdown lebih dalam dari -45% atau ada bug eksekusi.",
     "Hasil 12 bulan yang biasa-biasa saja atau rugi kecil tidak otomatis gagal (kecuali H11a jatuh ke zona GAGAL h11a_v1): audit 2026-11-01 menunjukkan tahun tanpa lonjakan besar itu normal.",
-    "Di evaluasi, H11a, H29, bobot sama universe syariah likuid, dan JII dibandingkan pada periode yang sama.",
+    "Saat evaluasi, H11a, H29, bobot sama universe syariah likuid, dan JII dibandingkan pada periode yang sama.",
 ]
 
 

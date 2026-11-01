@@ -21,7 +21,51 @@ TREN52 = {
         {"judul": "Cut loss", "jenis": "cl", "teks": "Batas jual dipasang ±10% di bawah harga beli. Kalau harga penutupan jatuh di bawahnya sebelum sempat naik, dijual besok pagi. Terjadi di ±2 dari 3 trade."},
         {"judul": "Take profit", "jenis": "tp", "teks": "Tanpa target angka. Batas jual ikut naik mengikuti harga tertinggi, tidak pernah turun. Dijual saat harga turun ±10% dari puncak. Contoh: beli 1.000, puncak 1.500 → jual ±1.380 (+38%)."},
     ],
-    "harapan": "Lebih sering rugi kecil daripada untung (cuma ±1 dari 3 trade yang untung, rugi rata-rata ±10%), tapi trade yang untung rata-rata naik ±35% dan sesekali sampai ratusan persen. Hasil backtest 2020-2026 ±23% per tahun, tapi itu terbantu reli saham kecil, jadi harapan realistis lebih rendah. Pernah turun hampir 40% dari puncak.",
+    "harapan": "Lebih sering rugi kecil daripada untung (cuma ±1 dari 3 trade yang untung, rugi rata-rata ±10%), tapi trade yang untung rata-rata naik ±35% dan sesekali sampai ratusan persen. Backtest 2020-2026 ±22,8% per tahun (median 100 simulasi Monte Carlo), tapi setelah memperhitungkan ARA/ARB terkunci dan saham delisting yang tidak ada di data, angka realistis 2020-2026 ±15-20% per tahun. Ke depan bisa satu digit sampai belasan per tahun: hampir semua untung datang dari ±10 lonjakan besar, dan 2010-2019 hanya ±9% (di atas bobot sama syariah 7,2% dan JII 5,3%, tapi kalah dari IHSG 9,2%). Pernah turun hampir 40% dari puncak.",
+    "detail": {"sub": "backtest", "teks": "Cara kerja beli, hold, TP & CL dengan data asli di Backtest →"},
+    "tab": [["paper", "Paper trade"], ["backtest", "Backtest"], ["aturan", "Aturan & variabel"]],
+    "paper": "h11a",
+    "fitur": {"zona_paper": True, "tautan_blend": True, "biaya_rebalance": False},
+    "hipotesis": {
+        "kode": "H11a", "judul": "Hipotesis H11a: Follow Tren", "ket": "Apa yang diuji di backtest ini, dan sampai mana sekarang",
+        "kalimat": "Saham syariah likuid yang harganya mencetak **rekor tertinggi setahun** cenderung melanjutkan kenaikan. Dengan **memotong rugi cepat** dan **membiarkan untung berjalan** lewat batas jual yang ikut naik, hasil totalnya mengalahkan memegang semua saham syariah secara rata, walau lebih sering rugi daripada untung.",
+    },
+    "perjalanan": [
+        {"waktu": "Okt 2026", "judul": "Uji data lama 2010-2019", "isi": "Gagal tipis 6/7 (tahun positif 67% < 70%). CAGR 9,0% (median 100 simulasi, cara paper) di atas bobot sama syariah 7,2% dan JII 5,3%, tapi kalah dari IHSG 9,2%. Uji awal (laporan bulanan, 1 simulasi): 12,1% vs 8,1%.", "status": "selesai"},
+        {"waktu": "Okt 2026", "judul": "Uji data baru 2020-2026", "isi": "Dibuka sekali sebagai pengecualian, aturan sama persis. Lulus 7 dari 7 kriteria.", "status": "selesai"},
+        {"waktu": "21 Okt 2026", "judul": "Paper trade dimulai", "isi": "Uang pura-pura Rp100 jt, aturan dikunci, dijalankan tiap hari bursa.", "status": "jalan"},
+        {"waktu": "1 Nov 2026", "judul": "Audit standar seragam", "isi": "Gagal standar seragam di dev, lulus 2020+. Kapasitas kecil: di saham likuid ≥ Rp20 M CAGR ±separuh (S2).", "status": "selesai"},
+        {"waktu": "Jan 2027", "judul": "Cek eksekusi", "isi": "Hari ke-63: batas GAGAL mulai berlaku.", "status": "nanti"},
+        {"waktu": "Apr 2027", "judul": "Cek tengah", "isi": "Bandingkan dengan zona wajar backtest.", "status": "nanti"},
+        {"waktu": "Okt 2027", "judul": "Keputusan utama", "isi": "Tidak pernah WASPADA/GAGAL → uang nyata kecil 10-20%. Ditambah 1 Nov 2026: gagal juga kalau turun lebih dalam dari -45% atau ada bug eksekusi.", "status": "nanti"},
+    ],
+    "backtest": {"jenis": "versi", "versi": {
+        "h11a_2020": {"pendek": "2020-2026", "isi": "Uji utama: saham syariah menurut DES OJK pada tanggal itu.", "jii": -10.8},
+        "h11a_2020_konservatif": {"pendek": "2020-2026 konservatif ARA/ARB", "isi": "Beli dibatalkan saat ARA terkunci, jual menunggu kalau ARB terkunci. Lebih realistis, tapi belum memperhitungkan saham delisting (survivorship).", "jii": -10.8},
+        "h11a_dev": {"pendek": "2010-2019", "isi": "Data pengembangan (daftar 217 saham, ada bias survivorship). Dipakai menyusun aturan.", "jii": 5.3},
+    }},
+    "aturan_langkah": [
+        {"judul": "Cari sinyal", "isi": "Setiap sore, cari saham syariah likuid yang harga penutupannya menembus titik tertinggi 250 hari bursa terakhir (±1 tahun)."},
+        {"judul": "Beli di open besok", "isi": "Beli di harga pembukaan hari berikutnya. Maksimal 10 saham, masing-masing ±10% modal. Kalau sinyal lebih banyak dari slot kosong, dipilih acak."},
+        {"judul": "Jual saat tren patah", "isi": "Stop = close tertinggi sejak beli − 3×ATR. Stop ikut naik, tidak pernah turun. Kalau close di bawah stop, jual di open besok. Tidak ada target untung."},
+    ],
+    "contoh_stop": {
+        "judul": "Contoh trailing stop", "ket": "Beli di Rp1.000, ATR Rp30, jadi jarak stop 3 × 30 = Rp90 dari close tertinggi",
+        "baris": [["Hari 1", "1.000", "1.000", "910", "Rugi maks -9%", ""], ["Hari 10", "1.150", "1.150", "1.060", "Untung +6% terkunci", "naik"],
+                  ["Hari 20", "1.400", "1.400", "1.310", "Untung +31% terkunci", "naik"], ["Hari 25", "1.350", "1.400", "1.310 (tetap)", "–", ""],
+                  ["Hari 30", "1.290", "1.400", "1.310, tembus", "Jual di open besok", "turun"], ["Hari 31", "Open 1.285", "", "", "Hasil ±28%", "naik"]],
+        "catatan": "Selama harga naik, posisi dipegang tanpa batas atas. Penjualan terjadi sedikit di bawah puncak; itu ongkos supaya tidak keluar karena goyangan biasa.",
+    },
+    "risiko": [
+        "Win rate cuma 30-40%. Rugi beruntun 10-16 kali pernah terjadi.",
+        "Penurunan modal 30-40% dari puncak pernah terjadi, dan modal pernah hampir 3 tahun di bawah puncaknya (2021-2024).",
+        "Untung datang dari sedikit trade yang naik puluhan sampai ratusan persen. Kalau trade besar itu terlewat, hasil setahun bisa negatif.",
+        "Rugi per trade bisa -15% sampai -25% di saham volatil, terutama kalau jatuh tajam semalam atau kena ARB.",
+        "Dihitung seperti paper (median 100 simulasi Monte Carlo), backtest 2020-2026 memberi ±22,8% per tahun (konservatif ARA/ARB ±22,1%) dan 2010-2019 hanya ±9,0%: di atas bobot sama syariah (7,2%) dan JII (5,3%), tapi kalah dari IHSG (9,2%). Realistis untuk 2020-2026 ±15-20% per tahun; ke depan bisa satu digit sampai belasan.",
+        "Kapasitas kecil: di saham yang lebih likuid (nilai transaksi ≥ Rp20 M) hasilnya kira-kira separuh. Cocok untuk modal pribadi kecil, tidak bisa diperbesar.",
+        "Jangan ubah aturan di tengah jalan: melonggarkan stop, memasang target untung, atau memilih saham sendiri.",
+    ],
+    "panel_daftar": [],
     "variabel": [
         {"grup": "Universe (saham yang boleh dibeli)", "isi": [
             {"nama": "Status syariah", "nilai": "Masuk DES OJK pada hari sinyal", "ket": "Daftar Efek Syariah periode yang berlaku (1 Jun / 1 Des). Saham yang keluar DES tidak dibeli lagi."},
@@ -66,8 +110,9 @@ TREN52 = {
         "Setelah reset, isi modal baru lalu tekan Mulai. Paper mulai dari data penutupan terakhir; tidak ada posisi bawaan.",
         "Zona normal (batas wajar/gagal) TIDAK ikut direset: tetap h11a_v1 yang dikunci 22 Okt 2026, dan hari dihitung ulang dari awal sesi baru.",
         "Jangan reset hanya karena sedang rugi. Reset yang sah: ganti modal, salah setup, atau data rusak. Reset karena rugi = membuang bukti.",
+        "Reset paper ini ikut memutus Momentum Blend (H29), karena bagian Follow Tren di H29 memakai paper ini.",
     ],
-    "angka": {"cagr": 23.1, "cagr_konservatif": 17.3, "dd": -39.7, "win_rate": 34, "periode": "2020-2026"},
+    "angka": {"cagr": 22.8, "cagr_konservatif": 22.1, "dd": -38.0, "win_rate": 34, "periode": "2020-2026"},
 }
 
 HARIAN = "Otomatis tiap hari bursa: dihitung ulang dari harga harian saat Perbarui / jadwal 17:30"
@@ -83,6 +128,118 @@ PEMBARUAN = {
 for _g in TREN52["variabel"]:
     for _v in _g["isi"]:
         _v["pembaruan"] = PEMBARUAN.get(_v["nama"], TETAP)
+
+BLEND = {
+    "id": "blend",
+    "nama": "Momentum Blend",
+    "kode": "H29",
+    "kelas": "Saham syariah IDX",
+    "status": "paper",
+    "status_label": "Paper trade",
+    "ringkas": "Modal dibagi dua. Separuh mengikuti aturan Follow Tren: beli saham syariah yang menembus rekor tertinggi setahun dan jual saat harga turun cukup jauh dari puncaknya. Separuh lagi mengikuti RS 12-1: tiap bulan memegang saham syariah yang paling naik dalam 12 bulan terakhir, tanpa menghitung bulan terakhir. Tiap akhir bulan porsinya dikembalikan ke 50/50.",
+    "gaya": "Breakout 52W + RS 12-1 · dua cara momentum dalam satu modal · dikembalikan ke 50/50 tiap akhir bulan · RS 12-1 = H22",
+    "langkah": [
+        {"judul": "Bagi modal", "teks": "50% modal untuk bagian Follow Tren, 50% untuk bagian RS 12-1."},
+        {"judul": "Follow Tren", "teks": "Beli saham syariah yang menembus rekor tertinggi 52 minggu, 10% dari bagiannya, maksimal 10 saham. Jual saat close turun 3×ATR dari puncak."},
+        {"judul": "RS 12-1", "teks": "Tiap akhir bulan urutkan saham syariah likuid menurut kenaikan 12 bulan tanpa bulan terakhir, pegang ±20% teratas (minimal 10 saham). Dijual kalau peringkatnya jatuh ke luar 2× batas."},
+        {"judul": "Kembali ke 50/50", "teks": "Tiap akhir bulan porsi kedua bagian disamakan lagi. Tidak ada target untung; bagian RS 12-1 tidak memakai stop."},
+    ],
+    "harapan": "Dibuat setelah melihat hasil: simulasi gabungan ±15% per tahun di kedua periode (2011-2019 14,8%, 2020-2026 14,7%) dan lebih stabil dari masing-masing bagian, tapi itu bukan bukti karena idenya muncul setelah data itu terlihat. RS 12-1 gagal di universe likuid ≥ Rp20 M (S2) dan Follow Tren tinggal ±separuh di sana, jadi kapasitasnya tetap kecil: hanya cocok untuk modal pribadi kecil. Satu-satunya bukti adalah paper trade sampai Nov 2027.",
+    "detail": {"sub": "aturan", "teks": "Semua aturan yang dikunci & selisih paper vs simulasi di Aturan →"},
+    "tab": [["paper", "Paper trade"], ["backtest", "Backtest"], ["aturan", "Aturan & variabel"]],
+    "paper": "h29",
+    "fitur": {"zona_paper": False, "tautan_blend": False, "biaya_rebalance": True},
+    "hipotesis": {
+        "kode": "H29", "judul": "Hipotesis H29: Momentum Blend", "ket": "Dibuat setelah melihat hasil · satu-satunya bukti adalah paper trade",
+        "kalimat": "Menggabungkan **dua cara momentum yang berbeda** (breakout 52 minggu dengan stop, dan peringkat kenaikan 12 bulan tanpa stop) dengan **porsi tetap 50/50** membuat hasilnya **lebih stabil antar periode** daripada masing-masing sendiri. Hipotesis ini dibuat setelah data 2010-2026 terlihat, jadi angka lamanya bukan bukti.",
+    },
+    "perjalanan": [
+        {"waktu": "1 Nov 2026", "judul": "Dibuat & dikunci", "isi": "Ide dari audit H11a & H22 setelah data 2010-2026 terlihat. Aturan dikunci tanpa penyetelan; angka historis bukan bukti.", "status": "selesai"},
+        {"waktu": "2 Nov 2026", "judul": "Paper trade dimulai", "isi": "Bagian RS 12-1 membeli 22 saham di open 2 Nov; bagian Follow Tren = paper H11a yang sudah berjalan. Modal setara Rp100 jt.", "status": "jalan"},
+        {"waktu": "Nov 2027", "judul": "Evaluasi 12 bulan", "isi": "1 Nov 2027: gagal kalau turun lebih dalam dari -45% atau ada bug eksekusi. Dibandingkan dengan Follow Tren, bobot sama, dan JII.", "status": "nanti"},
+    ],
+    "backtest": {
+        "jenis": "tabel",
+        "judul": "Simulasi gabungan · dibuat setelah lihat hasil, bukan bukti",
+        "ket": "audit/h22_ulang.py · bagian Follow Tren = median 30 simulasi Monte Carlo · bulan yang sama untuk semua kolom",
+        "kolom": ["Momentum Blend (H29)", "Follow Tren saja", "RS 12-1 saja", "Bobot sama (pembanding)"],
+        "periode": [
+            {"judul": "Feb 2011 - Des 2019", "ket": "Universe bias: Follow Tren 217 saham, RS 12-1 kode DES 2019-2026.",
+             "baris": [["CAGR", 14.8, 10.0, 18.8, 7.8], ["Penurunan terdalam", -27.8, -24.5, -35.6, -31.4], ["Sharpe", 0.50, 0.29, 0.58, 0.18]]},
+            {"judul": "Jan 2020 - Okt 2026", "ket": "RS 12-1 di periode ini = eksplorasi (holdout resminya tidak dibuka).",
+             "baris": [["CAGR", 14.7, 22.4, 5.3, 3.6], ["Penurunan terdalam", -32.7, -36.7, -53.7, -42.2], ["Sharpe", 0.49, 0.69, 0.18, 0.10]]},
+        ],
+        "catatan": [
+            "Follow Tren bagus di 2020-2026, RS 12-1 bagus di 2011-2019; gabungannya tidak pernah yang terbaik tapi paling stabil. Pola ini terlihat SETELAH datanya dibuka, jadi bisa kebetulan.",
+            "Korelasi bulanan kedua bagian 0,64 (2011-2019) dan 0,51 (2020-2026); hanya 19-21% saham Follow Tren yang juga dipegang RS 12-1.",
+            "Angka tanpa biaya pemindahan saat dikembalikan ke 50/50. Paper menampilkan angka kedua setelah estimasi biaya itu.",
+        ],
+    },
+    "aturan_langkah": [
+        {"judul": "Bagi 50/50", "isi": "Modal dibagi dua bagian sama besar: Follow Tren (H11a) dan RS 12-1 (H22). Tiap bagian menjalankan aturannya sendiri dengan uangnya sendiri."},
+        {"judul": "Jalankan dua aturan", "isi": "Follow Tren dicek tiap sore (breakout 52 minggu, stop 3×ATR). RS 12-1 dicek tiap akhir bulan (peringkat kenaikan 12 bulan tanpa bulan terakhir)."},
+        {"judul": "Kembali ke 50/50", "isi": "Tiap akhir bulan nilai kedua bagian disamakan lagi. Return bulanan = 0,5 × return Follow Tren + 0,5 × return RS 12-1."},
+    ],
+    "variabel": [
+        {"grup": "Porsi & pengembalian ke 50/50", "isi": [
+            {"nama": "Porsi modal", "nilai": "50% Follow Tren, 50% RS 12-1", "ket": "Tetap, tidak disetel. Dihitung dari nilai H29 di akhir bulan sebelumnya.", "pembaruan": TETAP},
+            {"nama": "Kembali ke 50/50", "nilai": "Tiap akhir bulan kalender (close hari bursa terakhir)", "ket": "Return bulanan H29 = 0,5 × return bagian Follow Tren + 0,5 × return bagian RS 12-1.", "pembaruan": "Otomatis tiap akhir bulan"},
+            {"nama": "Biaya pemindahan", "nilai": "Angka utama tanpa biaya; angka kedua dipotong 1,34% dari nilai yang dipindah", "ket": "Fee jual 0,25% + fee beli 0,15% + 2 × tick rata-rata 0,47% (rata-rata trade backtest Follow Tren 2020+).", "pembaruan": TETAP},
+        ]},
+        {"grup": "Bagian Follow Tren (H11a)", "isi": [
+            {"nama": "Aturan", "nilai": "Persis Follow Tren: breakout 52 minggu, 10% bagian, maks 10 saham, stop 3×ATR14 trailing", "ket": "Lihat menu Follow Tren → Aturan & variabel untuk rinciannya.", "pembaruan": TETAP},
+            {"nama": "Paper", "nilai": "Paper Follow Tren yang sudah berjalan sejak 21 Okt 2026", "ket": "Lot 100, beli batal di candle ARA terkunci, jual ditunda di candle terkunci, ukuran posisi dari ekuitas close kemarin.", "pembaruan": HARIAN},
+        ]},
+        {"grup": "Bagian RS 12-1 (H22)", "isi": [
+            {"nama": "Status syariah", "nilai": "Masuk DES OJK pada tanggal sinyal", "ket": "Saham yang keluar DES dijual di rebalance berikutnya.", "pembaruan": "Otomatis: DES dicek jadwal (20 Mei-Jun, 20 Nov-Des) atau tombol Cek DES baru"},
+            {"nama": "Likuiditas", "nilai": "Median nilai transaksi 60 hari ≥ Rp5 miliar, harga ≥ Rp100", "ket": "Plus ≥ 250 hari data dan ada transaksi di ≥ 90% dari 250 hari terakhir.", "pembaruan": "Otomatis tiap akhir bulan"},
+            {"nama": "Sinyal", "nilai": "Return close (disesuaikan dividen) akhir bulan t−12 → akhir bulan t−1", "ket": "Bulan terakhir dilewati karena sering berbalik. Peringkat 1 = naik paling tinggi.", "pembaruan": "Otomatis tiap akhir bulan"},
+            {"nama": "Jadwal", "nilai": "Sinyal di close hari bursa terakhir bulan, eksekusi di open hari bursa pertama bulan berikutnya", "ket": "Tidak ada transaksi di tengah bulan kecuali transaksi yang tertunda.", "pembaruan": TETAP},
+            {"nama": "Jumlah saham", "nilai": "N = maks(10, bulat(20% × saham lolos))", "ket": "Saat dikunci ±110 saham lolos → N = 22.", "pembaruan": "Otomatis tiap akhir bulan"},
+            {"nama": "Tetap dipegang", "nilai": "Selama peringkat ≤ 2N dan masih lolos", "ket": "Penyangga supaya tidak bolak-balik jual beli. Slot kosong diisi peringkat teratas yang belum dipegang.", "pembaruan": TETAP},
+            {"nama": "Bobot", "nilai": "Saham baru 1/N ekuitas bagian; dipangkas ke 1/N kalau bobot > 2/N", "ket": "Saham lama tidak diseimbangkan ulang kecuali terlalu besar.", "pembaruan": TETAP},
+            {"nama": "Transaksi tertunda", "nilai": "Volume 0, atau candle satu harga dengan return ≥ +6,5% (beli) / ≤ -6,5% (jual)", "ket": "Dicoba lagi tiap hari bursa; beli tertunda dibatalkan di rebalance berikutnya.", "pembaruan": HARIAN},
+            {"nama": "Stop / target", "nilai": "Tidak ada", "ket": "Keluar hanya karena peringkat turun atau keluar DES.", "pembaruan": TETAP},
+        ]},
+        {"grup": "Biaya & eksekusi", "isi": [
+            {"nama": "Biaya", "nilai": f"Fee beli {sc.FEE_BELI:g}% + jual {sc.FEE_JUAL:g}% + selisih 1 tick per sisi".replace(".", ","), "ket": "Di kedua bagian, termasuk pemangkasan.", "pembaruan": "Tetap. Hanya diubah kalau fee broker berubah, sebagai hipotesis baru"},
+            {"nama": "Lot", "nilai": "Kelipatan 100 lembar", "ket": "Sisa kas kecil tiap pembelian; saham mahal bisa batal kalau 1 lot melebihi jatah.", "pembaruan": TETAP},
+            {"nama": "Dividen", "nilai": "Tunai, dipotong pajak 10%", "ket": "Bagian RS 12-1 paper memakai harga mentah + dividen tunai.", "pembaruan": "Otomatis dari data harga Yahoo (tanggal ex-dividen)"},
+        ]},
+        {"grup": "Syarat gagal & evaluasi (dikunci 2026-11-01)", "isi": [
+            {"nama": "Evaluasi", "nilai": "1 Nov 2027 (12 bulan)", "ket": "Dibandingkan dengan Follow Tren, bobot sama universe syariah likuid, dan JII pada periode yang sama.", "pembaruan": TETAP},
+            {"nama": "GAGAL", "nilai": "Drawdown lebih dalam dari -45%, atau bug eksekusi", "ket": "Drawdown dari angka utama (tanpa biaya pemindahan).", "pembaruan": "Dicek otomatis tiap hari bursa"},
+            {"nama": "Bukan gagal", "nilai": "Hasil biasa-biasa saja atau rugi kecil", "ket": "Audit 2026-11-01: tahun tanpa lonjakan besar itu normal untuk strategi momentum.", "pembaruan": TETAP},
+        ]},
+    ],
+    "panel_daftar": [
+        {"judul": "Selisih metode paper vs simulasi", "ket": "Disengaja, bukan bug: angka paper tidak akan sama persis dengan simulasi",
+         "isi": [
+             "Bagian RS 12-1 paper memakai harga mentah + dividen tunai dipotong pajak 10%; simulasi memakai harga disesuaikan Yahoo (dividen masuk tanpa pajak).",
+             "Lot 100 lembar di kedua bagian paper; simulasi memakai lembar pecahan.",
+             "Bagian Follow Tren paper membatalkan beli di candle ARA terkunci dan menunda jual di candle terkunci (versi konservatif ARA/ARB); simulasi memakai versi dasar.",
+             "Ukuran posisi dari ekuitas close hari sebelumnya (Follow Tren sejak 2 Nov 2026, RS 12-1 dari ekuitas close hari sinyal); simulasi RS 12-1 memakai ekuitas di harga open hari rebalance.",
+             "Bagian RS 12-1 paper menyesuaikan jumlah lembar saat split dan mengunduh harga saham yang dipegang tapi sudah keluar DES; simulasi memakai data historis yang sudah disesuaikan.",
+             "Paper Follow Tren memakai koreksi hari tanpa transaksi (close resmi IDX); simulasi tidak.",
+             "Pemilihan acak sinyal Follow Tren di paper memakai seed = tanggal; simulasi memakai median 30/100 seed.",
+         ]},
+        {"judul": "Cek ulang & reset", "ket": "Supaya paper bisa dipercaya",
+         "isi": [
+             "Bagian RS 12-1 dijalankan ulang dari nol tiap hari bursa (job Cek ulang paper H29) dan dibandingkan dengan yang tersimpan.",
+             "Pengecekan awal di data Agu-Okt 2026: keputusan rebalance sama persis dengan simulasi, selisih ekuitas paling besar 0,09%.",
+             "Momentum Blend tidak punya tombol reset sendiri. Reset paper Follow Tren ikut memutus H29.",
+         ]},
+    ],
+    "risiko": [
+        "Dibuat setelah melihat hasil: stabilnya angka gabungan (14,8% vs 14,7%) bisa kebetulan.",
+        "RS 12-1 sendirian runtuh di 2020-2026 (5,3% per tahun, turun -54%), dan 8 dari 10 pemenang terbesarnya datang dari 2025 saja.",
+        "Kapasitas kecil: RS 12-1 gagal di universe likuid ≥ Rp20 M dan Follow Tren tinggal ±separuh di sana.",
+        "Pengembalian ke 50/50 hanya di atas kertas dan tanpa biaya di angka utama; di uang nyata perlu memindahkan dana antar dua bagian tiap bulan.",
+        "Penurunan 30% dari puncak tetap wajar terjadi.",
+        "Jangan ubah porsi atau aturan di tengah jalan; perubahan = hipotesis baru.",
+    ],
+    "angka": {"cagr": 14.7, "dd": -32.7, "periode": "2020-2026 (simulasi, bukan bukti)"},
+}
 
 RENCANA = [
     {"id": "etf_strategi", "nama": "Strategi ETF", "kelas": "ETF syariah Indonesia & luar negeri", "ikon": "layers", "status": "Data sudah ada",
@@ -114,4 +271,4 @@ RENCANA = [
 
 
 def semua():
-    return {"aktif": [TREN52], "rencana": RENCANA}
+    return {"aktif": [TREN52, BLEND], "rencana": RENCANA}

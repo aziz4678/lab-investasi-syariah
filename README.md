@@ -23,7 +23,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Strategi | Status | Ringkasan |
 |---|---|---|
 | **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo): CAGR +22,8%, penurunan maks -38,0%. Audit 2026-11-01: gagal standar seragam di dev, kapasitas kecil (universe Rp20 M ±separuh). Belum terbukti di uang nyata. |
-| **Gabungan 50/50** (H29) | Paper trade sejak 1 Nov 2026, modal Rp100 jt | 50% Follow Tren + 50% momentum 12-1 (H22), dikembalikan ke 50/50 tiap akhir bulan. Ditemukan setelah melihat data, jadi angka historisnya bukan bukti; evaluasi 1 Nov 2027. |
+| **Momentum Blend** (H29) | Paper trade sejak 1 Nov 2026, modal Rp100 jt | Breakout 52W + RS 12-1: 50% Follow Tren + 50% RS 12-1 (momentum 12-1, H22), dikembalikan ke 50/50 tiap akhir bulan. Ditemukan setelah melihat data, jadi angka historisnya bukan bukti; evaluasi 1 Nov 2027. |
 | Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
 | Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
 | Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |

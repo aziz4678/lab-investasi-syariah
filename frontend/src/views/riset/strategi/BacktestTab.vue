@@ -15,14 +15,13 @@ import TabelTrade from "@/components/tren/TabelTrade.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import TeksWarna from "@/components/common/TeksWarna.vue";
+import BacktestTabel from "@/components/tren/BacktestTabel.vue";
 import { persen } from "@/utils/format";
 
+const props = defineProps({ s: Object });
+const pakaiVersi = computed(() => props.s?.backtest?.jenis === "versi");
 const daftar = ref([]);
-const KET = {
-  h11a_2020: { pendek: "2020-2026", isi: "Uji utama: saham syariah menurut DES OJK pada tanggal itu." },
-  h11a_2020_konservatif: { pendek: "2020-2026 konservatif", isi: "Beli dibatalkan saat ARA terkunci, jual menunggu kalau ARB terkunci. Lebih realistis." },
-  h11a_dev: { pendek: "2010-2019", isi: "Data pengembangan (daftar 217 saham, ada bias survivorship). Dipakai menyusun aturan." },
-};
+const KET = computed(() => props.s?.backtest?.versi || {});
 const versi = ref("");
 const ringkasan = ref(null);
 const ekuitas = ref([]);
@@ -65,6 +64,7 @@ function jalankan(jenis) {
 }
 
 onMounted(async () => {
+  if (!pakaiVersi.value) return;
   await muatVersi();
   await lanjutkan("isi_backtest", muatVersi);
   if (!sibuk.value) await lanjutkan("impor_fundamental");
@@ -75,7 +75,9 @@ watch(versi, (v) => v && isi(v));
 
 <template>
   <div class="space-y-5">
-    <HipotesisTren />
+    <HipotesisTren :h="s?.hipotesis" :perjalanan="s?.perjalanan" />
+    <BacktestTabel v-if="!pakaiVersi" :b="s?.backtest" />
+    <template v-else>
     <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">{{ KET[versi]?.isi || "Simulasi aturan di data masa lalu." }}<template v-if="ringkasan"> Periode {{ ringkasan.mulai }} s/d {{ ringkasan.akhir }}.</template> Bukan jaminan hasil ke depan.</p>
       <Pemutar v-if="muat && ringkasan" teks="Memuat versi..." />
@@ -93,7 +95,7 @@ watch(versi, (v) => v && isi(v));
       <Kerangka panel jenis="tabel" :n="6" logo />
     </template>
     <div v-else class="space-y-5 transition-opacity" :class="muat ? 'opacity-50' : ''">
-    <KpiTiles :r="ringkasan" />
+    <KpiTiles :r="ringkasan" :jii="KET[versi]?.jii" />
     <details v-if="ringkasan?.monte_carlo" class="group -mt-2 rounded-2xl bg-surface-2/60 px-4 py-2.5 text-xs leading-relaxed text-ink-2">
       <summary class="flex cursor-pointer list-none items-center gap-2 text-muted [&::-webkit-details-marker]:hidden">
         <span>Return per tahun dan penurunan terburuk = median {{ ringkasan.monte_carlo.n }} simulasi Monte Carlo. Angka lain, kurva, peta bulanan, dan tabel trade = {{ contoh }}.</span>
@@ -123,5 +125,6 @@ watch(versi, (v) => v && isi(v));
       <p class="m-0 text-muted">Hasil di halaman ini otomatis diperbarui setelah perhitungan selesai.</p>
     </Panel>
     <PanelPekerjaan :kerja="kerja" :galat="galatKerja" />
+    </template>
   </div>
 </template>
