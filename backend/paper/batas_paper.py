@@ -65,10 +65,10 @@ def kurva_harian(tr, mulai=None, sampai=None, mentah=None):
             for r in jual[tgl].itertuples():
                 lembar = posisi.pop(r.Index, 0.0)
                 kas += lembar * hasil_jual(r.harga_jual)
-        ekuitas = kas + nilai_posisi(posisi, j)
+        ekuitas_kemarin = nilai[-1] if nilai else 1.0
         if tgl in beli:
             for r in beli[tgl].itertuples():
-                dana = min(BOBOT * ekuitas, kas)
+                dana = min(BOBOT * ekuitas_kemarin, kas)
                 if dana <= 0:
                     continue
                 lembar = dana / biaya_beli(r.harga_beli)

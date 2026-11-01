@@ -22,6 +22,7 @@ MAKS_POSISI = 10
 BOBOT = 0.10
 LOT = 100
 PAJAK_DIVIDEN = 0.10
+SIZING_KEMARIN_SEJAK = pd.Timestamp("2026-11-02")
 KOLOM_POSISI = ["ticker", "status", "tgl_sinyal", "tgl_masuk", "harga_masuk", "lot", "atr_sinyal", "stop", "tertinggi", "hari", "dividen_rp"]
 
 
@@ -192,7 +193,13 @@ def ekuitas(status, posisi, siap, tgl):
     return nilai
 
 
+def ekuitas_kemarin(status, tgl):
+    x = kdb.koneksi()[FILE_EKUITAS].find_one({"tgl": {"$lt": ke_mongo(tgl.to_pydatetime())}}, sort=[("tgl", -1)])
+    return float(x["ekuitas"]) if x else float(status["modal_awal"])
+
+
 def proses_hari(tgl, siap, des, status, posisi, peringatan):
+    dasar_ukuran = ekuitas_kemarin(status, tgl) if tgl >= SIZING_KEMARIN_SEJAK else None
     sisa = []
     for p in posisi:
         b = bar(siap, p["ticker"], tgl)
@@ -211,7 +218,7 @@ def proses_hari(tgl, siap, des, status, posisi, peringatan):
             if b["m_high"] == b["m_low"] and b["m_open"] > prev:
                 catat(FILE_TRANSAKSI, {"ticker": p["ticker"], "tgl_sinyal": p["tgl_sinyal"], "aksi": "batal_ARA", "tgl": tgl.date()})
                 continue
-            modal_posisi = BOBOT * ekuitas(status, posisi, siap, tgl)
+            modal_posisi = BOBOT * (dasar_ukuran if dasar_ukuran is not None else ekuitas(status, posisi, siap, tgl))
             per_lot = biaya_beli(b["m_open"]) * LOT
             lot = int(min(modal_posisi, status["kas"]) // per_lot)
             if lot < 1:
