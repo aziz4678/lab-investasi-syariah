@@ -981,3 +981,22 @@ Dampak open rusak ke Follow Tren (H11a, median 100 simulasi Monte Carlo, kode sa
 | 2010-2019 (dev) | CAGR 9,1%, DD -25,5%, +2,10% (angka resmi) | CAGR 9,4%, DD -28,9%, +2,46% |
 
 Kesimpulan: perbaikan rancangan tidak menolong H27 maupun H28; kesimpulan gagal tetap. Beli di close hari masuk ±1 poin/th lebih baik dari beli di open untuk H11a, jadi tahun 2010-2012 (open = close) sedikit terlalu bagus; perkiraan dampak ke dev H11a ±0,3 poin/th (9,1% kemungkinan ±8,8%). Tidak mengubah status H11a, aturan, atau batas paper.
+
+## Audit H11a & H22 (2026-11-01, atas permintaan user; audit read-only + analisis, bukan uji baru)
+Script: `audit/h11a_minimal.py` (implementasi ulang H11a dari nol) dan `audit/h22_ulang.py` (H11a & H22 dengan standar yang sama; salinan simulasi dicek identik dengan framework). Data 2020+ untuk H22 = eksplorasi (bukan bukti), holdout resmi H22 tetap tidak dibuka.
+- **Tidak ada look-ahead pada sinyal/eksekusi H11a**; implementasi ulang independen memberi CAGR median 23,0% (framework 22,7% di data yang sama). Look-ahead kecil ditemukan di **ukuran posisi**: 10% dihitung dari ekuitas dengan close hari beli, padahal beli di open (`batas_paper.kurva_harian`, juga paper `tren_harian`). Diperbaiki 2026-11-01: ukuran posisi dari ekuitas close hari bursa sebelumnya (backtest langsung; paper H11a mulai 2026-11-02 supaya riwayat 21-30 Okt tetap identik). Dampak backtest: 2020+ median 22,7% → 22,8%, DD -38,2% → -38,0%; konservatif 22,0% → 22,1%; dev 9,1% → 9,0%.
+- **Kriteria lama tidak seragam.** H11a dinilai per trade ("tanpa 10 trade terbaik > 0", "tanpa 5 ticker > 0") tanpa sensitivitas. H22 dinilai relatif pasar ("tanpa 5 ticker terbaik > bobot sama", pembanding tidak dibuang pemenangnya) dan wajib lolos 3 sensitivitas. Asimetri muncul karena urutan waktu (kriteria H22 ditulis 24 Okt, setelah H11a lulus), bukan disengaja, tapi efeknya H11a lolos dengan standar lebih ringan.
+- **H11a dengan standar H22/standar seragam** (median 30 simulasi Monte Carlo, sizing sudah diperbaiki):
+
+| | Dev 2010-2019 | 2020+ |
+|---|---|---|
+| CAGR dasar | 8,9% (bobot sama universe H11a 6,8%) | 22,4% (bobot sama -1,5%; universe H22 3,6%) |
+| Tanpa 5 saham terbaik (kas) vs pembanding tanpa 5 terbaiknya | 3,3% vs 3,7% ✘ | 10,0% vs -3,8% ✔ |
+| Tanpa 10 saham terbaik (kas) vs pembanding tanpa 10 terbaiknya | -0,7% vs 1,8% ✘ | 2,0% vs -5,6% ✔ |
+| Tanpa tahun terbaik vs pembanding tanpa tahun terbaiknya | 7,5% vs 2,4% ✔ | 9,1% vs -6,3% ✔ |
+| S1 biaya 2 tick | 6,1% ✘ | 16,7% ✔ |
+| S2 likuiditas ≥ Rp20 M | **3,7%** ✘ | **10,8%** ✔ (tanpa 5 saham 0,9% vs 0,75%, tipis) |
+| S3 harga ≥ Rp200 | 6,9% (k5 ✘) | 21,6% ✔ |
+
+- **H22 dengan tes simetris**: dev lebih kuat dari H11a (18,8% vs bobot sama 7,8%; tanpa 5 saham 7,7% vs 3,7%; Sharpe 0,58 vs 0,23); 2020+ (eksplorasi) runtuh: 5,3%, DD -53,7%, tanpa 5 saham -7,3%, 8 dari 10 pemenang terbesar di 2025. Sensitivitas dev tetap 1/3 (S1 gagal tipis, S2 gagal nyata).
+- **Status tidak berubah.** H11a tetap paper trade (catatan ditambahkan di registry), H22 tetap gagal.
