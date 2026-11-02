@@ -21,7 +21,7 @@ TREN52 = {
         {"judul": "Cut loss", "jenis": "cl", "teks": "Batas jual dipasang ±10% di bawah harga beli. Kalau harga penutupan jatuh di bawahnya sebelum sempat naik, dijual besok pagi. Terjadi di ±2 dari 3 trade."},
         {"judul": "Take profit", "jenis": "tp", "teks": "Tanpa target angka. Batas jual ikut naik mengikuti harga tertinggi, tidak pernah turun. Dijual saat harga turun ±10% dari puncak. Contoh: beli 1.000, puncak 1.500 → jual ±1.380 (+38%)."},
     ],
-    "harapan": "Lebih sering rugi kecil daripada untung (cuma ±1 dari 3 trade yang untung, rugi rata-rata ±10%), tapi trade yang untung rata-rata naik ±35% dan sesekali sampai ratusan persen. Backtest 2020-2026 ±22,8% per tahun (median 100 simulasi Monte Carlo), tapi setelah memperhitungkan ARA/ARB terkunci dan saham delisting yang tidak ada di data, angka realistis 2020-2026 ±15-20% per tahun. Ke depan bisa satu digit sampai belasan per tahun: hampir semua untung datang dari ±10 lonjakan besar, dan 2010-2019 hanya ±9% (di atas bobot sama syariah 7,2% dan JII 5,3%, tapi kalah dari IHSG 9,2%). Pernah turun hampir 40% dari puncak.",
+    "harapan": "Lebih sering rugi kecil daripada untung (cuma ±1 dari 3 trade yang untung, rugi rata-rata ±10%), tapi trade yang untung rata-rata naik ±35% dan sesekali sampai ratusan persen. Backtest 2020-2026 ±20,9% per tahun (median 100 simulasi Monte Carlo, sesudah koreksi data harga 2026-11-02; dulu 22,8%), tapi setelah memperhitungkan ARA/ARB terkunci dan saham delisting yang tidak ada di data, angka realistis 2020-2026 ±15-20% per tahun. Ke depan bisa satu digit sampai belasan per tahun: hampir semua untung datang dari ±10 lonjakan besar, dan 2010-2019 hanya ±9% (di atas bobot sama syariah 7,2% dan JII 5,3%, tapi kalah dari IHSG 9,2%). Pernah turun hampir 40% dari puncak.",
     "detail": {"sub": "backtest", "teks": "Cara kerja beli, hold, TP & CL dengan data asli di Backtest →"},
     "tab": [["paper", "Paper trade"], ["backtest", "Backtest"], ["aturan", "Aturan & variabel"]],
     "paper": "h11a",
@@ -61,7 +61,7 @@ TREN52 = {
         "Penurunan modal 30-40% dari puncak pernah terjadi, dan modal pernah hampir 3 tahun di bawah puncaknya (2021-2024).",
         "Untung datang dari sedikit trade yang naik puluhan sampai ratusan persen. Kalau trade besar itu terlewat, hasil setahun bisa negatif.",
         "Rugi per trade bisa -15% sampai -25% di saham volatil, terutama kalau jatuh tajam semalam atau kena ARB.",
-        "Dihitung seperti paper (median 100 simulasi Monte Carlo), backtest 2020-2026 memberi ±22,8% per tahun (konservatif ARA/ARB ±22,1%) dan 2010-2019 hanya ±9,0%: di atas bobot sama syariah (7,2%) dan JII (5,3%), tapi kalah dari IHSG (9,2%). Realistis untuk 2020-2026 ±15-20% per tahun; ke depan bisa satu digit sampai belasan.",
+        "Dihitung seperti paper (median 100 simulasi Monte Carlo), backtest 2020-2026 memberi ±20,9% per tahun dengan penurunan terdalam ±-42% (konservatif ARA/ARB ±20,3%) dan 2010-2019 hanya ±9,1%: di atas bobot sama syariah (7,1%) dan JII (5,3%), tapi kalah dari IHSG (9,2%). Angka sesudah koreksi data harga 2026-11-02 (dulu 22,8% / -38%): bar basi Yahoo menyembunyikan penurunan. Realistis untuk 2020-2026 ±15-20% per tahun; ke depan bisa satu digit sampai belasan.",
         "Kapasitas kecil: di saham yang lebih likuid (nilai transaksi ≥ Rp20 M) hasilnya kira-kira separuh. Cocok untuk modal pribadi kecil, tidak bisa diperbesar.",
         "Jangan ubah aturan di tengah jalan: melonggarkan stop, memasang target untung, atau memilih saham sendiri.",
     ],
@@ -112,7 +112,7 @@ TREN52 = {
         "Jangan reset hanya karena sedang rugi. Reset yang sah: ganti modal, salah setup, atau data rusak. Reset karena rugi = membuang bukti.",
         "Reset paper ini ikut memutus Momentum Blend (H29), karena bagian Follow Tren di H29 memakai paper ini.",
     ],
-    "angka": {"cagr": 22.8, "cagr_konservatif": 22.1, "dd": -38.0, "win_rate": 34, "periode": "2020-2026"},
+    "angka": {"cagr": 20.9, "cagr_konservatif": 20.3, "dd": -41.9, "win_rate": 33, "periode": "2020-2026"},
 }
 
 HARIAN = "Otomatis tiap hari bursa: dihitung ulang dari harga harian saat Perbarui / jadwal 17:30"

@@ -139,7 +139,7 @@ const opsiGrafik = computed(() => {
         <summary class="cursor-pointer font-medium text-ink">Apa itu? Baca dulu sebelum memakai angka ini</summary>
         <ul class="m-0 mt-2 list-disc space-y-1 pl-4">
           <li>Ini hitungan campuran, bukan uji strategi. Tidak ada aturan baru yang diuji, dan hasilnya tidak mengubah status hipotesis apa pun.</li>
-          <li>Follow Tren memakai kurva backtest contoh 1 simulasi (seed 7). Median 100 simulasi Monte Carlo 2020-2026: CAGR ±22,8%, penurunan harian ±-38%. Audit 2026-11-01: tanpa 10 saham terbaik CAGR tinggal ±2%, dan di saham yang lebih likuid kira-kira separuh. Harapan realistis lebih rendah lagi.</li>
+          <li>Follow Tren memakai kurva backtest contoh 1 simulasi (seed 7). Median 100 simulasi Monte Carlo 2020-2026 (sesudah koreksi data harga 2026-11-02): CAGR ±20,9%, penurunan harian ±-42%. Audit 2026-11-01: tanpa 10 saham terbaik CAGR tinggal ±2%, dan di saham yang lebih likuid kira-kira separuh. Harapan realistis lebih rendah lagi.</li>
           <li>Penurunan maks dihitung dari nilai akhir bulan, jadi lebih dangkal daripada penurunan harian yang sebenarnya.</li>
           <li>Inti didekati dengan bunga antarbank − 1,5%/th (data reksa dana pasar uang baru ±1 tahun). Sukuk negara bisa memberi lebih, tapi harganya bisa turun.</li>
           <li>Patokan inti = rata-rata inflasi periode itu ({{ persen(p.inflasi, 1, false) }}) + 1,5%/th. Beli-tahan JII = indeks + dividen 2,5% − expense 2,0%.</li>

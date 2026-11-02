@@ -22,7 +22,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 
 | Strategi | Status | Ringkasan |
 |---|---|---|
-| **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo): CAGR +22,8%, penurunan maks -38,0%. Audit 2026-11-01: gagal standar seragam di dev, kapasitas kecil (universe Rp20 M ±separuh). Belum terbukti di uang nyata. |
+| **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo, sesudah koreksi data harga 2 Nov 2026): CAGR +20,9%, penurunan maks -41,9%. Audit 2026-11-01: gagal standar seragam di dev, kapasitas kecil (universe Rp20 M ±separuh). Belum terbukti di uang nyata. |
 | **Momentum Blend** (H29) | Paper trade sejak 1 Nov 2026, modal Rp100 jt | Breakout 52W + RS 12-1: 50% Follow Tren + 50% RS 12-1 (momentum 12-1, H22), dikembalikan ke 50/50 tiap akhir bulan. Ditemukan setelah melihat data, jadi angka historisnya bukan bukti; evaluasi 1 Nov 2027. |
 | Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
 | Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
@@ -57,6 +57,7 @@ Katalog lengkap 45 hipotesis (H0-H29) beserta kriteria, hasil, dan grafiknya ada
   - Detail produk: ringkasan 30 detik, NAV/AUM, isi portofolio, "Seberapa bisa dipercaya" (hasil per tahun vs median sejenis/patokan/inflasi, posisi sekarang dari puncak, kenapa turun di tahun tertentu, berapa lama sebaiknya ditahan), dan kesimpulan.
   - *Sukuk & SBN*, *Bandingkan* (2–5 produk, termasuk deposito/JII/emas), *Cara kerja & istilah* (panduan pemula).
 - **ETF**: ETF syariah Indonesia (detail produk + harga bursa) dan ETF luar negeri (yang bukan syariah diberi label), dengan panel "Seberapa bisa dipercaya" yang sama.
+- **Kualitas data**: status cek harian harga Yahoo terhadap data resmi IDX, koreksi per kategori (salah skala, aksi korporasi, bar basi, lompatan), cakupan yang terverifikasi, dan masalah yang masih terbuka. Semua koreksi tercatat dengan nilai asli, alasan, dan bukti.
 - **Rencana** dan **Panduan**.
 
 Semua aksi (memperbarui data, menjalankan job, backup) dijalankan lewat tombol di dashboard.
