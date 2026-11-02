@@ -8,6 +8,7 @@ import yfinance as yf
 
 from backend.db import data as dt
 from backend.db import koneksi as d
+from backend.ingest import koreksi_harga as kh
 from backend.ingest.final import buang_belum_final
 from backend.research.swing_target3 import rapikan_index
 
@@ -46,7 +47,8 @@ def ambil_batch(daftar, mulai):
     return hasil
 
 
-def unduh_harga(daftar, mulai, ukuran=BATCH):
+def unduh_harga(daftar, mulai, ukuran=BATCH, aturan=None):
+    aturan = kh.aturan() if aturan is None else aturan
     sisa = list(daftar)
     for coba in range(3):
         gagal = []
@@ -55,7 +57,11 @@ def unduh_harga(daftar, mulai, ukuran=BATCH):
             hasil = ambil_batch(potong, mulai)
             for t in potong:
                 if t in hasil:
-                    dt.tulis(f"harga/{t.replace('.JK', '')}", hasil[t])
+                    kode = t.replace(".JK", "")
+                    df, catatan = kh.terapkan(hasil[t], kode, aturan)
+                    for c in catatan:
+                        print(f"  koreksi: {c}", flush=True)
+                    dt.tulis(f"harga/{kode}", df)
                 else:
                     gagal.append(t)
             print(f"  batch {i // ukuran + 1}: {len(hasil)}/{len(potong)}", flush=True)
@@ -77,6 +83,16 @@ def faktor_berubah(lama, baru, kolom_adj, kolom_dasar):
     return not (np.isfinite(fl) and np.isfinite(fb)) or abs(fb / fl - 1) > TOLERANSI
 
 
+def close_berubah(lama, baru):
+    sama = lama.index.intersection(baru.index)
+    if not len(sama):
+        return False
+    a, b = lama.loc[sama, "close"], baru.loc[sama, "close"]
+    ok = (a > 0) & (b > 0)
+    beda = np.abs(np.log(b[ok] / a[ok])) > 0.02
+    return int(beda.sum()) >= 2
+
+
 def gabung(lama, baru):
     return pd.concat([lama[lama.index < baru.index.min()], baru.reindex(columns=lama.columns)]).sort_index()
 
@@ -94,7 +110,8 @@ def perbarui_harga(penuh=False):
         print(f"selesai: {len(simbol) - len(gagal)} diperbarui, {len(gagal)} tidak ada di Yahoo (data lama dipertahankan)")
         return
     mulai = mulai_timpa()
-    print(f"perbarui harga {len(simbol)} saham: timpa ulang data sejak {mulai}", flush=True)
+    aturan = kh.aturan()
+    print(f"perbarui harga {len(simbol)} saham: timpa ulang data sejak {mulai}, {len(aturan)} aturan koreksi aktif", flush=True)
     ditimpa, kosong, lengkap = 0, 0, []
     for i in range(0, len(simbol), BATCH):
         potong = simbol[i:i + BATCH]
@@ -104,15 +121,20 @@ def perbarui_harga(penuh=False):
                 kosong += 1
                 continue
             lama = dt.baca(f"harga/{t[:-3]}")
-            if faktor_berubah(lama, hasil[t], "adj_close", "close"):
+            lama.index = pd.to_datetime(lama.index)
+            baru, catatan = kh.terapkan(hasil[t], t[:-3], aturan)
+            for c in catatan:
+                print(f"  koreksi: {c}", flush=True)
+            batas = kh.batas_terbaru(t[:-3], aturan)
+            if (batas is not None and batas > pd.Timestamp(mulai)) or faktor_berubah(lama, baru, "adj_close", "close") or close_berubah(lama, baru):
                 lengkap.append(t)
                 continue
             dt.tulis(f"harga/{t[:-3]}", gabung(lama, hasil[t]))
             ditimpa += 1
         print(f"  batch {i // BATCH + 1}: {len(hasil)}/{len(potong)} ada data", flush=True)
     if lengkap:
-        print(f"{len(lengkap)} saham ada dividen/split baru atau data terputus, unduh penuh: {', '.join(t[:-3] for t in lengkap[:20])}", flush=True)
-        unduh_harga(lengkap, MULAI)
+        print(f"{len(lengkap)} saham ada dividen/split/penyesuaian harga baru atau data terputus, unduh penuh: {', '.join(t[:-3] for t in lengkap[:20])}", flush=True)
+        unduh_harga(lengkap, MULAI, aturan=aturan)
     print(f"selesai: {ditimpa} ditimpa ulang, {len(lengkap)} diunduh penuh, {kosong} tanpa data baru (delisting/suspensi, data lama dipertahankan)")
 
 

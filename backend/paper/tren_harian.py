@@ -11,6 +11,7 @@ from backend.db import data as dt
 from backend.db import koneksi as kdb
 from backend.ingest import des_ojk
 from backend.ingest.final import buang_belum_final
+from backend.ingest import koreksi_harga as kh
 from backend.research import screener as sc
 from backend.research.swing_target3 import rapikan_index
 
