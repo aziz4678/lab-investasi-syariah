@@ -69,6 +69,9 @@ def utama():
     klien.drop_database(DB_CEK)
     cek = klien[DB_CEK]
     cek.des.insert_many(list(prod.des.find({}, {"_id": 0})))
+    kor = list(prod[h22.K_KOREKSI].find({}))
+    if kor:
+        cek[h22.K_KOREKSI].insert_many(kor)
     print(f"Menjalankan ulang paper H22 dari nol: titik awal sebelum {status['mulai']} s/d {sampai} (db {DB_CEK}, data harga lokal)")
     env = {**os.environ, "SWING_MONGO_DB": DB_CEK, "PYTHONIOENCODING": "utf-8"}
     hasil = subprocess.run([sys.executable, "-m", "backend.paper.h22_harian", "--tanpa-unduh", "--sampai", sampai, "--mulai", status["mulai"]],

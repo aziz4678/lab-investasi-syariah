@@ -23,6 +23,7 @@ MIN_HARGA = 100
 JII = "harian_indeks/JII"
 K_STATUS, K_POSISI, K_TRANSAKSI, K_EKUITAS, K_REBALANCE = (
     "paper_h22_status", "paper_h22_posisi", "paper_h22_transaksi", "paper_h22_ekuitas", "paper_h22_rebalance")
+K_KOREKSI = "paper_h22_koreksi"
 KOLOM_POSISI = ["ticker", "lembar", "tgl_masuk", "harga_masuk", "modal_rp", "terima_rp", "dividen_rp"]
 
 
@@ -115,12 +116,25 @@ def nilai_jii(tgl):
     return float(s.iloc[-1]) if len(s) else None
 
 
+def koreksi_sinyal(t):
+    return {d["ticker"]: d for d in db()[K_KOREKSI].find({"sinyal": pd.Timestamp(t).to_pydatetime()}, {"_id": 0})}
+
+
 def rencana(S, t, pos):
     P = S["P"]
     calon = list(m.lolos(S, t, MIN_NILAI, MIN_HARGA))
     mom = m.momentum(S, t)
-    urut = m.peringkat(S, t, "h22", calon)
+    kor = koreksi_sinyal(t)
+    urut_asli = list(mom.reindex(calon).dropna().sort_values(ascending=False, kind="mergesort").index)
+    for k, d in kor.items():
+        if d.get("momentum_koreksi") is not None:
+            mom[k] = d["momentum_koreksi"]
+    urut = list(mom.reindex(calon).dropna().sort_values(ascending=False, kind="mergesort").index)
     n = max(10, int(math.floor(0.2 * len(calon) + 0.5)))
+    no_asli = {k: i + 1 for i, k in enumerate(urut_asli)}
+    no_baru = {k: i + 1 for i, k in enumerate(urut)}
+    dampak = {"masuk": sorted(set(urut[:n]) - set(urut_asli[:n])), "keluar": sorted(set(urut_asli[:n]) - set(urut[:n])),
+              "dihitung_ulang": len(kor), "lama": urut_asli[:n], "baru": urut[:n]} if kor else None
     rank = {k: i + 1 for i, k in enumerate(urut)}
     tetap = sorted([k for k in pos if rank.get(k, 10 ** 9) <= 2 * n], key=lambda k: rank[k])
     jual = [k for k in pos if k not in tetap]
@@ -130,6 +144,11 @@ def rencana(S, t, pos):
     baru = [k for k in urut if k not in pos][: max(0, n - len(tetap))]
     return {"sinyal": t, "lolos": len(calon), "n": n, "calon": calon, "tetap": tetap, "jual": jual, "baru": baru,
             "peringkat": [{"ticker": k, "momentum_pct": round(float(mom[k]) * 100, 1)} for k in urut[: 2 * n]],
+            "koreksi": [{"ticker": k, "momentum_yahoo_pct": d["momentum_yahoo_pct"],
+                         "momentum_koreksi_pct": round(d["momentum_koreksi"] * 100, 1) if d.get("momentum_koreksi") is not None else None,
+                         "peringkat_yahoo": no_asli.get(k), "peringkat_koreksi": no_baru.get(k), "penyebab": d.get("penyebab"), "alasan": d.get("alasan")}
+                        for k, d in sorted(kor.items(), key=lambda x: no_baru.get(x[0], 10 ** 9)) if no_asli.get(k) != no_baru.get(k)],
+            "koreksi_dampak": dampak,
             "harga_sinyal": {k: (float(P["c_raw_ff"].at[t, k]) if k in P["c_raw_ff"].columns else pos[k]["harga_masuk"]) for k in pos}}
 
 
@@ -269,7 +288,7 @@ def pratinjau(S, st, pos, akhir):
         return
     r = rencana(S, akhir, pos)
     st["rencana"] = {"sinyal": str(akhir.date()), "lolos": r["lolos"], "n": r["n"], "beli": r["baru"], "jual": r["jual"], "tetap": r["tetap"],
-                     "peringkat": r["peringkat"], "anggaran_rp": round(min(ekuitas_tercatat(akhir) / r["n"], st["kas"] / len(r["baru"])) if r["baru"] else 0)}
+                     "peringkat": r["peringkat"], "koreksi": r["koreksi"], "koreksi_dampak": r["koreksi_dampak"], "anggaran_rp": round(min(ekuitas_tercatat(akhir) / r["n"], st["kas"] / len(r["baru"])) if r["baru"] else 0)}
 
 
 def utama():

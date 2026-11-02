@@ -249,7 +249,7 @@ def paper_h29():
         "seri": data, "ringkas": rk, "evaluasi": h29.evaluasi(rk, paper_zona()) if rk else {"tanggal": h29.EVALUASI, "kriteria": h29.KRITERIA},
         "cek": bersih(DB.paper_h22_cek.find_one(sort=[("waktu", -1)]) or {}) or None,
         "posisi": sorted(posisi, key=lambda x: -(x["nilai_rp"] or 0)), "rebalance": reb[0] if reb else None,
-        "rebalance_riwayat": [{k: x.get(k) for k in ["sinyal", "eksekusi", "lolos", "n", "baru", "jual", "tetap", "ekuitas_dasar", "anggaran_rp"]} for x in reb],
+        "rebalance_riwayat": [{k: x.get(k) for k in ["sinyal", "eksekusi", "lolos", "n", "baru", "jual", "tetap", "ekuitas_dasar", "anggaran_rp", "koreksi", "koreksi_dampak"]} for x in reb],
         "transaksi": transaksi,
         "stat_h22": {"selesai": len(jual), "win_rate": float(np.mean([x > 0 for x in jual]) * 100) if jual else None,
                      "rata": float(np.mean(jual)) if jual else None,

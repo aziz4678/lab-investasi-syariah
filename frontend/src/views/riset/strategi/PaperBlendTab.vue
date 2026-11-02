@@ -236,6 +236,18 @@ function hasil(t) {
         </div>
         <p v-else class="m-0 px-6 pt-1 pb-4 text-muted">Tidak ada aksi RS 12-1 sampai rebalance berikutnya. Pegang posisi yang ada.</p>
         <p v-if="tunda.length" class="m-0 px-6 pb-4 text-xs text-muted">Beli tertunda (saham terkunci atau tidak ada transaksi, dicoba lagi tiap hari): {{ tunda.join(", ") }}</p>
+        <div v-if="r.rencana?.koreksi?.length" class="mx-6 mb-4 rounded-2xl bg-surface-2 px-4 py-3 text-xs leading-relaxed text-ink-2">
+          <div class="mb-1 flex items-center gap-2 font-medium text-ink"><TriangleAlert class="h-3.5 w-3.5 text-aksen" />Koreksi data di sinyal ini</div>
+          <p class="m-0">{{ r.rencana.koreksi[0]?.alasan }}</p>
+          <p v-if="r.rencana.koreksi_dampak" class="m-0 mt-1">{{ r.rencana.koreksi_dampak.dihitung_ulang }} saham dihitung ulang. Dampak ke {{ r.rencana.n }} teratas: masuk <b class="font-medium">{{ r.rencana.koreksi_dampak.masuk.join(", ") || "–" }}</b>, keluar <b class="font-medium">{{ r.rencana.koreksi_dampak.keluar.join(", ") || "–" }}</b>.</p>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-ink">Peringkat yang berubah ({{ r.rencana.koreksi.length }} saham)</summary>
+            <ul class="m-0 mt-1 list-disc space-y-0.5 pl-5">
+              <li v-for="k in r.rencana.koreksi" :key="k.ticker">{{ k.ticker }}: peringkat {{ k.peringkat_yahoo ?? "–" }} → {{ k.peringkat_koreksi ?? "–" }}, naik 12 bulan {{ persen(k.momentum_yahoo_pct, 1) }} → {{ persen(k.momentum_koreksi_pct, 1) }} · {{ k.penyebab }}</li>
+            </ul>
+          </details>
+          <p class="m-0 mt-1 text-muted">Bukti per saham (close IDX, ex-date, faktor) tersimpan di koleksi paper_h22_koreksi.</p>
+        </div>
       </Panel>
 
       <Panel judul="Ekuitas paper" ket="Semua garis dimulai Rp100 jt pada close 30 Okt 2026 · bobot sama tanpa biaya · JII tanpa dividen">
@@ -316,7 +328,8 @@ function hasil(t) {
             <thead><tr><th>Eksekusi</th><th class="!text-right">Lolos</th><th class="!text-right">N</th><th>Dibeli</th><th>Dijual</th><th class="!text-right">Tetap</th><th class="!text-right">Ekuitas bagian</th></tr></thead>
             <tbody>
               <tr v-for="x in r.rebalance_riwayat" :key="x.eksekusi" class="align-top">
-                <td class="!h-auto py-3 text-ink-2">{{ tanggal(x.eksekusi) }}<div class="text-[11px] text-muted">sinyal {{ tanggal(x.sinyal) }}</div></td>
+                <td class="!h-auto py-3 text-ink-2">{{ tanggal(x.eksekusi) }}<div class="text-[11px] text-muted">sinyal {{ tanggal(x.sinyal) }}</div>
+                  <div v-if="x.koreksi?.length" class="mt-1 max-w-[220px] !whitespace-normal text-[11px] text-ink-2">koreksi data: peringkat dihitung ulang dari close IDX ({{ x.koreksi_dampak?.dihitung_ulang ?? x.koreksi.length }} saham, {{ x.koreksi.length }} berubah)<template v-if="x.koreksi_dampak"> · masuk {{ x.koreksi_dampak.masuk.join(", ") || "–" }}, keluar {{ x.koreksi_dampak.keluar.join(", ") || "–" }}</template></div></td>
                 <td class="!h-auto py-3 text-right tabular-nums">{{ x.lolos }}</td>
                 <td class="!h-auto py-3 text-right tabular-nums">{{ x.n }}</td>
                 <td class="!h-auto !whitespace-normal py-3"><div class="flex flex-wrap gap-1"><KodeSaham v-for="t in x.baru" :key="t" :kode="t" /><span v-if="!x.baru?.length" class="text-muted">–</span></div></td>
