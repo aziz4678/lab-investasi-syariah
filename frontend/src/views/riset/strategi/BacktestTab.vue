@@ -121,7 +121,7 @@ watch(versi, (v) => v && isi(v));
     <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" :seri="b.seri" :ket="b.kurva_ket" :info="b.kurva_info" />
     <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''"
       :terpilih="{ tahun: tabel?.tahun || '', bulan: +(tabel?.bulan || 0) }" @pilih="(th, bl) => tabel?.saring(th, bl)" />
-    <TabelTrade ref="tabel" :trade="trade" />
+    <TabelTrade ref="tabel" :trade="trade" :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" />
     </div>
     <IstilahTren :tambahan="s?.istilah" :nama="s?.nama" />
     <Panel judul="Olah ulang data" :ket="b.olah_ket || 'Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit'">

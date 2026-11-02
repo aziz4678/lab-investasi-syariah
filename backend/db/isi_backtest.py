@@ -7,6 +7,7 @@ from backend.db.harga import mentah as baca_mentah
 from backend.db import data as dt
 from backend.db import koneksi as d
 from backend.paper.batas_paper import kurva_harian
+from backend.research import sumbangan as sb
 from backend.research import uji_tren as ut
 from backend.research.laporan_bulanan import simulasi_portofolio
 from backend.research.uji_dividen import bersih
@@ -97,6 +98,18 @@ def kurva_paper(dok, mulai, akhir, mentah=None):
     return bln / bln.shift(1).fillna(1.0) - 1, harian
 
 
+def isi_pnl(dok_tr, ret, mulai, akhir, mentah, versi):
+    ek, batas, pnl = sb.h11a(dok_tr, mulai, akhir, mentah)
+    total = {}
+    for x in dok_tr:
+        p = pnl.get((x["ticker"], pd.Timestamp(x["tgl_beli"])))
+        if x["dipilih"] and p:
+            x["pnl"] = sb.bulat(p)
+            for k, v in p.items():
+                total[k] = total.get(k, 0.0) + v
+    sb.cocokkan(total, sb.ekuitas_awal_bulan(ek, batas), {str(k): round(float(v * 100), 2) for k, v in ret.items()}, versi)
+
+
 def ringkas(versi, label, tr, p, ret, bm, ihsg):
     ek = (1 + ret).cumprod()
     dd = ek / ek.cummax() - 1
@@ -146,6 +159,7 @@ def simpan_versi(db, versi, label, siap, tr, mulai, akhir, ihsg_bln):
     lama = kurva(p, mulai, akhir)
     dok_tr = dokumen_trade(versi, tr, set(p.index), siap)
     ret, harian = kurva_paper(dok_tr, mulai, akhir, mentah)
+    isi_pnl(dok_tr, ret, mulai, akhir, mentah, versi)
     bm = bulanan_benchmark(siap, mulai, akhir).reindex(ret.index).fillna(0)
     ih = ihsg_bln.reindex(ret.index).fillna(0)
     ek, ek_bm, ek_ih = (1 + ret).cumprod(), (1 + bm).cumprod(), (1 + ih).cumprod()

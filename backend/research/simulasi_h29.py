@@ -10,6 +10,7 @@ from backend.db import isi_backtest as ib
 from backend.db import koneksi as d
 from backend.paper.h29 import BIAYA_PINDAH
 from backend.research import uji_h21_h22 as m
+from backend.research import sumbangan as sb
 from backend.research import uji_tren as ut
 from backend.research.laporan_bulanan import simulasi_portofolio
 
@@ -30,9 +31,14 @@ def rs_simulasi(S):
     kas, pegang, tunda_jual, tunda_beli = 1.0, {}, set(), {}
     aktif, ep, rekap, ekuitas = {}, [], [], []
     cn = P["c_nilai"]
+    lalu = {}
+
+    def catat(e, dd, x):
+        ep[e]["inc"][dd] = ep[e]["inc"].get(dd, 0.0) + x
 
     def tutup(k, dd, terima):
         e = aktif.pop(k)
+        catat(e, dd, terima - lalu.pop(e, 0.0))
         ep[e]["terima"] += terima
         ep[e]["jual"] = dd
         ep[e]["harga_jual"] = float(P["o_raw"].at[dd, k]) if P["o_raw"].at[dd, k] > 0 else float(P["c_raw_ff"].at[dd, k])
@@ -66,6 +72,7 @@ def rs_simulasi(S):
                     pegang[k] -= lembar
                     kas += terima
                     ep[aktif[k]]["terima"] += terima
+                    catat(aktif[k], dd, terima)
             for k in list(tunda_jual):
                 if k in pegang and m.bisa(P, k, dd, "jual"):
                     terima = pegang[k] * P["o"].at[dd, k] * (1 - m.FEE_JUAL - m.biaya_tick(P, k, dd, 1))
@@ -98,11 +105,14 @@ def rs_simulasi(S):
                     aktif[k] = len(ep)
                     sinyal = max(t for t, x in rb if x <= dd)
                     ep.append({"ticker": k, "sinyal": sinyal, "beli": dd, "jual": None, "modal": 0.0, "terima": 0.0, "akhir": 0.0,
-                               "harga_beli": float(P["o_raw"].at[dd, k]), "harga_jual": None})
+                               "harga_beli": float(P["o_raw"].at[dd, k]), "harga_jual": None, "inc": {}})
                 ep[aktif[k]]["modal"] += a
+                catat(aktif[k], dd, -a)
         nilai = {k: pegang[k] * (cn.at[dd, k] if cn.at[dd, k] == cn.at[dd, k] else 0) for k in pegang}
         ekuitas.append((dd, kas + sum(tunda_beli.values()) + sum(nilai.values())))
         for k, v in nilai.items():
+            catat(aktif[k], dd, v - lalu.get(aktif[k], 0.0))
+            lalu[aktif[k]] = v
             ep[aktif[k]]["akhir"] = v
             ep[aktif[k]]["harga_akhir"] = float(P["c_raw_ff"].at[dd, k])
     eq = pd.Series(dict(ekuitas))
@@ -170,6 +180,22 @@ def statistik(net):
             "median_trade": round(float(np.median(net)), 2)}
 
 
+def isi_pnl(dok_tr, contoh, e22, ep22, r, versi):
+    tr = sb.tabel_ft([x for x in contoh["dok"] if x["dipilih"]])
+    e11, inc11 = sb.harian_ft(tr, contoh["m11"], contoh["a11"], contoh["mentah"])
+    inc11 = {(x.ticker, x.tgl_beli): inc11.get(i, {}) for i, x in zip(tr.index, tr.itertuples())}
+    inc22 = {(e["ticker"], e["beli"]): e["inc"] for e in ep22}
+    batas, awal_v, p11, p22 = sb.h29(e11, inc11, e22, inc22, contoh["v"])
+    total = {}
+    for x in dok_tr:
+        p = (p11 if x["bagian"] == "Follow Tren" else p22).get((x["ticker"], pd.Timestamp(x["tgl_beli"])))
+        if p:
+            x["pnl"] = sb.bulat(p)
+            for k, v in p.items():
+                total[k] = total.get(k, 0.0) + v
+    sb.cocokkan(total, awal_v, {str(k): round(float(v * 100), 2) for k, v in r.items()}, versi)
+
+
 def jalankan(versi):
     cfg = VERSI[versi]
     S = m.susun(cfg["periode"])
@@ -207,7 +233,7 @@ def jalankan(versi):
         hasil.append({"cagr": cagr_bln(r), "dd": dd_harian(v), "cagr_biaya": cagr_bln(rb), "cagr_h11a": cagr_bln(r11),
                       "dd_h11a": dd_harian(normal(e11[e11.index <= akhir], mulai)[lambda s: s.index >= mulai])})
         if seed == CONTOH_SEED:
-            contoh = {"v": v, "vb": vb, "porsi": porsi, "e11": e11, "dok": dok_s}
+            contoh = {"v": v, "vb": vb, "porsi": porsi, "e11": e11, "dok": dok_s, "m11": m11, "a11": a11, "mentah": mentah}
         if seed % 20 == 0:
             print(f"  {versi}: {seed}/{JUMLAH_SIMULASI} simulasi", flush=True)
     hs = pd.DataFrame(hasil)
@@ -257,6 +283,7 @@ def jalankan(versi):
                        "hari": int(((tgl > e["beli"]) & (tgl <= jual)).sum()), "kotor": round((hj / e["harga_beli"] - 1) * 100, 2) if hj and e["harga_beli"] else None,
                        "net": round((hasil_rp / e["modal"] - 1) * 100, 2), "status": "selesai" if selesai else "terbuka", "stop_awal_pct": None,
                        "dipilih": True, "bagian": "RS 12-1"})
+    isi_pnl(dok_tr, contoh, e22, ep22, r, versi)
     net_ft = [x["net"] for x in dok_tr if x["bagian"] == "Follow Tren" and x["status"] != "terbuka"]
     net_rs = [x["net"] for x in dok_tr if x["bagian"] == "RS 12-1" and x["status"] != "terbuka"]
     hari_rata = np.mean([x["hari"] for x in dok_tr]) if dok_tr else 0
