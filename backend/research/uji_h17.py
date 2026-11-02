@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from backend.app.services import valuasi as vl
-from backend.app.services.emiten import baca_mentah
+from backend.db.harga import mentah as baca_mentah
 from backend.db import data as dt
 from backend.db import koneksi as d
 from backend.ingest import des_ojk

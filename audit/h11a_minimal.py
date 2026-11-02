@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi
 
 MULAI = pd.Timestamp("2020-01-01")
@@ -79,7 +80,7 @@ def muat(adj):
     des = baca_des()
     kode = sorted(set(des.loc[des["akhir"] >= MULAI, "kode"]))
     data = {}
-    for t, x in dt.baca_banyak("harga", kode).items():
+    for t, x in hg.banyak(kode).items():
         s = siapkan_ticker(x, des[des["kode"] == t], adj)
         if s is not None:
             data[t] = s

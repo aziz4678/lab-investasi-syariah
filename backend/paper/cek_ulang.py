@@ -8,6 +8,7 @@ from pymongo import MongoClient
 
 from backend.core.config import ROOT
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as kdb
 from backend.paper.tren_harian import koreksi_tanpa_transaksi, tutup_resmi_tanpa_transaksi
 
@@ -43,8 +44,8 @@ def cek_idx(prod, mulai, sampai):
     if idx.empty:
         return {"cocok": None, "hari": 0, "belum_dicek": belum, "pesan": "idx_harian belum mencakup periode paper; jalankan 'Ambil otomatis' ringkasan perdagangan IDX"}
     dipakai = ticker_paper(prod)
-    kode = [k for k in dt.daftar("harian") if not k.startswith("_")]
-    harga = dt.baca_banyak("harian", kode, ["open", "close", "adj_close", "volume"])
+    kode = [k for k in hg.harian_daftar() if not k.startswith("_")]
+    harga = hg.harian_banyak(kode, ["open", "close", "adj_close", "volume"])
     resmi = tutup_resmi_tanpa_transaksi(m)
     beda, tanpa_transaksi, dicek = [], 0, 0
     for k, g in idx.groupby("StockCode"):

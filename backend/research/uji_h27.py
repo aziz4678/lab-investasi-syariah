@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from backend.app.services.emiten import baca_mentah
+from backend.db.harga import mentah as baca_mentah
 from backend.db import data as dt
 from backend.db import isi_backtest as ib
 from backend.db import koneksi as d

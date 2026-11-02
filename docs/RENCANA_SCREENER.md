@@ -1013,6 +1013,14 @@ d. **Harus lolos di dev DAN holdout.** Holdout dibuka sekali, hanya kalau dev lu
 
 Alasan: kriteria lama tidak seragam (H11a per trade tanpa sensitivitas, H22 relatif pasar dengan 3 sensitivitas), ditemukan di audit 2026-11-01. Standar ini berlaku ke depan saja: vonis hipotesis lama (H0-H28) tidak diubah.
 
+**e. Kualitas data (ditambahkan 2026-11-02 atas keputusan user; berlaku untuk hipotesis yang dikunci mulai 2026-11-02, bagian dari template pra-registrasi):**
+- Harga dibaca hanya lewat `backend/db/harga.py` (data sudah melewati registry `koreksi_harga`); kode riset tidak membaca koleksi `harga`/`harian` langsung dan tidak memanggil Yahoo.
+- Sebelum backtest dev: jalankan `cek_kualitas_data`. Kalau ADA TEMUAN di ticker atau periode yang dipakai, perbaiki dulu lewat `koreksi_harga` (dengan bukti), baru boleh dites.
+- Hasil hipotesis menyimpan `versi_data`: tanggal cek kualitas + statusnya, jumlah koreksi aktif, dan sidik (hash) data yang dipakai (`harga.sidik()`), supaya hasil bisa diulang persis.
+- Laporan hasil wajib menyebut keterbatasan data: survivorship (saham delisting tidak ada di Yahoo), K4 sebelum 2020 yang tidak terverifikasi (label di registry), syariah point-in-time baru sejak Des 2019.
+- Koreksi data baru setelah hipotesis divonis: hitung ulang hipotesis yang terdampak dan laporkan sebelum/sesudah; dicatat sebagai "pembaruan angka karena koreksi data", terpisah dari perubahan aturan. Vonis hanya berubah dengan persetujuan user.
+- Aksi korporasi baru diterapkan otomatis hanya bila faktornya dari data resmi IDX dan wajar (0,2-5, cocok dengan data lain); selain itu ditahan untuk diputuskan user.
+
 ## H29: Momentum Blend, gabungan 50/50 H11a (Follow Tren) + H22 (RS 12-1) (dikunci 2026-11-01 atas permintaan user, SETELAH melihat data dev dan 2020+)
 **Ditemukan setelah melihat hasil.** Ide gabungan muncul dari audit 2026-11-01 setelah return H11a dan H22 di dev dan 2020+ terlihat. Angka historisnya (simulasi dev Feb 2011-2019 CAGR 14,8%, DD -27,8%, Sharpe 0,50; 2020-Okt 2026 CAGR 14,7%, DD -32,7%, Sharpe 0,49; median 30 simulasi Monte Carlo bagian H11a) **bukan bukti**. Satu-satunya bukti yang sah adalah paper trade mulai 2026-11-01. Tidak ada parameter yang disetel atau diubah; standar seragam tidak dipakai menilai H29 karena H29 tidak punya data uji bersih.
 

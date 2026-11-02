@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from backend.app.services.emiten import baca_ihsg, baca_mentah
+from backend.db.harga import ihsg as baca_ihsg, mentah as baca_mentah
 from backend.db import data as dt
 from backend.ingest import des_ojk
 

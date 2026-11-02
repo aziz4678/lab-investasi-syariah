@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as d
 from backend.research import screener as sc
 from backend.research.laporan_bulanan import ringkas_bulanan
@@ -28,7 +29,7 @@ def kumpulkan():
     event = []
     pembanding = []
     for t, d in data.items():
-        mentah = dt.baca(f"harga/{t}").reindex(d.index)
+        mentah = hg.saham(t).reindex(d.index)
         x = sc.fitur_ticker(d, pasar)
         o, c = d["open"].to_numpy(float), d["close"].to_numpy(float)
         rasio = (d["close_mentah"] / d["close"]).to_numpy(float)

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as d
 
 HARI_TH = 252
@@ -25,18 +26,10 @@ SKENARIO = {
 
 
 def jii():
-    nama = "indeks/JKII"
-    if dt.ada(nama):
-        s = dt.baca(nama)["close"]
-        if s.index.max() >= pd.Timestamp(HOLDOUT[1]):
-            return s
-    import yfinance as yf
-    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-    h = yf.Ticker("^JKII").history(period="max", auto_adjust=False)
-    h.index = h.index.tz_localize(None).normalize()
-    df = h[["Close"]].rename(columns={"Close": "close"}).dropna()
-    dt.tulis(nama, df)
-    return df["close"]
+    s = hg.indeks("indeks/JKII")["close"]
+    if s.index.max() < pd.Timestamp(HOLDOUT[1]):
+        raise hg.DataTidakAda("indeks/JKII belum sampai akhir holdout; jalankan backend.ingest.kumpul_data indeks_panjang")
+    return s
 
 
 def bunga_bulanan():

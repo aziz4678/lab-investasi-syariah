@@ -129,7 +129,7 @@ def perbarui_harga(penuh=False):
             if (batas is not None and batas > pd.Timestamp(mulai)) or faktor_berubah(lama, baru, "adj_close", "close") or close_berubah(lama, baru):
                 lengkap.append(t)
                 continue
-            dt.tulis(f"harga/{t[:-3]}", gabung(lama, hasil[t]))
+            dt.tulis(f"harga/{t[:-3]}", gabung(lama, baru))
             ditimpa += 1
         print(f"  batch {i // BATCH + 1}: {len(hasil)}/{len(potong)} ada data", flush=True)
     if lengkap:
@@ -216,12 +216,30 @@ def ringkas():
     print(f"total kejadian dividen {r['dividen'].sum()}, split {r['split'].sum()}")
 
 
+def indeks_panjang():
+    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+    h = yf.Ticker("^JKII").history(period="max", auto_adjust=False)
+    h.index = h.index.tz_localize(None).normalize()
+    jkii = h[["Close"]].rename(columns={"Close": "close"}).dropna()
+    if len(jkii):
+        dt.tulis("indeks/JKII", jkii)
+        print(f"indeks/JKII: {len(jkii)} hari s/d {jkii.index.max().date()}")
+    g = yf.Ticker("GC=F").history(period="max", auto_adjust=False)
+    g.index = g.index.tz_localize(None).normalize()
+    emas = buang_belum_final(g[["Close"]].rename(columns={"Close": "close"}).dropna(), "GC=F")
+    if len(emas):
+        dt.tulis("pasar_panjang/emas_usd", emas)
+        print(f"pasar_panjang/emas_usd: {len(emas)} hari s/d {emas.index.max().date()}")
+
+
 def utama():
     p = argparse.ArgumentParser()
-    p.add_argument("perintah", choices=["harga", "pasar", "penuh", "info"])
+    p.add_argument("perintah", choices=["harga", "pasar", "penuh", "info", "indeks_panjang"])
     a = p.parse_args()
     logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-    if a.perintah == "harga":
+    if a.perintah == "indeks_panjang":
+        indeks_panjang()
+    elif a.perintah == "harga":
         perbarui_harga()
     elif a.perintah == "pasar":
         perbarui_pasar()

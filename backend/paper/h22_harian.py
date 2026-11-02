@@ -8,11 +8,13 @@ import pandas as pd
 import yfinance as yf
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as kdb
 from backend.ingest import des_ojk
 from backend.ingest.final import buang_belum_final
 from backend.paper.tren_harian import PAJAK_DIVIDEN, ke_mongo, unduh
 from backend.research import uji_h21_h22 as m
+from backend.ingest.harian_paper import unduh_jii
 from backend.paper import sumber_idx
 from backend.research.swing_target3 import rapikan_index
 
@@ -32,20 +34,8 @@ def db():
     return kdb.koneksi()
 
 
-def unduh_jii():
-    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-    x = yf.download("^JKII", period="2y", interval="1d", auto_adjust=True, progress=False)
-    if x is None or x.empty:
-        return
-    if isinstance(x.columns, pd.MultiIndex):
-        x.columns = x.columns.get_level_values(0)
-    s = buang_belum_final(rapikan_index(x)["Close"].dropna(), "^JKII")
-    if len(s):
-        dt.tulis(JII, s.to_frame("jii"))
-
-
 def susun():
-    semua = dt.baca_banyak("harian")
+    semua = hg.harian_banyak()
     ihsg = semua.pop("_ihsg")["ihsg"].dropna()
     if sumber_idx.AKTIF:
         semua = sumber_idx.susun({k: v for k, v in semua.items() if not k.startswith("_")})

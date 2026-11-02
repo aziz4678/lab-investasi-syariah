@@ -7,9 +7,11 @@ import pandas as pd
 
 from audit import h22_ulang as au
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.research import uji_h21_h22 as m
 
 SINYAL_AWAL = {"dev": "2014-01-01"}
+KETERBATASAN = ["Survivorship: saham delisting tidak ada di data Yahoo.", "Lompatan harga di luar ARA/ARB sebelum 2020 tanpa bukti dokumen dibiarkan (label tidak terverifikasi di koreksi_harga).", "Syariah point-in-time baru ada sejak Des 2019; dev memakai kode DES 2019-2026."]
 BULAN = 36
 DES_MULAI = pd.Timestamp("2019-12-01")
 SENS = [("dasar", {}), ("S1 biaya 2 tick", {"tick": 2}), ("S2 likuiditas ≥ Rp20 M", {"min_nilai": 20e9}), ("S3 harga ≥ Rp200", {"min_harga": 200})]
@@ -169,6 +171,8 @@ def jalankan(periode):
               for b in j.index if seri["h30"]["isi"].get(b)]
     hasil["h30_vs_h22"] = {"korelasi_bulanan": round(float(j["a"].corr(j["b"])), 2), "irisan_pegangan_pct": round(float(np.mean(irisan)) * 100, 1)}
     hasil["lulus_dev"] = hasil["h30"]["lulus_semua"]
+    hasil["versi_data"] = hg.sidik(S["kode"], S["tgl"][0], S["tgl"][-1])
+    hasil["keterbatasan_data"] = KETERBATASAN
     hasil = json.loads(json.dumps(hasil, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
     dt.simpan_hasil(f"h30_{periode}", hasil)
     print(json.dumps(hasil, ensure_ascii=False, indent=1))

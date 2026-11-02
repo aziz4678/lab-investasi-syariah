@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as d
 from backend.ingest import des_ojk
 from backend.paper.tren_harian import siapkan
@@ -39,22 +40,8 @@ def daftar():
     return [{"kode": k, "syariah": k in sekarang, "sektor": (info.get(k) or {}).get("sector"), "nama": nama.get(k)} for k in kode]
 
 
-def baca_mentah(kode):
-    bagian = [x for x in (dt.baca(f"harga/{kode}"), dt.baca(f"harian/{kode}")) if x is not None]
-    if not bagian:
-        return None
-    df = pd.concat(bagian)
-    df = df[~df.index.duplicated(keep="last")].sort_index()
-    return df.dropna(subset=["open", "high", "low", "close"])
-
-
-def baca_ihsg():
-    ihsg = dt.baca("pasar")["ihsg"].dropna()
-    h = dt.baca("harian/_ihsg")
-    if h is not None:
-        ihsg = pd.concat([ihsg, h["ihsg"].dropna()])
-        ihsg = ihsg[~ihsg.index.duplicated(keep="last")].sort_index()
-    return ihsg
+baca_mentah = hg.mentah
+baca_ihsg = hg.ihsg
 
 
 def jalur_stop(x, mulai, akhir, harga_beli, atr_sinyal):

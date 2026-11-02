@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as kdb
 from backend.ingest import des_ojk
 from backend.research import screener as sc
@@ -30,7 +31,7 @@ def kalender(akhir):
 
 def panel_yahoo(kode, tgl):
     out = {}
-    for k, df in dt.baca_banyak("harga", sorted(kode)).items():
+    for k, df in hg.banyak(kode).items():
         df = df[(df[["open", "high", "low", "close", "adj_close"]] > 0).all(axis=1)]
         if len(df) < 250:
             continue

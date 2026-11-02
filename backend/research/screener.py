@@ -8,6 +8,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as d
 from backend.research import swing_target3 as s
 from backend.research.laporan_bulanan import ringkas_bulanan
@@ -63,7 +64,7 @@ def daftar_syariah():
 def baca_harga(daftar=None):
     data = {}
     syariah = daftar_syariah() if daftar is None else set(daftar)
-    for kode, df in sorted(dt.baca_banyak("harga", sorted(syariah)).items()):
+    for kode, df in sorted(hg.banyak(syariah).items()):
         df = df[(df[["open", "high", "low", "close", "adj_close"]] > 0).all(axis=1)]
         if len(df) < 250:
             continue

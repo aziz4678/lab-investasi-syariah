@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 from backend.db import koneksi as d
 from backend.ingest.final import buang_belum_final
 from backend.research.uji_h20 import HARI_TH, bunga_bulanan, jendela, jii, metrik
@@ -26,18 +27,10 @@ FRED_KURS = "CCUSSP02IDM650N"
 
 
 def emas_usd():
-    nama = "pasar_panjang/emas_usd"
-    if dt.ada(nama):
-        df = dt.baca(nama)
-        if df.index.max() >= pd.Timestamp(HOLDOUT[1]):
-            return df["close"]
-    import yfinance as yf
-    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-    h = yf.Ticker("GC=F").history(period="max", auto_adjust=False)
-    h.index = h.index.tz_localize(None).normalize()
-    df = buang_belum_final(h[["Close"]].rename(columns={"Close": "close"}).dropna(), "GC=F")
-    dt.tulis(nama, df)
-    return df["close"]
+    s = hg.indeks("pasar_panjang/emas_usd")["close"]
+    if s.index.max() < pd.Timestamp(HOLDOUT[1]):
+        raise hg.DataTidakAda("pasar_panjang/emas_usd belum sampai akhir holdout; jalankan backend.ingest.kumpul_data indeks_panjang")
+    return s
 
 
 def kurs_fred():

@@ -3,9 +3,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 from backend.db import data as dt
+from backend.db import harga as hg
 
 KONFIG = {
     "file_ticker": "data/syariah_tickers.txt",
@@ -74,35 +74,31 @@ def rapikan_index(df):
     return df
 
 
+def potong_periode(df, periode):
+    if df is None or df.empty:
+        return df
+    n, satuan = int(periode[:-1]), periode[-1]
+    hari = {"y": 365, "d": 1}.get(satuan, 30) * n
+    return df[df.index > df.index.max() - pd.Timedelta(days=hari)]
+
+
 def unduh_data(daftar, periode):
-    mentah = yf.download(
-        daftar, period=periode, interval="1d", auto_adjust=True,
-        group_by="ticker", threads=True, progress=False,
-    )
     hasil = {}
-    for t in daftar:
-        try:
-            df = mentah[t].dropna(subset=["Open", "High", "Low", "Close"]).copy()
-        except KeyError:
-            continue
-        df.columns = [c.lower() for c in df.columns]
+    for t, df in hg.banyak([x.replace(".JK", "") for x in daftar]).items():
+        df = rapikan_index(df.copy())
+        f = df["adj_close"] / df["close"]
+        df = pd.DataFrame({"open": df["open"] * f, "high": df["high"] * f, "low": df["low"] * f, "close": df["adj_close"], "volume": df["volume"]})
+        df = potong_periode(df.dropna(subset=["open", "high", "low", "close"]), periode)
         df = df[(df["close"] > 0) & (df["volume"] >= 0)]
         if len(df) < 120:
             continue
-        hasil[t] = rapikan_index(df)
+        hasil[t + ".JK"] = df
     return hasil
 
 
 def ambil_ihsg(periode):
-    try:
-        ihsg = yf.download("^JKSE", period=periode, interval="1d", auto_adjust=True, progress=False)
-    except Exception:
-        return None
-    if ihsg is None or ihsg.empty:
-        return None
-    if isinstance(ihsg.columns, pd.MultiIndex):
-        ihsg.columns = ihsg.columns.get_level_values(0)
-    return rapikan_index(ihsg)["Close"]
+    s = hg.ihsg()
+    return potong_periode(s.to_frame("Close"), periode)["Close"] if len(s) else None
 
 
 def bentuk_regime(ihsg):

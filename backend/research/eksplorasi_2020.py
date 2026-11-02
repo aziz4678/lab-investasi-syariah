@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from backend.db import data as dt
+from backend.db import harga as hg
 
 NAMA_RINGKAS = "eksplorasi_2020_ringkas"
 NAMA_LOG = "eksplorasi_2020_log"
@@ -90,7 +91,7 @@ def dividen_event(siap):
     from backend.research.uji_dividen import bersih
     ev = []
     for t, x in siap.items():
-        m = dt.baca(f"harga/{t}").reindex(x.index)
+        m = hg.saham(t).reindex(x.index)
         if "dividends" not in m:
             continue
         div = m["dividends"].fillna(0).to_numpy(float)

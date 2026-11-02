@@ -4,7 +4,8 @@ import types
 import numpy as np
 import pandas as pd
 
-from backend.app.services.emiten import baca_ihsg
+from backend.db.harga import ihsg as baca_ihsg
+from backend.db import harga as hg
 from backend.db import data as dt
 from backend.ingest import des_ojk
 from backend.research import dividen_v1 as dh
@@ -17,7 +18,7 @@ BATAS_217 = 2019
 
 
 def kode_non(des, d217):
-    return sorted(set(dt.daftar("harga")) - set(des["kode"]) - set(d217))
+    return sorted(set(hg.daftar()) - set(des["kode"]) - set(d217))
 
 
 def tahun_dari(t):
