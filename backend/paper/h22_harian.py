@@ -13,6 +13,7 @@ from backend.ingest import des_ojk
 from backend.ingest.final import buang_belum_final
 from backend.paper.tren_harian import PAJAK_DIVIDEN, ke_mongo, unduh
 from backend.research import uji_h21_h22 as m
+from backend.paper import sumber_idx
 from backend.research.swing_target3 import rapikan_index
 
 MULAI = pd.Timestamp("2026-11-01")
@@ -46,6 +47,10 @@ def unduh_jii():
 def susun():
     semua = dt.baca_banyak("harian")
     ihsg = semua.pop("_ihsg")["ihsg"].dropna()
+    if sumber_idx.AKTIF:
+        semua = sumber_idx.susun({k: v for k, v in semua.items() if not k.startswith("_")})
+        print(f"sumber data paper H22: IDX resmi {sumber_idx.ringkas(semua)}")
+    data_asli = dict(semua)
     tgl = pd.DatetimeIndex(sorted(ihsg.index))
     data = {}
     for k, df in semua.items():
@@ -72,7 +77,7 @@ def susun():
     P["aktif250"] = (P["v"] > 0).astype(float).rolling(250, min_periods=250).mean()
     P["jml_data"] = P["c_raw"].notna().cumsum()
     akhir_bulan = pd.Series(tgl, index=tgl).groupby(tgl.to_period("M")).max()
-    return {"tgl": tgl, "P": P, "des": des_ojk.baca(), "kode": kode, "akhir_bulan": akhir_bulan, "periode": "holdout"}
+    return {"tgl": tgl, "P": P, "des": des_ojk.baca(), "kode": kode, "akhir_bulan": akhir_bulan, "periode": "holdout", "data_asli": data_asli}
 
 
 def muat():
@@ -330,6 +335,8 @@ def utama():
     for d in hari:
         proses_hari(S, d, prev, st, pos, log)
         prev = d
+    if sumber_idx.AKTIF:
+        sumber_idx.catat(db(), "h22", S["data_asli"], hari)
     pratinjau(S, st, pos, pd.Timestamp(st["tgl_terakhir"]))
     simpan(st, pos)
     for x in log:

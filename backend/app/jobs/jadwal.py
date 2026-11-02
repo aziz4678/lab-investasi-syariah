@@ -93,55 +93,88 @@ def perlu_cek_des(hari_ini=None):
     return not terbaru or terbaru["mulai"].date() < berikut
 
 
-def jalan_browser(db):
+URUTAN_HARIAN = [
+    "1. Unduh Yahoo: DES (musimnya), paper_unduh (harian paper + JII, dikoreksi), harga_perbarui, pasar_perbarui, reksa dana, ETF, makro",
+    "2. Ambil idx_harian (Chrome Lab); kalau gagal, langkah berikutnya tetap jalan dengan cadangan Yahoo dan ditandai",
+    "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
+    "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
+    "5. Cek ulang paper (paper_cek, paper_h22_cek)",
+    "6. Sumber data browser lain, lalu cadangan (+ mingguan cadangan_data, logo)",
+]
+
+
+def jalan_browser(db, kecuali=()):
     from backend.app.services import sumber_data as sd
-    for s in [x for x in sd.SUMBER if x.get("otomatis")]:
+    for s in [x for x in sd.SUMBER if x.get("otomatis") and x["id"] not in kecuali]:
         sekarang = next((x for x in sd.status() if x["id"] == s["id"]), {})
         if not sekarang.get("perlu"):
             continue
-        try:
-            pk.mulai("otomatis", [s["id"]], tunggu=True, oleh="jadwal")
-        except pk.Bentrok as e:
-            waktu = datetime.now()
-            db.pekerjaan.insert_one({"_id": f"lewati-otomatis-{s['id']}-{waktu:%Y%m%d%H%M%S}", "jenis": "otomatis", "label": f"Ambil otomatis: {s['nama']}",
-                                     "oleh": "jadwal", "status": "gagal", "mulai": waktu, "selesai": waktu, "log": [f"dilewati: {e}"]})
+        langkah(db, "otomatis", [s["id"]])
+
+
+def langkah(db, jenis, argumen=None, catatan=None):
+    try:
+        id_, _ = pk.mulai(jenis, argumen, tunggu=True, oleh="jadwal")
+        st = (pk.ambil(id_) or {}).get("status", "gagal")
+    except pk.Bentrok as e:
+        waktu = datetime.now()
+        label = pk.PERINTAH[jenis][0] if jenis != "otomatis" else f"Ambil otomatis: {argumen[0]}"
+        db.pekerjaan.insert_one({"_id": f"lewati-{jenis}-{waktu:%Y%m%d%H%M%S}", "jenis": jenis, "label": label,
+                                 "oleh": "jadwal", "status": "gagal", "mulai": waktu, "selesai": waktu, "log": [f"dilewati: {e}"]})
+        st = "dilewati"
+    if catatan is not None:
+        catatan.append({"jenis": jenis, "argumen": argumen, "status": st, "waktu": datetime.now()})
+    return st
+
+
+def idx_hari_ini_ada():
+    from backend.app.services import sumber_data as sd
+    terakhir = sd.idx_harian_terakhir()
+    hari = date.today()
+    while hari.weekday() >= 5:
+        hari = date.fromordinal(hari.toordinal() - 1)
+    return terakhir is not None and terakhir >= hari, terakhir
 
 
 def jalan():
     db = d.koneksi()
-    urutan = []
+    log = []
+    mulai = datetime.now()
+    ada_h11a = bool(db.paper_status.find_one({"_id": "status"}))
+    ada_h22 = bool(db.paper_h22_status.find_one({"_id": "status"}))
     if perlu_cek_des():
-        urutan.append("des_perbarui")
-    if db.paper_status.find_one({"_id": "status"}):
-        urutan += ["paper_harian", "paper_cek"]
-    if db.paper_h22_status.find_one({"_id": "status"}):
-        urutan += ["paper_h22", "paper_h22_cek"]
-    urutan += ["harga_perbarui", "pasar_perbarui"]
-    urutan.append("rd_perbarui")
+        langkah(db, "des_perbarui", catatan=log)
+    if ada_h11a or ada_h22:
+        langkah(db, "paper_unduh", catatan=log)
+    langkah(db, "harga_perbarui", catatan=log)
+    langkah(db, "pasar_perbarui", catatan=log)
+    langkah(db, "rd_perbarui", catatan=log)
     from backend.app.services import sumber_data as sd
     if sd.platform_perlu(db):
-        urutan.append("rd_platform_perbarui")
-    urutan.append("etf_perbarui")
-    urutan.append("makro_perbarui")
-    urutan.append("browser")
-    if db.paper_status.find_one({"_id": "status"}):
-        urutan.append("paper_cek")
-    urutan.append("cadangan")
+        langkah(db, "rd_platform_perbarui", catatan=log)
+    langkah(db, "etf_perbarui", catatan=log)
+    langkah(db, "makro_perbarui", catatan=log)
+    st_idx = langkah(db, "otomatis", ["idx_harian"], catatan=log)
+    idx_ok, idx_terakhir = idx_hari_ini_ada()
+    langkah(db, "kualitas_data", catatan=log)
+    langkah(db, "koreksi_ekspor", catatan=log)
+    if ada_h11a:
+        langkah(db, "paper_harian", ["--tanpa-unduh"], catatan=log)
+    if ada_h22:
+        langkah(db, "paper_h22", ["--tanpa-unduh"], catatan=log)
+    if ada_h11a:
+        langkah(db, "paper_cek", catatan=log)
+    if ada_h22:
+        langkah(db, "paper_h22_cek", catatan=log)
+    jalan_browser(db, kecuali={"idx_harian"})
+    langkah(db, "cadangan", ["jadwal"], catatan=log)
     from backend.db import cadangan as cd
     if cd.perlu_data():
-        urutan.append("cadangan_data")
-        urutan.append("logo_perbarui")
-    for jenis in urutan:
-        if jenis == "browser":
-            jalan_browser(db)
-            continue
-        argumen = ["jadwal"] if jenis == "cadangan" else None
-        try:
-            pk.mulai(jenis, argumen, tunggu=True, oleh="jadwal")
-        except pk.Bentrok as e:
-            sekarang = datetime.now()
-            db.pekerjaan.insert_one({"_id": f"lewati-{jenis}-{sekarang:%Y%m%d%H%M%S}", "jenis": jenis, "label": pk.PERINTAH[jenis][0],
-                                     "oleh": "jadwal", "status": "gagal", "mulai": sekarang, "selesai": sekarang, "log": [f"dilewati: {e}"]})
+        langkah(db, "cadangan_data", catatan=log)
+        langkah(db, "logo_perbarui", catatan=log)
+    db.jadwal_harian.replace_one({"_id": str(date.today())}, {"_id": str(date.today()), "mulai": mulai, "selesai": datetime.now(), "langkah": log,
+                                                              "idx_status": st_idx, "idx_lengkap": idx_ok, "idx_terakhir": str(idx_terakhir) if idx_terakhir else None,
+                                                              "urutan": URUTAN_HARIAN}, upsert=True)
 
 
 if __name__ == "__main__":

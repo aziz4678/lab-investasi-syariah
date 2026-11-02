@@ -12,6 +12,7 @@ from backend.db import koneksi as kdb
 from backend.ingest import des_ojk
 from backend.ingest.final import buang_belum_final
 from backend.ingest import koreksi_harga as kh
+from backend.paper import sumber_idx
 from backend.research import screener as sc
 from backend.research.swing_target3 import rapikan_index
 
@@ -336,6 +337,9 @@ def utama():
     else:
         print(f"unduh harga {len(daftar)} saham syariah (DES {terbaru.date()})...")
         mentah, ihsg = unduh(daftar)
+    if sumber_idx.AKTIF:
+        mentah = sumber_idx.susun(mentah)
+        print(f"sumber data paper: IDX resmi {sumber_idx.ringkas(mentah)}")
     awal_data = min((df.index.min() for df in mentah.values() if len(df)), default=None)
     siap = siapkan(mentah, ihsg, tutup_resmi_tanpa_transaksi(awal_data))
     kalender = kalender_bursa(mentah)
@@ -359,6 +363,8 @@ def utama():
     for tgl in hari:
         kandidat, terpilih = proses_hari(tgl, siap, des, status, posisi, peringatan)
     simpan_state(status, posisi)
+    if sumber_idx.AKTIF:
+        sumber_idx.catat(kdb.koneksi(), "h11a", mentah, hari)
     if status["tgl_terakhir"] is None:
         print("Belum ada hari bursa yang bisa diproses.")
         return
