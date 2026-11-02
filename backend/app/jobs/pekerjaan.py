@@ -11,6 +11,8 @@ from backend.db import koneksi as d
 PYTHON = ROOT / "venv" / "Scripts" / "python.exe"
 PERINTAH = {
     "paper_harian": ("Perbarui paper trade", ["-m", "backend.paper.tren_harian"]),
+    "koreksi_ekspor": ("Ekspor registry koreksi harga ke data/koreksi_harga.jsonl", ["-m", "backend.ingest.koreksi_harga", "ekspor"]),
+    "koreksi_impor": ("Pulihkan registry koreksi harga dari data/koreksi_harga.jsonl", ["-m", "backend.ingest.koreksi_harga", "impor"]),
     "impor_ojk_nab": ("Impor NAB bulanan OJK", ["-m", "backend.ingest.ojk_nab"]),
     "impor_logo": ("Impor logo emiten IDX", ["-m", "backend.ingest.impor_browser", "logo"]),
     "logo_perbarui": ("Perbarui logo emiten & produk", ["-m", "backend.ingest.logo"]),
