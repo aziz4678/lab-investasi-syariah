@@ -99,7 +99,7 @@ URUTAN_HARIAN = [
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
     "5. Cek ulang paper (paper_cek, paper_h22_cek)",
-    "6. Sumber data browser lain, lalu cadangan (+ mingguan cadangan_data, logo)",
+    "6. Sumber data browser lain, tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
 ]
 
 
@@ -167,14 +167,19 @@ def jalan():
     if ada_h22:
         langkah(db, "paper_h22_cek", catatan=log)
     jalan_browser(db, kecuali={"idx_harian"})
+
+    def tulis():
+        db.jadwal_harian.replace_one({"_id": str(date.today())}, {"_id": str(date.today()), "mulai": mulai, "selesai": datetime.now(), "langkah": log,
+                                                                  "idx_status": st_idx, "idx_lengkap": idx_ok, "idx_terakhir": str(idx_terakhir) if idx_terakhir else None,
+                                                                  "urutan": URUTAN_HARIAN}, upsert=True)
+
+    tulis()
     langkah(db, "cadangan", ["jadwal"], catatan=log)
     from backend.db import cadangan as cd
     if cd.perlu_data():
         langkah(db, "cadangan_data", catatan=log)
         langkah(db, "logo_perbarui", catatan=log)
-    db.jadwal_harian.replace_one({"_id": str(date.today())}, {"_id": str(date.today()), "mulai": mulai, "selesai": datetime.now(), "langkah": log,
-                                                              "idx_status": st_idx, "idx_lengkap": idx_ok, "idx_terakhir": str(idx_terakhir) if idx_terakhir else None,
-                                                              "urutan": URUTAN_HARIAN}, upsert=True)
+    tulis()
 
 
 if __name__ == "__main__":

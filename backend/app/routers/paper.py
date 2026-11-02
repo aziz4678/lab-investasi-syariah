@@ -215,6 +215,18 @@ def rebalance_berikutnya(tgl_terakhir):
     return str(awal.date())
 
 
+def koreksi_tercatat(sinyal):
+    if sinyal is None:
+        return None
+    docs = list(DB.paper_h22_koreksi.find({"sinyal": sinyal}, {"_id": 0, "ticker": 1, "peringkat_yahoo": 1, "peringkat_koreksi": 1,
+                                                               "dampak_n": 1, "disetujui": 1, "alasan": 1}))
+    if not docs:
+        return None
+    dampak = docs[0].get("dampak_n") or {}
+    return {"dihitung_ulang": len(docs), "berubah": sum(d.get("peringkat_yahoo") != d.get("peringkat_koreksi") for d in docs),
+            "masuk": dampak.get("masuk") or [], "keluar": dampak.get("keluar") or [], "disetujui": docs[0].get("disetujui"), "alasan": docs[0].get("alasan")}
+
+
 @router.get("/paper/h29")
 def paper_h29():
     from backend.paper import h22_harian as h22
@@ -249,7 +261,8 @@ def paper_h29():
         "seri": data, "ringkas": rk, "evaluasi": h29.evaluasi(rk, paper_zona()) if rk else {"tanggal": h29.EVALUASI, "kriteria": h29.KRITERIA},
         "cek": bersih(DB.paper_h22_cek.find_one(sort=[("waktu", -1)]) or {}) or None,
         "posisi": sorted(posisi, key=lambda x: -(x["nilai_rp"] or 0)), "rebalance": reb[0] if reb else None,
-        "rebalance_riwayat": [{k: x.get(k) for k in ["sinyal", "eksekusi", "lolos", "n", "baru", "jual", "tetap", "ekuitas_dasar", "anggaran_rp", "koreksi", "koreksi_dampak"]} for x in reb],
+        "rebalance_riwayat": [{**{k: x.get(k) for k in ["sinyal", "eksekusi", "lolos", "n", "baru", "jual", "tetap", "ekuitas_dasar", "anggaran_rp", "koreksi", "koreksi_dampak"]},
+                               "koreksi_tercatat": koreksi_tercatat(x.get("sinyal"))} for x in reb],
         "transaksi": transaksi,
         "stat_h22": {"selesai": len(jual), "win_rate": float(np.mean([x > 0 for x in jual]) * 100) if jual else None,
                      "rata": float(np.mean(jual)) if jual else None,
