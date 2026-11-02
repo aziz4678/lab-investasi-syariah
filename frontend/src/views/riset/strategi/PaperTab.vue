@@ -8,6 +8,7 @@ import { persen, rupiah, tanggal, infoAksi, kelasPersen } from "@/utils/format";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import KurvaPaper from "@/components/tren/KurvaPaper.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
+import PeringatanKualitas from "@/components/sistem/PeringatanKualitas.vue";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import ZonaPaper from "@/components/tren/ZonaPaper.vue";
@@ -168,6 +169,7 @@ const stat = computed(() => {
 
 <template>
   <div class="space-y-5">
+    <PeringatanKualitas bagian="h11a" />
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">Aturan Follow Tren dijalankan ke depan dengan uang pura-pura, lalu dibandingkan dengan backtest.</p>
       <div v-if="r?.mulai" class="flex items-center gap-2">

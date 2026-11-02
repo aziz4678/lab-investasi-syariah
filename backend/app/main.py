@@ -4,14 +4,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.jobs import pekerjaan as pk
-from backend.app.routers import backtest, dividen, emiten, etf, logo, paper, pasar, reksadana, riset, sistem, sumber_data
+from backend.app.routers import backtest, dividen, emiten, etf, kualitas, logo, paper, pasar, reksadana, riset, sistem, sumber_data
 from backend.core.config import FRONTEND_DIST as DIST
 
 app = FastAPI(title="Lab Syariah API")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["*"])
 pk.bersihkan_yatim()
 
-for modul in [backtest, paper, sistem, sumber_data, logo, riset, emiten, dividen, etf, reksadana, pasar]:
+for modul in [backtest, paper, sistem, sumber_data, kualitas, logo, riset, emiten, dividen, etf, reksadana, pasar]:
     app.include_router(modul.router)
 
 if DIST.exists():

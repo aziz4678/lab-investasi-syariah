@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud } from "lucide-vue-next";
+import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud, ScanSearch } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import Panel from "@/components/common/Panel.vue";
@@ -19,9 +19,11 @@ const pilihan = ref("");
 const konfirmasi = ref("");
 const { kerja, galat, sibuk, mulai, lanjutkan } = pakaiPekerjaan();
 const idxCek = computed(() => status.value?.paper_cek?.idx || null);
+const kualitas = ref(null);
+const pindahTab = inject("pindahTab");
 
 async function muat() {
-  [jadwal.value, cadangan.value] = await Promise.all([ambil("jadwal").catch(() => null), ambil("cadangan").catch(() => [])]);
+  [jadwal.value, cadangan.value, kualitas.value] = await Promise.all([ambil("jadwal").catch(() => null), ambil("cadangan").catch(() => []), ambil("kualitas/paper").catch(() => null)]);
   siap.value = true;
   if (!pilihan.value && cadangan.value.length) pilihan.value = cadangan.value[0].nama;
 }
@@ -54,7 +56,7 @@ async function alihJadwal() {
 
 onMounted(async () => {
   await muat();
-  for (const j of ["paper_cek", "des_perbarui", "cadangan", "pulihkan"]) {
+  for (const j of ["paper_cek", "kualitas_data", "des_perbarui", "cadangan", "pulihkan"]) {
     await lanjutkan(j, setelah);
     if (sibuk.value) break;
   }
@@ -84,7 +86,7 @@ function waktu(s) {
             <span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="jadwal?.ada ? 'translate-x-5' : ''"></span>
           </button>
         </div>
-        <p v-if="jadwal?.ada" class="m-0 mt-2 pl-[30px] text-[11px] leading-snug text-muted">Perbarui paper, harga riset & data pasar, reksa dana & ETF, lalu data IDX/OJK yang perlu diperbarui lewat Chrome Lab, lalu backup. Komputer harus menyala; kalau mati, jalan saat komputer hidup lagi.<span v-if="jadwal.terakhir"> Terakhir {{ waktu(jadwal.terakhir) }}.</span></p>
+        <p v-if="jadwal?.ada" class="m-0 mt-2 pl-[30px] text-[11px] leading-snug text-muted">Urutan: unduh Yahoo (harga paper & riset, pasar, reksa dana, ETF, makro) → data harian IDX lewat Chrome Lab → cek kualitas data + koreksi aksi korporasi otomatis → paper Follow Tren & Momentum Blend (sumber IDX, cadangan Yahoo) → cek ulang paper → data IDX/OJK lain → backup. Komputer harus menyala; kalau mati, jalan saat komputer hidup lagi.<span v-if="jadwal.terakhir"> Terakhir {{ waktu(jadwal.terakhir) }}.</span></p>
         <p v-if="galatJadwal" class="m-0 mt-2 pl-[30px] text-xs text-turun">{{ galatJadwal }}</p>
       </div>
 
@@ -98,6 +100,18 @@ function waktu(s) {
           <div class="text-xs text-muted">{{ status?.paper_cek ? `${waktu(status.paper_cek.waktu)} · s/d ${status.paper_cek.sampai}` : "belum pernah" }}<span v-if="idxCek?.belum_dicek?.length"> · data IDX belum ada: {{ idxCek.belum_dicek.join(", ") }}</span></div>
         </div>
         <button class="tombol shrink-0" :disabled="sibuk" @click="jalankan('paper_cek')">Cek</button>
+      </div>
+
+      <div class="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
+        <ScanSearch class="h-4.5 w-4.5 shrink-0 text-muted" />
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 text-[13px] font-medium">Kualitas data
+            <span v-if="kualitas?.status" class="chip" :class="kualitas.status === 'LULUS' ? 'bg-naik-bg text-naik' : kualitas.menonjol ? 'bg-turun-bg text-turun' : 'bg-kuning-bg text-kuning'">{{ kualitas.status === "LULUS" ? "lulus" : kualitas.menonjol ? "temuan di saham paper" : `${kualitas.jumlah_temuan + kualitas.jumlah_tahan} temuan` }}</span>
+          </div>
+          <div class="text-xs text-muted">{{ kualitas?.waktu ? waktu(kualitas.waktu) : "belum pernah" }} · cek harga semua saham + koreksi aksi korporasi IDX otomatis</div>
+        </div>
+        <button class="tombol shrink-0" @click="pindahTab('kualitas')">Lihat</button>
+        <button class="tombol shrink-0" :disabled="sibuk" @click="jalankan('kualitas_data')">Cek</button>
       </div>
 
       <div class="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">

@@ -12,6 +12,7 @@ import Stats from "@/components/common/Stats.vue";
 import KodeSaham from "@/components/common/KodeSaham.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
+import PeringatanKualitas from "@/components/sistem/PeringatanKualitas.vue";
 
 const props = defineProps({ s: Object });
 const pindahTab = inject("pindahTab");
@@ -170,6 +171,7 @@ function hasil(t) {
 
 <template>
   <div class="space-y-5">
+    <PeringatanKualitas bagian="h22" />
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">Dua aturan momentum dijalankan ke depan dengan uang pura-pura dalam satu modal, lalu dinilai pada 1 Nov 2027. Tidak perlu beli manual: semuanya tercatat otomatis.</p>
       <button v-if="r?.ada" class="tombol-utama" :disabled="sibuk" @click="perbarui">
