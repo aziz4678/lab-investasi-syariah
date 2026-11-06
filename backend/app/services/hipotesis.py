@@ -984,6 +984,9 @@ ANALISIS = [
     {"id": "spread", "nama": "Spread nyata IDX", "tgl": "2026-10-20",
      "isi": "Spread penutupan median ±1,1-1,2 tick. Model 1 tick per sisi ±2× setengah spread; semua putusan tetap memakai model 1 tick.",
      "terkait": ["H7a", "H19d"], "sumber": "RENCANA_SCREENER.md:391"},
+    {"id": "cicil_jii", "nama": "Cara masuk ke JII: sekaligus vs cicil", "tgl": "2026-11-07",
+     "isi": "Selesai, tanpa pemenang tegas. Cicil + tambah saat turun mengalahkan cicil rata di dev (63%) dan holdout (73%, hanya 33 tanggal mulai), tapi rapuh dan untungnya ±1-2 poin per 100 dana. Sekaligus menang di dev (±65-70%) tapi kalah di holdout 2019-2021 (±30-39%).",
+     "terkait": [], "sumber": "RENCANA_SCREENER.md:1201"},
 ]
 
 

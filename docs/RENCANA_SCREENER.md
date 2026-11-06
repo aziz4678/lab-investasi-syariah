@@ -1197,3 +1197,129 @@ Pemicu: temuan H30 (MAPI Mei 2018 tercatat 1/10). Deteksi menyeluruh di `harga` 
 | H30 dev | 11,20% vs 7,27%; dasar 3/5, S1 3/5, S2 2/5, S3 2/5 | 10,90% vs 4,98%; dasar 3/5, S1 3/5, S2 2/5, **S3 3/5** (b3 lulus) | gagal (b1, b2 semua skenario), tidak berubah |
 
 Penyebab utama turunnya H11a 2020+: 21 dari 697 sinyal berubah; PDPP 2024 (bar basi Yahoo Jan-Mar 2024 menyembunyikan penurunan, stop kena 30 Apr bukan 23 Jul: +51% → +19%), MPMX 2022 (68 bar basi, muncul 2 trade rugi), PACK 2026 (setelah aksi korporasi disesuaikan muncul breakout yang rugi -26%). Bobot sama dev turun 7,80 → 6,28% karena laba palsu MAPI Mei 2018 hilang. Catatan: batas GAGAL H29 (DD paper -45%, dikunci) kini terlampaui oleh simulasi terburuk 2020+ (-46,2%) dan median simulasi -44,0%; kriteria tidak diubah.
+
+## Analisis cara masuk ke JII: sekaligus vs cicil vs cicil + tambah saat turun (dikunci 2026-11-07 atas permintaan user, sebelum kode dibuat dan sebelum ada angka return apa pun; deskriptif, bukan uji strategi) — SELESAI 2026-11-07
+Id `analisis_cicil_jii`. Awalnya dari brief "H31"; atas keputusan user 2026-11-07 dijadikan **analisis deskriptif**, bukan hipotesis: tidak masuk katalog H, standar seragam tidak berlaku (bukan pencarian edge, tapi perbandingan cara masuk ke aset yang sama). Pra-registrasi tetap: aturan, kriteria, dan pembagian dev/holdout ditulis di sini sebelum dijalankan, tidak diubah setelah melihat hasil, holdout tertutup sampai user membukanya.
+
+**Pertanyaan.** Untuk dana tetap yang mau dimasukkan ke indeks saham syariah, cara masuk mana yang hasilnya lebih baik: sekaligus, dicicil rata, atau dicicil dengan porsi lebih besar saat indeks turun?
+
+**Data.**
+- JII = `indeks/JKII` (close harian Yahoo, 3 Jul 2000 - 23 Okt 2026, close cocok 100% dengan IDX), dibaca lewat `harga.indeks`. Registry `koreksi_harga` hanya untuk saham; JII tidak ditarik ulang. Cek sebelum dikunci (tanpa return): 0 nilai kosong/nol, ±240 hari bursa per tahun, jeda terpanjang 12 hari kalender (libur).
+- **Nilai aset = JII + dividen 2,5%/th diakru harian** (keputusan user, sama dengan pembanding JII H22/H30: close × 1,025^(hari kalender/365,25)). Versi harga saja (tanpa dividen) dilaporkan, bukan kriteria.
+- **Sinyal turun memakai close harga JII (tanpa dividen).**
+- Bunga kas: skenario utama 0%; sensitivitas 4%/th (diakru harian, 1,04^(hari/365,25)). Skenario ketiga (seri pasar uang syariah) **tidak dipakai**: NAV RD di repo baru ada sejak ±2013 (`rd_yakin.bulanan`, 166 bulan), tidak menutup dev 2010.
+- Biaya (keputusan user): beli 0,15% + 0,4% = **0,55%** dari setiap pembelian, jual 0,25% + 0,4% = **0,65%** sekali di akhir horizon (sama untuk semua cara). 0,4% per sisi menggantikan 1 tick, karena indeks tidak punya tick; total ±1,2% pulang-pergi sama dengan model proyek. Setoran X → nilai aset X × (1 − 0,0055).
+
+**Aturan (dana total = 100).**
+| Kode | Nama | Aturan |
+|---|---|---|
+| `lump` | Sekaligus | 100 masuk di bulan ke-1 |
+| `dca` | Cicil rata | 100/12 masuk tiap bulan selama 12 bulan |
+| `dca_turun` | Cicil + tambah saat turun | Cicilan dasar 100/12 per bulan. Kalau JII di akhir bulan sebelumnya turun ≥ 10% dari tertinggi 250 hari bursa → cicilan bulan itu 2×; ≥ 20% → 3×. Cicilan tidak boleh melebihi sisa dana. Sisa di bulan ke-12 masuk semua di bulan ke-12. |
+
+Detail eksekusi (yang tidak disebut di brief, diisi saat dikunci):
+- Tanggal mulai = hari bursa terakhir bulan M (kalender JII). Pembelian ke-k (k = 1..12) di close hari bursa terakhir bulan M+k−1. `lump` beli semua di tanggal mulai.
+- Sinyal `dca_turun` untuk pembelian ke-k: close JII di hari bursa terakhir bulan M+k−2 dibanding tertinggi close 250 hari bursa yang berakhir di hari itu (hari itu ikut). Jadi pembelian ke-1 memakai akhir bulan sebelum tanggal mulai. Harga hari beli tidak dipakai.
+- Akhir horizon H tahun = hari bursa terakhir bulan M+12H. Seluruh aset dijual di close hari itu (biaya jual 0,65%); kas sisa (hanya mungkin di skenario yang belum habis, seharusnya tidak ada) ikut dihitung.
+- Tidak ada penjualan di tengah.
+- Kas berbunga (skenario 4%): cicilan dasar tetap nominal 100/12; tiap pembelian = min(kelipatan × 100/12, kas saat itu), dan pembelian ke-12 = seluruh kas (bunga ikut masuk). Berlaku sama untuk `dca` dan `dca_turun`. Dana dianggap habis saat kas ≤ 1e-9.
+
+**Ukuran per tanggal mulai × cara × horizon × skenario.**
+- `nilai_akhir`: nilai setelah biaya jual, dari dana 100.
+- `dd_maks`: drawdown maksimum harian nilai portofolio (aset sebelum biaya jual + kas) dari tanggal mulai sampai akhir horizon, puncak awal = 100.
+- `bulan_di_bawah_modal`: jumlah akhir bulan k = 1..12H di mana nilai aset (sebelum biaya jual) < total dana yang sudah disetor ke aset sampai bulan itu (termasuk biaya beli). Bulan ke-0 tidak dihitung (selalu di bawah karena biaya beli).
+- `bulan_dana_habis`: pembelian ke berapa dana 100% sudah masuk (`lump` 1, `dca` 12, `dca_turun` 1-12).
+- Menang = `nilai_akhir` lebih besar (sama persis = tidak menang).
+
+**Periode.**
+- Dev: tanggal mulai Jan 2010 - Des 2018 (108 tanggal mulai). Harga yang dipakai: 2009 (sinyal 250 hari) s/d Des 2021 (3 th) / Des 2023 (5 th).
+- Holdout: tanggal mulai Jan 2019 s/d tanggal mulai terakhir yang horizonnya lengkap (data JII terakhir 23 Okt 2026). **Tertutup** sampai user memintanya.
+
+**Kriteria (horizon 5 tahun, skenario utama: dividen 2,5%, bunga 0%, ambang 10%/20%).** `dca_turun` lebih baik dari `dca` kalau semua terpenuhi:
+1. `nilai_akhir` menang di ≥ 60% tanggal mulai dev, **dan**
+2. median `dd_maks` `dca_turun` tidak lebih buruk lebih dari 2 poin persen dari median `dd_maks` `dca`, **dan**
+3. di horizon 3 tahun (skenario sama), persen menang `dca_turun` vs `dca` tidak di bawah 50%.
+
+`lump` hanya pembanding deskriptif (seberapa sering menang, seberapa besar selisih).
+
+**Laporan saja (tidak mengubah kriteria):**
+- Ambang 7%/15% dan 15%/25%.
+- Buang tanggal mulai di 12 bulan sebelum s/d 12 bulan sesudah bulan titik terendah terbesar: drawdown close JII (harga) terhadap tertinggi berjalan sejak 1 Jan 2010, dasar terdalam yang tanggalnya di Jan 2010 - Des 2018 (dicari otomatis oleh kode).
+- Dev dipisah dua kelompok (permintaan user): tanggal mulai 2010-2014 (jendela 5 th tidak menyentuh 2020) dan 2015-2018.
+- Versi harga saja (tanpa dividen) dan bunga kas 4%.
+- Ringkasan per cara × horizon × skenario: median, p10, p90 `nilai_akhir`; median `dd_maks`; median `bulan_di_bawah_modal`; persen menang vs `dca` dan vs `lump`.
+
+**Output.** `backend/research/analisis_cicil_jii.py`; hasil per tanggal mulai + ringkasan di `hasil_riset/analisis_cicil_jii_dev` (dengan `versi_data`: `dt.versi("indeks/JKII")`, sidik close JII yang dipakai, status cek kualitas terakhir). CSV sementara hanya di scratchpad (di luar repo), tombol unduh menyusul.
+
+**Kelemahan (dicatat sebelum dijalankan):**
+- JII tidak bisa dibeli langsung; dianggap lewat RD indeks/ETF tanpa tracking error dan tanpa biaya pengelolaan. Dividen 2,5%/th asumsi tetap.
+- Jendela bergulir tumpang tindih: 108 tanggal mulai tidak independen. Jendela 5 th yang mulai berdekatan hampir sama, jadi "persen menang" bisa ditentukan oleh 1-2 kejadian pasar besar.
+- **Jendela dev 2015-2018 tumpang tindih dengan harga periode holdout** (2019-2023, termasuk Covid 2020). Holdout tidak bersih: JII 2001-2014 sudah dipakai H20/H23, 2020+ sudah terlihat di banyak uji.
+- `cek_kualitas_data` hanya memeriksa saham, bukan indeks; untuk JII hanya cek kelengkapan di atas.
+- Hasil hanya berlaku untuk dana yang sudah ada di tangan (bukan gaji bulanan, yang memang harus dicicil).
+
+### Hasil analisis cicil JII dev (2026-11-07, dijalankan sekali, `backend/research/analisis_cicil_jii.py --periode dev`, hasil `hasil_riset/analisis_cicil_jii_dev`): kriteria TERPENUHI 3/3 (tipis), holdout tertutup
+108 tanggal mulai (Jan 2010 - Des 2018), harga JII s/d 29 Des 2023, sidik close `3983a128…`. Skenario utama: dividen 2,5%, bunga 0%, ambang 10%/20%.
+
+| Kriteria | Nilai | Hasil |
+|---|---|---|
+| 1. 5 th: `dca_turun` menang vs `dca` ≥ 60% | 62,96% (68 menang, 16 kalah, 24 sama persis karena tidak pernah 2×) | ✔ (selisih 3 tanggal mulai dari batas) |
+| 2. 5 th: median `dd_maks` tidak lebih buruk > 2 poin | -25,21% vs -25,21% (selisih 0) | ✔ |
+| 3. 3 th: persen menang ≥ 50% | 62,96% | ✔ |
+
+Ringkasan skenario utama (median `nilai_akhir` dari 100, p10-p90; median `dd_maks`; median bulan di bawah modal):
+| Cara | 3 th | 5 th | DD 5 th | Bawah modal 5 th | Menang vs `lump` (5 th) |
+|---|---|---|---|---|---|
+| `lump` | 115,1 (86,9-137,0) | 113,6 (87,5-150,1) | -25,2% | 9 | |
+| `dca` | 111,4 (84,4-130,0) | 112,6 (85,9-140,0) | -25,2% | 10,5 | 30,6% |
+| `dca_turun` | 114,0 (85,3-132,9) | 112,2 (85,8-141,3) | -25,2% | 10 | 34,3% |
+`lump` menang vs `dca` di 69,4% tanggal mulai (median selisih +4,3 poin), vs `dca_turun` 65,7% (+2,7 poin). Dana `dca_turun` habis median di bulan ke-10 (bulan 5-12).
+
+Laporan saja:
+- Ambang 7%/15%: menang 76,9% ✔; **15%/25%: 41,7% ✘** (kriteria 1 dan 3).
+- Skenario lain (ambang 10/20): bunga 4% 58,3% (di bawah 60), harga saja 59,3%, harga saja + bunga 4% 55,6%.
+- Titik terendah terbesar dev: 28 Sep 2015 (-26,2% dari puncak sejak 2010); tanpa 25 tanggal mulai Sep 2014 - Sep 2016: 63,9%, kriteria tetap terpenuhi.
+- Kelompok: mulai 2010-2014 70,0% ✔; mulai 2015-2018 54,2% (kriteria 1 ✘). Jendela 2015-2018 tumpang tindih dengan harga periode holdout (2019-2023, termasuk Covid 2020).
+- Per tahun mulai, `dca_turun` menang vs `dca`: 2010 75, 2011 100, 2012 67, 2013 83, 2014 25, 2015 92, 2016 33, 2017 0, 2018 92 (%).
+- Saat hasilnya beda, selisih `dca_turun` - `dca` median +1,35 poin (min -1,6, maks +9,4).
+
+Catatan (tidak mengubah kriteria):
+- **Kriteria 3 otomatis sama dengan kriteria 1**: setelah bulan ke-12 kedua cara sudah 100% di aset yang sama tanpa kas, jadi pemenangnya hanya ditentukan jumlah unit, sama di horizon berapa pun (pemenang 3 th = 5 th di semua 108 tanggal mulai). Kelemahan desain yang baru terlihat setelah dijalankan.
+- **Kriteria 2 hampir pasti lolos**: penurunan terdalam 5 th didominasi penurunan setelah dana masuk semua, yang persentasenya sama untuk kedua cara.
+- Kesimpulan rapuh: lolos tipis (68 vs batas 65), berbalik di ambang 15/25, dengan bunga kas 4%, dengan harga saja, dan di kelompok 2015-2018. Keunggulannya kecil (median +1,35 poin dari 100 selama 5 tahun) dan ditentukan beberapa episode turun (2011, 2013, 2015, 2018).
+- Yang konsisten: sekaligus (`lump`) mengalahkan kedua cara cicil di ±65-70% tanggal mulai.
+
+### Hasil analisis cicil JII holdout (2026-11-07, dibuka sekali atas permintaan user, `analisis_cicil_jii.py --periode holdout`, hasil `hasil_riset/analisis_cicil_jii_holdout`): kriteria TERPENUHI 3/3, sampel terlalu kecil untuk disimpulkan
+Aturan, skenario, dan uji kerapuhan sama persis dengan dev (kode dev dijalankan ulang setelah periode holdout ditambahkan: hasil identik). Data JII dipotong 30 Sep 2026 (data terakhir 23 Okt 2026, jadi Oktober belum punya hari bursa terakhir). Tanggal mulai: **horizon 3 th 57 (Jan 2019 - Sep 2023), horizon 5 th hanya 33 (Jan 2019 - Sep 2021)**. Sidik close `0dba37fc…`.
+
+**Jumlah tanggal mulai 5 th (33) kurang untuk disimpulkan**: semuanya dalam rentang 33 bulan dan saling tumpang tindih, jadi praktis hanya satu episode pasar (Covid Mar 2020, turun -45,8%, lalu 2021-2022). Uji tanpa ±12 bulan di sekitar titik terendah hanya menyisakan 8 tanggal mulai 5 th.
+
+| Kriteria | Nilai | Hasil |
+|---|---|---|
+| 1. 5 th: `dca_turun` menang vs `dca` ≥ 60% | 72,7% (24 menang, 9 kalah, 0 sama; n = 33) | ✔ |
+| 2. 5 th: median `dd_maks` tidak lebih buruk > 2 poin | -36,95% vs -36,95% (selisih 0) | ✔ |
+| 3. 3 th: persen menang ≥ 50% | 56,1% (32 menang, 20 kalah, 5 sama; n = 57) | ✔ |
+
+Ringkasan skenario utama (median `nilai_akhir` dari 100, p10-p90; median `dd_maks`; median bulan di bawah modal):
+| Cara | 3 th (n = 57) | 5 th (n = 33) | DD 5 th | Bawah modal 5 th | Menang vs `lump` (5 th) |
+|---|---|---|---|---|---|
+| `lump` | 94,5 (76,9-106,6) | 85,2 (77,6-106,2) | -39,0% | 41 | |
+| `dca` | 96,3 (77,5-109,4) | 93,2 (75,2-108,2) | -37,0% | 32 | 60,6% |
+| `dca_turun` | 98,7 (76,3-113,9) | 95,9 (77,8-108,1) | -37,0% | 22 | 69,7% |
+`lump` menang vs `dca` hanya di 39,4% (5 th) / 36,8% (3 th) tanggal mulai, vs `dca_turun` 30,3% / 33,3%. Median dana `dca_turun` habis di bulan ke-6 (4-11). Median nilai akhir semua cara < 100: JII + dividen 2,5% turun di periode ini.
+
+Laporan saja:
+- Ambang 7%/15%: 5 th 63,6% ✔, **3 th 45,6% ✘**; 15%/25%: 75,8% / 59,6% ✔.
+- Skenario lain (ambang 10/20, 5 th / 3 th): bunga 4% 69,7 / 52,6; harga saja 69,7 / 54,4; harga saja + bunga 4% 66,7 / 50,9 (semua terpenuhi).
+- Titik terendah terbesar holdout: 24 Mar 2020 (-45,8%); tanpa 25 tanggal mulai Mar 2019 - Mar 2021: 5 th 75,0% (n = 8), **3 th 43,8% ✘** (n = 32).
+- Kelompok 2010-2014 / 2015-2018 tidak berlaku di holdout.
+- Per tahun mulai, `dca_turun` menang vs `dca` (3 th): 2019 58, 2020 75, 2021 92, 2022 42, 2023 0 (%).
+
+Dev vs holdout: kriteria `dca_turun` vs `dca` terpenuhi di keduanya (dev tipis 63,0%, holdout 72,7% dari 33 tanggal mulai), tapi rapuh di uji kerapuhan masing-masing. Arah `lump` **berbalik**: dev menang ±65-70%, holdout kalah (menang ±30-39%).
+
+### Status: SELESAI (2026-11-07, kesimpulan dari data, pilihan user)
+Tidak ada pemenang tegas, tidak ada rekomendasi cara masuk.
+- `dca_turun` vs `dca`: kriteria pra-registrasi terpenuhi di dev (63,0%) dan holdout (72,7%, 33 tanggal mulai), tapi rapuh (gagal di sebagian uji kerapuhan di kedua periode) dan untungnya kecil (median ±1-2 poin per 100 dana selama 5 tahun). Kriteria 2 dan 3 nyaris otomatis lolos karena desain (lihat catatan dev), jadi bobot bukti praktis hanya kriteria 1.
+- `lump` vs cicil bergantung periode: dev (2010-2018, pasar naik bertahap) sekaligus menang ±65-70%; holdout (2019-2021, Covid lalu JII melemah) sekaligus kalah, menang hanya ±30-39%.
+- Holdout 5 th terlalu kecil untuk disimpulkan (33 tanggal mulai tumpang tindih, praktis satu episode pasar).
+- Tidak ada uji lanjutan atau variasi (ambang, horizon, aset) dari analisis ini.
