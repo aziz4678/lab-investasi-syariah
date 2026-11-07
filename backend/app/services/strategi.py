@@ -37,7 +37,8 @@ TREN52 = {
         {"waktu": "1 Nov 2026", "judul": "Audit standar seragam", "isi": "Gagal standar seragam di dev, lulus 2020+. Kapasitas kecil: di saham likuid ≥ Rp20 M CAGR ±separuh (S2).", "status": "selesai"},
         {"waktu": "Jan 2027", "judul": "Cek eksekusi", "isi": "Hari ke-63: batas GAGAL mulai berlaku.", "status": "nanti"},
         {"waktu": "Apr 2027", "judul": "Cek tengah", "isi": "Bandingkan dengan zona wajar backtest.", "status": "nanti"},
-        {"waktu": "Okt 2027", "judul": "Keputusan utama", "isi": "Tidak pernah WASPADA/GAGAL → uang nyata kecil 10-20%. Ditambah 1 Nov 2026: gagal juga kalau turun lebih dalam dari -45% atau ada bug eksekusi.", "status": "nanti"},
+        {"waktu": "7 Nov 2026", "judul": "Audit aturan evaluasi", "isi": "Aturan lama memberi alarm palsu terlalu sering (WASPADA 45%, GAGAL 13% di tahun normal) dan 12 bulan tidak bisa membedakan edge dari tanpa edge. Diganti aturan v2 (rem GAGAL pita simultan h11a_v2); v1 tetap dihitung berdampingan.", "status": "selesai"},
+        {"waktu": "Okt 2027", "judul": "Keputusan manual", "isi": "Bukan bukti edge: keputusan user dengan porsi kecil (maks 10%, peringatan keras H33). Gagal kalau rem h11a_v2, turun lebih dalam dari -45%, atau bug eksekusi. Horizon bukti ±32-51 bulan.", "status": "nanti"},
     ],
     "backtest": {"jenis": "versi", "cara_kerja": "tren", "olah": [["impor_fundamental", "Impor fundamental"], ["isi_backtest", "Hitung ulang backtest"]], "versi": {
         "h11a_2020": {"pendek": "2020-2026", "isi": "Uji utama: saham syariah menurut DES OJK pada tanggal itu.", "jii": -10.8},

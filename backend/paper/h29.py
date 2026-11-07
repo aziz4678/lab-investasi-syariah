@@ -11,10 +11,10 @@ EVALUASI = "2027-11-01"
 TICK_ESTIMASI = 0.0047
 BIAYA_PINDAH = sc.FEE_JUAL / 100 + sc.FEE_BELI / 100 + 2 * TICK_ESTIMASI
 KRITERIA = [
-    "Momentum Blend (H29): evaluasi 12 bulan pada 2027-11-01. GAGAL kalau drawdown lebih dalam dari -45% atau ada bug eksekusi.",
-    "Follow Tren (H11a), jadwal yang dikunci 21 Okt 2026 tetap: keputusan utama Okt 2027, kalau tidak pernah WASPADA/GAGAL di zona h11a_v1 → uang nyata kecil 10-20%.",
-    "H11a GAGAL kalau zona h11a_v1 (dikunci 2026-10-22) menyatakan GAGAL (return di bawah persentil 1 sejak hari ke-63, drawdown lebih dalam dari persentil 1, atau rugi beruntun di atas persentil 99). Ditambahkan 1 Nov 2026, bukan pengganti: juga GAGAL kalau drawdown lebih dalam dari -45% atau ada bug eksekusi.",
-    "Hasil 12 bulan yang biasa-biasa saja atau rugi kecil tidak otomatis gagal (kecuali H11a jatuh ke zona GAGAL h11a_v1): audit 2026-11-01 menunjukkan tahun tanpa lonjakan besar itu normal.",
+    "Aturan v2 (dikunci 2026-11-07 dari audit sifat aturan; v1 tetap dihitung berdampingan). Keputusan Okt/Nov 2027 = keputusan MANUAL user dengan porsi kecil (peringatan keras H33: maks 10%), BUKAN bukti edge: di 12 bulan strategi tanpa edge tetap lolos 32-88%.",
+    "Momentum Blend (H29) GAGAL kalau: drawdown lebih dalam dari -45%, ATAU di hari bursa ke-250 return < -27,0% atau drawdown terdalam < -39,1% (h29_v2), ATAU bug eksekusi tak terjelaskan > 5 hari bursa. Zona h29_v1 = info.",
+    "Follow Tren (H11a) GAGAL kalau: pita simultan h11a_v2 (q 0,34%: return mulai hari ke-63, drawdown, rugi beruntun) tertembus, ATAU drawdown lebih dalam dari -45%, ATAU bug eksekusi. WASPADA (pita q 0,70%) dan U2 = info saja.",
+    "Horizon bukti dari audit: H11a ±32-51 bulan, H29 ±43 bulan atau lebih. Hasil 12 bulan biasa-biasa saja atau rugi kecil tidak otomatis gagal.",
     "Saat evaluasi, H11a, H29, bobot sama universe syariah likuid, dan JII dibandingkan pada periode yang sama.",
 ]
 
@@ -70,15 +70,17 @@ def ringkas(data):
 
 
 def evaluasi(rk, zona_h11a=None):
+    from backend.paper import aturan_v2
+    db = kdb.koneksi()
     out = {}
     for k in ["h11a", "h29"]:
         x = rk.get(k)
-        alasan = []
-        if x and x["dd_maks_pct"] < BATAS_GAGAL_DD:
+        v2 = db[aturan_v2.K_ZONA_V2].find_one({"strategi": k}, sort=[("tgl", -1)])
+        alasan = list(v2["gagal"]) if v2 else []
+        if x and x["dd_maks_pct"] < BATAS_GAGAL_DD and not any("-45" in a for a in alasan):
             alasan.append(f"drawdown {x['dd_maks_pct']:.1f}% lebih dalam dari {BATAS_GAGAL_DD:.0f}%")
-        if k == "h11a" and zona_h11a and zona_h11a.get("zona") == "gagal":
-            alasan += [f"zona h11a_v1: {a}" for a in zona_h11a.get("alasan", [])]
         out[k] = {"gagal": bool(alasan), "alasan": alasan, "dd_maks_pct": x["dd_maks_pct"] if x else None,
+                  "status_v2": v2["status"] if v2 else None, "waspada_v2": v2["waspada"] if v2 else [],
                   "zona": zona_h11a.get("zona") if k == "h11a" and zona_h11a else None}
     return {"tanggal": EVALUASI, "batas_dd": BATAS_GAGAL_DD, "kriteria": KRITERIA, "status": out,
             "biaya_pindah_pct": round(BIAYA_PINDAH * 100, 2), "tick_estimasi_pct": round(TICK_ESTIMASI * 100, 2)}

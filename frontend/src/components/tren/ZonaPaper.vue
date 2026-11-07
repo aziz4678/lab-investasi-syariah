@@ -24,7 +24,7 @@ watch(() => props.muatUlang, muat);
 const ZONA = {
   normal: { l: "Normal", k: "bg-naik-bg text-naik", t: "Hasil paper masih dalam rentang wajar backtest." },
   waspada: { l: "Waspada", k: "bg-kuning-bg text-kuning", t: "Hasil paper di luar 95% rentang backtest. Tetap jalankan aturan, jangan diubah." },
-  gagal: { l: "Gagal", k: "bg-turun-bg text-turun", t: "Sesuai aturan yang dikunci: Follow Tren tidak dilanjutkan ke uang asli." },
+  gagal: { l: "Gagal", k: "bg-turun-bg text-turun", t: "Zona lama menyatakan gagal. Status resmi sejak 7 Nov 2026 memakai rem GAGAL v2 (panel di atas)." },
   belum: { l: "Belum dinilai", k: "bg-surface-2 text-muted", t: "Penilaian mulai setelah ada hari bursa yang diproses." },
 };
 
@@ -47,7 +47,9 @@ const data = computed(() => {
       { label: "Median backtest", data: pita("p50"), borderColor: warna("--series-3"), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, order: 3 },
       { label: "Persentil 25", data: pita("p25"), borderWidth: 0, pointRadius: 0, order: 5 },
       { label: "Persentil 5", data: pita("p5"), borderWidth: 0, pointRadius: 0, order: 5 },
-      { label: "Batas gagal (persentil 1)", data: pita("p1"), borderColor: warna("--turun"), borderDash: [2, 3], borderWidth: 1.25, pointRadius: 0, order: 2 },
+      { label: "Batas gagal lama (persentil 1)", data: pita("p1"), borderColor: warna("--turun"), borderDash: [2, 3], borderWidth: 1.25, pointRadius: 0, order: 2 },
+      ...(z.value.v2 ? [{ label: "Rem GAGAL v2 (pita simultan)", data: [null, ...z.value.v2.gagal.ret.slice(0, n).map((v, i) => (i + 1 >= z.value.v2.gagal.mulai_ret ? v : null))],
+        borderColor: warna("--turun"), borderWidth: 1.75, pointRadius: 0, order: 2 }] : []),
       { label: "Paper", data: paper, borderColor: warna("--series-2"), backgroundColor: warna("--series-2"), borderWidth: 2.5,
         pointRadius: paper.length < 30 ? 3 : 0, pointBorderColor: warna("--surface-1"), pointBorderWidth: 1.5, tension: 0.2, order: 1 },
     ],
@@ -80,7 +82,7 @@ const baris = computed(() => {
 
 <template>
   <Kerangka v-if="z === null" panel jenis="grafik" :tinggi="240" />
-  <Panel v-if="z?.ada" judul="Zona normal" :ket="`Rentang hasil wajar dari backtest, dikunci ${z.dibuat.slice(0, 10)} sebelum paper berjalan`"
+  <Panel v-if="z?.ada" judul="Zona normal lama h11a_v1 (pembanding)" :ket="`Rentang hasil wajar dari backtest, dikunci ${z.dibuat.slice(0, 10)} sebelum paper berjalan · sejak 7 Nov 2026 status resmi memakai aturan v2`"
     info="Dari 5000 simulasi ulang (bootstrap) kurva harian backtest 2020-2026 versi konservatif ARA/ARB, dihitung dengan cara paper. Pita gelap = 50% hasil tengah, pita terang = 90%.">
     <template #aksi>
       <span class="chip !h-7 !px-3 !text-xs" :class="ZONA[z.zona].k">{{ ZONA[z.zona].l }}</span>
@@ -100,7 +102,8 @@ const baris = computed(() => {
       <span class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="h-0.5 w-4 rounded bg-s2"></span>Paper</span>
       <span class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="h-2.5 w-4 rounded-sm bg-s1/20"></span>Rentang wajar 50% / 90%</span>
       <span class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="w-4 border-t-2 border-dashed border-s3"></span>Median</span>
-      <span class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="w-4 border-t-2 border-dotted border-turun"></span>Batas gagal</span>
+      <span class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="w-4 border-t-2 border-dotted border-turun"></span>Batas gagal lama</span>
+      <span v-if="z.v2" class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1"><span class="w-4 border-t-2 border-turun"></span>Rem GAGAL v2 (mulai hari ke-{{ z.v2.gagal.mulai_ret }})</span>
     </div>
     <div class="h-[280px]"><Line v-if="data" :data="data" :options="opsi" /></div>
     <button class="mt-4 inline-flex items-center gap-1 text-xs text-muted hover:text-ink" @click="bukaAturan = !bukaAturan">

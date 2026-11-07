@@ -130,6 +130,10 @@ def paper_zona():
     ek = list(DB.paper_ekuitas.find({}, {"_id": 0, "tgl": 1, "ekuitas": 1}).sort("tgl", 1))
     hasil = {"ada": True, "dibuat": b["dibuat"], "sumber": b["sumber"], "aturan": b["aturan"], "horizon": b["horizon"],
              "return": b["return"], "dd": b["dd"], "kurva": b["kurva"], "zona": "belum", "alasan": [], "paper": None}
+    b2 = DB.batas_paper.find_one({"_id": "h11a_v2", "status": "dikunci"})
+    if b2:
+        hasil["v2"] = {"tanggal": b2["tanggal"], "gagal": {"ret": b2["gagal"]["ret"], "dd": b2["gagal"]["dd"], "mulai_ret": b2["gagal"]["mulai_ret"]},
+                       "waspada": {"ret": b2["waspada"]["ret"], "dd": b2["waspada"]["dd"], "mulai_ret": b2["waspada"]["mulai_ret"]}}
     if not status or not ek:
         return hasil
     from backend.paper import pantau
@@ -142,6 +146,13 @@ def paper_zona():
         return hasil
     hasil.update(zona=z["zona"], alasan=z["alasan"], batas=z["batas"])
     return hasil
+
+
+@router.get("/paper/aturan")
+def paper_aturan(strategi: str = Query("h11a", pattern="^(h11a|h29)$")):
+    from backend.paper import aturan_v2
+
+    return bersih(aturan_v2.keadaan(strategi))
 
 
 @router.post("/aksi_paper_reset")

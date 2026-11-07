@@ -92,3 +92,35 @@ def sidik(kode, mulai=None, akhir=None, koleksi="harga", kolom=("open", "high", 
     return {"sidik": h.hexdigest()[:16], "koleksi": koleksi, "kode": len(data), "baris": baris,
             "mulai": None if mulai is None else str(pd.Timestamp(mulai).date()), "akhir": None if akhir is None else str(pd.Timestamp(akhir).date()),
             **status_koreksi()}
+
+
+KOLEKSI_LUAR = {"my": "harga_my", "us": "harga_us"}
+
+
+def luar(pasar, kode):
+    return dt.baca(f"{KOLEKSI_LUAR[pasar]}/{kode}")
+
+
+def luar_banyak(pasar, kode=None, kolom=None):
+    return dt.baca_banyak(KOLEKSI_LUAR[pasar], None if kode is None else sorted(kode), kolom)
+
+
+def luar_daftar(pasar):
+    return dt.daftar(KOLEKSI_LUAR[pasar])
+
+
+def indeks_luar(nama):
+    x = dt.baca(f"indeks_luar/{nama}")
+    if x is None:
+        raise DataTidakAda(f"indeks_luar/{nama} belum ada; jalankan backend.ingest.pasar_luar indeks")
+    return x
+
+
+def syariah_luar(pasar):
+    if pasar == "my":
+        from backend.ingest import syariah_my
+        return syariah_my.riwayat()
+    d = dt.db()["syariah_us"].find_one(sort=[("tanggal", -1)])
+    if d is None:
+        raise DataTidakAda("syariah_us belum ada; jalankan backend.ingest.pasar_luar spus")
+    return pd.DataFrame({"kode": d["kode"], "mulai": pd.Timestamp("1900-01-01"), "akhir": pd.Timestamp("2100-01-01")})

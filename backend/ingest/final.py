@@ -2,6 +2,7 @@ import pandas as pd
 
 PASAR = {
     "idx": ("Asia/Jakarta", 17, 0),
+    "my": ("Asia/Kuala_Lumpur", 17, 30),
     "as": ("America/New_York", 17, 0),
     "london": ("Europe/London", 17, 0),
     "24jam": ("Asia/Jakarta", 24, 0),
@@ -12,6 +13,8 @@ def pasar_dari_simbol(simbol):
     s = str(simbol).upper()
     if s.endswith(".JK") or s.startswith("^JK"):
         return "idx"
+    if s.endswith(".KL"):
+        return "my"
     if s.endswith("=X") or s.endswith("=F"):
         return "24jam"
     if s.endswith(".L"):

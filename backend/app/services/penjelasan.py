@@ -22,7 +22,7 @@ BAGIAN = {
     "H8": [("## Tahap 2", None)],
     "H9": [("## Tahap 2", None)],
     "H10": [("## Tahap 2", None)],
-    "H11a": [_TAHAP3, ("## Batas paper trade H11a", None), ("## Audit H11a & H22", None), ("## Pemantauan paper H11a & H29", None)],
+    "H11a": [_TAHAP3, ("## Batas paper trade H11a", None), ("## Audit H11a & H22", None), ("## Pemantauan paper H11a & H29", None), ("## Audit aturan evaluasi paper", None)],
     "H11b": [_TAHAP3],
     "H12a": [("### H12", None)],
     "H12b": [("### H12", None)],
@@ -47,10 +47,11 @@ BAGIAN = {
     "H26": [("## H26:", None)],
     "H27": [("## H27:", None)],
     "H28": [("## H28:", None)],
-    "H29": [("## H29:", None), ("## Audit H11a & H22", None), ("## Pemantauan paper H11a & H29", None)],
+    "H29": [("## H29:", None), ("## Audit H11a & H22", None), ("## Pemantauan paper H11a & H29", None), ("## Audit aturan evaluasi paper", None)],
     "H30": [("## H30:", None), ("## Standar seragam", None), ("## Penutupan keluarga momentum", None)],
     "H31": [("## H31:", None), ("## H20:", None), ("## Standar seragam", None)],
     "H32": [("## H32:", None), ("## Penutupan keluarga momentum", None), ("## Standar seragam", None)],
+    "H33": [("## H33:", None), ("## Standar seragam", None)],
 }
 for _k in "abcdefg":
     BAGIAN[f"H19{_k}"] = [("## H19:", None)]

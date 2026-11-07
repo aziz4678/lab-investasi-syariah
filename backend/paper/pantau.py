@@ -537,8 +537,11 @@ def harian():
         print(f"   {x['_id']}: {x['status']} ({x['umur_hari_bursa']} hari bursa)")
     if not ins:
         print("   tidak ada")
-    print("4. catatan zona harian")
+    print("4. catatan zona harian (aturan lama h11a_v1 / h29_v1, pembanding)")
     print(f"   baru: {catat_zona()}")
+    from backend.paper import aturan_v2
+    print("5. catatan status aturan v2 (h11a_v2 / h29_v2)")
+    print(f"   baru: {aturan_v2.catat()}")
     k = keadaan()
     for s in ("h11a", "h29"):
         t = k[s]["terakhir"]
@@ -552,8 +555,9 @@ if __name__ == "__main__":
     if perintah == "rek_anak":
         rek_anak(float(sys.argv[2]), sys.argv[3], sys.argv[4])
     elif perintah == "zona":
+        from backend.paper import aturan_v2
         perbarui_insiden()
-        print(catat_zona())
+        print(catat_zona(), aturan_v2.catat())
     elif perintah == "posisi":
         print(catat_posisi(), rekonstruksi())
     else:

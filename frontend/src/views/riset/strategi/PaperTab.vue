@@ -12,6 +12,7 @@ import PeringatanKualitas from "@/components/sistem/PeringatanKualitas.vue";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import ZonaPaper from "@/components/tren/ZonaPaper.vue";
+import AturanEvaluasi from "@/components/tren/AturanEvaluasi.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 
 const props = defineProps({ s: Object });
@@ -301,6 +302,7 @@ const stat = computed(() => {
         </p>
       </div>
 
+      <AturanEvaluasi v-if="props.s?.fitur?.zona_paper" strategi="h11a" :muat-ulang="versiMuat" />
       <ZonaPaper v-if="props.s?.fitur?.zona_paper" :muat-ulang="versiMuat" />
 
       <p v-if="props.s?.fitur?.tautan_blend" class="m-0 text-[13px]">

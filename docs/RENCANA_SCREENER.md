@@ -1617,3 +1617,243 @@ Tujuan: keputusan Okt/Nov 2027 bisa diambil dari catatan yang rapi. Aturan strat
 **Hasil pertama (data s/d 6 Nov 2026):** H11a sinyal 13/13 hari sama dengan backtest, 4/4 trade sama, harga masuk 0 tick, paper +0,50% vs replay +0,52% (selisih lot). H22 isi rebalance 30 Okt 22/22 sama, 110 saham lolos di keduanya, 22/22 harga beli sama; H22 paper -8,42% vs backtest -8,53%; H29 paper -4,24% vs replay -4,29%. Simulasi Monte Carlo belum menyebar (sinyal belum pernah melebihi slot), jadi persentil paper belum berarti. H29 tercatat **WASPADA 4 Nov 2026 (hari ke-3, isi mundur setelah zona dikunci)**: DD -4,4% lebih dalam dari p5 zona -4,04%, didorong bagian RS 12-1 yang juga turun di backtest; laporan saja, esoknya normal lagi. Alarm palsu cek ulang H22 3-6 Nov (nilai JII 279,965 vs 279,97) diperbaiki di `cek_h22.py`: nilai JII dicek terpisah dengan toleransi 0,1% sebagai info.
 
 **Catatan teknis: pilihan acak backtest bergantung urutan baris (2026-11-07, belum diubah).** `laporan_bulanan.simulasi_portofolio` memberi angka acak per baris trade (`rng.random(len(t))` sesuai urutan baris), bukan per tanggal sinyal. Kalau ada satu trade baru (mis. sinyal MPMX 5 Nov 2026 setelah data bertambah), urutan bergeser dan pilihan seed yang sama berubah di banyak trade lain: H11a seed 7 berubah di 34 trade, CAGR contoh 22,3% → 21,3%, DD -42,6% → -43,6% (bersama penilaian ulang trade terbuka dengan harga baru, mis. PKPK 6.475 → 5.675). Median 100 simulasi Monte Carlo tidak terpengaruh dengan cara ini, tapi kurva contoh dan zona yang dibuat dari satu seed tidak stabil terhadap tambahan data. Sebaiknya pilihan acak diikat ke tanggal sinyal seperti paper (`default_rng(tanggal)`, permutasi kandidat hari itu), supaya pilihan di tanggal lama tidak berubah saat data bertambah. Mesin backtest dan hasil tersimpan (`backtest_*`, `batas_paper`) sengaja tidak diubah sekarang (keputusan user); zona H29 memakai data s/d 30 Okt 2026 supaya sama dengan backtest tersimpan.
+
+**Peluang gagal syarat walau strategi normal (dihitung 2026-11-07, permintaan user; analisis, kriteria TIDAK diubah).** Pertanyaan: kalau strategi berjalan persis seperti backtest, seberapa sering zona yang dikunci tetap menyala dalam 250 hari bursa pertama? Dinilai dengan aturan persis (return mulai hari ke-21 / ke-63, drawdown dan rugi beruntun sejak hari pertama, `pantau.zona_h11a` / `zona_h29`). Script `backend/research/analisis_peluang_zona.py` (baca saja). Dua sumber jalur: (a) jalur bootstrap blok tempat zona dibangun (h11a_v1 sebenarnya dibuat dari SATU kurva, `h11a_2020_konservatif` seed 7, dipecah jadi 5.000 jalur, bukan dari 100 simulasi Monte Carlo); (b) 100 simulasi Monte Carlo backtest, jendela 250 hari mulai tiap 5 hari (±27.900 jendela, data s/d 30 Okt 2026).
+
+| Peluang dalam 250 hari bursa pertama | h11a_v1 (a) bootstrap | h11a_v1 (b) Monte Carlo konservatif | h29_v1 (a) bootstrap | h29_v1 (b) Monte Carlo |
+|---|---|---|---|---|
+| Pernah WASPADA, return/drawdown | 35,2% | 41,7% | 33,6% | 26,8% |
+| Pernah WASPADA, termasuk rugi beruntun | 43,3% | 48,6% | – | – |
+| Pernah GAGAL zona (return p1 / drawdown p1) | 11,5% | 5,8% | – (laporan saja) | – |
+| Pernah GAGAL zona termasuk rugi beruntun p99 dan DD < -45% | 13,5% | 12,6% | – | – |
+| Pernah DD < -45% (syarat GAGAL H11a & H29) | 0,2% | 0,0% | 1,4% | 1,0% |
+
+- Rincian h11a_v1 (a)/(b): WASPADA return 21,8/31,4%, drawdown 29,2/21,8%, rugi beruntun 12,4/27,0%; GAGAL return 4,2/1,7%, drawdown 10,1/4,3%, rugi beruntun 2,3/6,9%. h29_v1 (a)/(b): WASPADA return 23,5/14,3%, drawdown 27,6/17,0%.
+- Artinya: syarat "tidak pernah WASPADA/GAGAL" untuk uang nyata Okt 2027 akan gagal di **sekitar 43-49% tahun normal** (H11a), dan syarat GAGAL h11a_v1 menyala di **sekitar 12-13% tahun normal**. Batas p5/p1 per hari tidak sama dengan peluang "pernah" selama 250 hari; menyentuh sekali di salah satu dari ratusan hari jauh lebih sering dari 5%/1%.
+- Keterbatasan: (a) jalur bootstrap h11a_v1 dibuat ulang dari trade backtest sesudah koreksi data 2 Nov 2026 (hash trade beda dengan saat zona dibuat 22 Okt), jadi mendekati jalur asli, bukan persis sama; angka batasnya tetap yang dikunci. h29_v1 (a) identik dengan jalur saat dikunci. (b) jendela saling tumpang tindih dan mulai dengan posisi yang sudah dipegang backtest (paper mulai dari kas), rugi beruntun (b) hanya trade yang ditutup di dalam jendela; keduanya in-sample 2020-2026.
+- Status, kriteria, dan zona tidak berubah. Kalau mau ditinjau, itu keputusan user dan dicatat terpisah sebagai perubahan aturan.
+
+## H33: replikasi H11a (Follow Tren) di saham syariah Malaysia dan US (dikunci 2026-11-07 atas permintaan user, sebelum kode backtest dibuat dan sebelum ada angka return apa pun) — disetujui user 2026-11-07 sebelum backtest; HASIL: Malaysia gagal, US laporan saja → peringatan keras
+Uji out-of-sample: aturan H11a **persis**, tidak ada parameter yang disetel, **satu kali jalan per pasar, tanpa varian**. Status paper H11a/H29 tidak berubah apa pun hasilnya (kecuali aturan peringatan keras di bawah, yang hanya mengubah cara keputusan Okt 2027 diambil, berlaku setelah disetujui user).
+
+### Langkah 0: cek data (2026-11-07, sebelum ada hasil; `backend/research/analisis_h33_data.py`, hasil `hasil_riset/h33_data`)
+Sumber baru (semua lewat server, tanpa Chrome Lab): `backend/ingest/syariah_my.py` (PDF daftar SC → GridFS `syariah_my/*.pdf` + koleksi `lab_data.syariah_my`), `backend/ingest/pasar_luar.py` (Yahoo `.KL` → `harga_my/*`, Yahoo US → `harga_us/*`, holding SPUS → `syariah_us`, indeks/kurs → `indeks_luar/*`). Dibaca lewat `harga.luar*`, `harga.indeks_luar`, `harga.syariah_luar`.
+
+**Malaysia**
+- Daftar syariah SAC SC point-in-time: 37 PDF Apr 2006 - Nov 2025 terurai (jumlah kode cocok dengan total tertulis di PDF kecuali Nov 2007 782 vs 853, Nov 2011 830 vs 839, Nov 2013 639 vs 653). Bolong: Okt 2006, Nov 2012, Mei 2020 (halaman SC rusak) → daftar sebelumnya diperpanjang; sebelum Okt 2005 PDF tidak terbaca (hasil scan). Berlaku dari tanggal daftar sampai sehari sebelum daftar berikutnya.
+- Harga: 945 dari 1.335 kode syariah-pernah ada di Yahoo. **Tidak ada satu pun saham delisting** (semua data berjalan sampai 2026). Cakupan daftar per tanggal: 2006 62%, 2010 73%, 2015 88%, 2020 94%, 2025 99% → survivorship kuat di tahun awal.
+- Open: open = close 27-39% hari bervolume, stabil semua tahun (tick kasar saham murah), **tidak** ada pola rusak seperti Yahoo IDX 2010-2012 (96-99%).
+- **Aksi korporasi tidak disesuaikan**: 4.643 hari dengan |return| > 50% (batas harian Bursa ±30%), sebagian langsung balik (1.386), sebagian bertahan (3.257; contoh 0043 2012-03-21 1,76 → 4,09, 0045 2012-08-07 2,69 → 1,12). 128 kejadian di saham bernilai transaksi > RM1,2 jt. Butuh aturan mekanis (di bawah); tidak ada registry koreksi seperti IDX.
+- Tick Bursa: < RM1 = 0,005; RM1-9,99 = 0,01; RM10-99,98 = 0,02; ≥ RM100 = 0,10 (tabel sekarang dipakai untuk semua tahun, sama seperti IDX).
+- Biaya realistis per sisi: broker online 0,10% (tanpa minimum; broker online termurah ±0,03-0,10%, broker bank 0,10% min RM8), clearing 0,03%, bea meterai 0,10% (sempat 0,15% di 2022-2023, tidak dimodelkan) → 0,23% beli + 0,23% jual + 1 tick per sisi. Minimum fee RM8 tidak dimodelkan (posisi 10% × Rp100 jt ≈ RM2.700 → RM8 = 0,3%).
+- Indeks syariah lokal: FBM Emas Shariah tidak ada di Yahoo, situs Bursa diblok Cloudflare. Proksi: ETF Eq8 DJIM Malaysia Titans 25 (`0821EA.KL`, 25 saham syariah terbesar, mirip JII), adj close (termasuk dividen, dikurangi biaya ETF), sejak 22 Jan 2008.
+- Kurs: `MYRIDR=X` sejak Des 2003.
+
+**US**
+- Konstituen syariah point-in-time: **tidak ada yang lengkap gratis**. DJIM US hanya pengumuman perubahan 2009-2011. SPUS (S&P 500 Shariah, sejak Des 2019) / HLAL (FTSE USA Shariah, sejak Jul 2019): file holding hanya versi hari ini (HLAL CSV beku di 2022); Wayback hanya punya tabel holding penuh SPUS sejak 2024 (sebelumnya 10 teratas). Filing N-PORT SEC (kuartalan, 2019Q4+) ada, tapi SEC menolak akses tanpa email kontak di header (tidak dikirim tanpa izin user).
+- Universe yang tersedia: 218 holding SPUS 6 Nov 2026 (215 ada di Yahoo) = daftar hari ini → survivorship penuh + status syariah melihat ke depan.
+- Open: open = close 0,2-1,3%, lonjakan > 50% 0-1 per tahun. Data bersih.
+- Tick: $0,01 (≥ $1). Biaya: komisi broker AS $0, SEC fee jual ±0,003%, tanpa bea meterai → 0% beli + 0,003% jual + 1 tick.
+- Indeks syariah lokal: DJIM US `^IMUS` (harga saja, tanpa dividen, seperti JII) sejak Mei 2001. Kurs `IDR=X`.
+
+**Nilai transaksi & saham lolos (rata-rata per hari bursa)**
+
+Ambang IDX dalam mata uang lokal (kurs median tahun itu): Rp5 M = RM2,2 jt (2003) → RM1,1 jt (2026), $0,57 jt (2011) → $0,28 jt (2026); Rp50 = RM0,012-0,022 / $0,003-0,006; Rp200 = RM0,05-0,09 / $0,011-0,023.
+Persentil setara IDX: Rp5 M ada di persentil 53% saham syariah IDX (dev, daftar 217) tapi 78% di 2020+ (DES semua saham) → median semua 59,5%; Rp50 = persentil 2,4%.
+
+| Rata-rata lolos filter H11a per hari | 2007 | 2008 | 2009 | 2010-2019 | 2020-2026 |
+|---|---|---|---|---|---|
+| IDX (dev daftar 217 / 2020+ DES) | - | - | - | 27,5-41,1 | 43,1-85,3 |
+| Malaysia, kurs | 41,2 | 23,9 | 26,2 | 36,7-82,8 | 81,5-138,8 |
+| Malaysia, persentil setara IDX | 131,8 | 107,8 | 121,3 | 140,8-179,8 | 109,7-234,5 |
+| Malaysia, kurs, S2 Rp20 M | 12,3 | 11,4 | 10,9 | 12,0-36,2 | 35,3-64,8 |
+| US, kurs | 153,5 | 112,8 | 132,7 | 131,7-181,0 | 161,5-194,1 |
+| US, persentil setara IDX | 61,6 | 47,4 | 57,5 | 48,6-71,5 | 65,0-77,4 |
+
+Saham syariah dengan ATR% 1,5-5 dan tanpa volume nol 5 hari: Malaysia 136-434 per hari (dari 528-815 syariah), US 113-194 (dari 173-215), IDX 48-70 dev, 150-321 2020+. Di US ambang kurs praktis tidak menyaring apa pun (semua S&P 500 likuid); di Malaysia S3 (Rp200) dengan kurs sama dengan dasar (saham < RM0,09 sudah tersaring ATR% karena tick 0,005 = 5-10%).
+
+### Langkah 1: aturan yang dikunci
+- **Strategi**: H11a persis. Sinyal close (disesuaikan) ≥ close tertinggi 250 hari sebelumnya; beli open besok; maks 10 posisi @10% ekuitas, ukuran dari ekuitas close hari bursa sebelumnya; sinyal > slot dipilih acak; stop awal entry − 3×ATR14, trailing = max(stop, close tertinggi sejak entry − 3×ATR14); close < stop → jual open besok; batas 500 hari; satu posisi per saham; trade terbuka di akhir data ditutup di close terakhir. **100 simulasi Monte Carlo (seed 1-100), semua kriteria dinilai dari median.** Mesin = mesin backtest H11a yang sama (`batas_paper.kurva_harian` / `uji_tren.simulasi`), hanya sumber data, biaya, dan tick yang diganti.
+- **Filter**: ATR% 1,5-5 dan tanpa volume nol 5 hari tetap. **Nilai transaksi 20 hari dan harga minimum: konversi kurs harian** (Rp5 M dan Rp50 dibagi kurs IDR per mata uang lokal hari itu). Alasan: (1) fungsi filter = posisi rupiah yang sama bisa dieksekusi, jadi arti ekonominya ikut uang, bukan peringkat; (2) persentil setara IDX tidak terdefinisi stabil (53% di dev vs 78% di 2020+ karena definisi universe IDX berubah); (3) jumlah saham lolos versi kurs (Malaysia 37-139/hari) paling dekat dengan IDX (28-85), versi persentil 2-3× lebih banyak. Cara persentil tidak dijalankan.
+- **Universe syariah**: Malaysia point-in-time (daftar SC pada tanggal itu). US tidak point-in-time → **US = laporan saja** sejak awal, apa pun hasilnya. Bias US: survivorship penuh (hanya saham yang masih ada dan masih di S&P 500 Shariah 2026) + status syariah melihat ke depan + hanya saham besar → hasil cenderung terlalu bagus.
+- **Biaya**: Malaysia per sisi broker max(0,10%, RM8) + clearing 0,03% + meterai 0,10% + 1 tick Bursa, dengan modal awal setara paper Rp100 jt (dikonversi kurs hari pertama; ekuitas dihitung dalam ringgit sehingga minimum fee RM8 berlaku nyata); US 0% beli + 0,003% jual + 1 tick ($0,01; < $1: $0,0001), modal awal setara Rp100 jt. Pajak dividen (ditetapkan sebelum run): Malaysia 0% (sistem single-tier, dividen bebas pajak), US 15% (tarif dividen qualified). Posisi pecahan lembar, sama dengan backtest H11a.
+- **Putus data (keputusan user 2026-11-07, berlaku Malaysia dan US)**: hari dengan |return close disesuaikan| > 50% = putus data. Posisi yang dipegang ditutup di close terakhir sebelum hari putus (biaya jual normal; return hari putus = 0 untuk strategi DAN pembanding bobot sama). Riwayat saham dimulai ulang sejak hari putus sebagai seri baru (sinyal 250 hari dan ATR dihitung dari seri baru saja; seri < 250 hari dibuang). Untuk tes konsentrasi semua seri dari satu kode dihitung sebagai satu saham. Dilaporkan: jumlah kejadian, saham yang kena, kejadian di saham yang sedang lolos filter, dan trade yang ditutup karena putus. Catatan: menutup di close sebelum putus memakai pengetahuan bahwa besok data putus (diterima user sebagai cara netral).
+- **Periode (ditetapkan dari jumlah saham lolos saja, sebelum ada hasil)**: aturan = tahun pertama dengan rata-rata saham lolos ≥ 30 per hari, sisa ≥ 5 tahun.
+  - Malaysia: **2007-01-02 s/d 2026-11-06** (2007 = 41,2; sisa 19,8 tahun → bisa diuji). Dicatat: 2008 (23,9) dan 2009 (26,2) di bawah 30; aturan hanya memakai tahun pertama, tidak diubah (keputusan user). Hasil 2008-2009 dilaporkan terpisah. Harga dari 2005 dipakai untuk pemanasan 250 hari.
+  - US (laporan saja): **2006-01-02 s/d 2026-11-06** (2005 sudah ≥ 30, tapi data mulai 2005 sehingga sinyal pertama baru mungkin 2006).
+  - Seluruh periode pasar luar = data yang belum pernah dipakai H11a, dibuka **sekali**; tidak ada pemisahan dev/holdout (butir d standar seragam terpenuhi dengan satu kali buka ini). Sub-periode sampai 2019 dan 2020+ dilaporkan, bukan syarat.
+- **Kriteria lolos per pasar (standar seragam, semua harus lulus, median 100 simulasi):**
+  1. CAGR > bobot sama universe syariah likuid lokal (filter sama, rebalance bulanan, tanpa biaya, bias survivorship sama).
+  2. CAGR > indeks syariah lokal (Malaysia: `0821EA.KL` adj close, diukur di jendela yang sama mulai Feb 2008, strategi juga diukur di jendela itu; US: `^IMUS`).
+  3. Tanpa 5 saham penyumbang laba terbesar (kas) > bobot sama tanpa 5 penyumbang terbesarnya.
+  4. Tanpa 10 saham penyumbang terbesar > bobot sama tanpa 10 penyumbang terbesarnya.
+  5. Tanpa tahun kalender terbaik > bobot sama tanpa tahun terbaiknya DAN > indeks tanpa tahun terbaiknya (anggota historis indeks tidak ada).
+  6. S1 biaya 2 tick per sisi: 1-5 tetap lulus.
+  7. S2 likuiditas ≥ Rp20 M (kurs; pembanding ikut): 1-5 tetap lulus.
+  8. S3 harga ≥ Rp200 (kurs; pembanding ikut): 1-5 tetap lulus.
+  Laporan wajib (bukan syarat): dampak ke 10 penyumbang terbesar strategi dan pembanding (siapa, laba hilang vs terselamatkan bila dibuang), max DD median + p5-p95, jumlah trade, winrate, lama tahan, korelasi return bulanan dengan H11a IDX, jumlah kejadian putus data, `versi_data` (sidik `harga_my`/`harga_us` + jumlah PDF SC).
+- **Vonis per pasar**: lolos (semua 1-8) / gagal / tidak bisa diuji / laporan saja. Dua yang terakhir tidak dihitung lolos maupun gagal. Saat ini: Malaysia = bisa diuji, US = laporan saja.
+- **Arti gabungan (dikunci sekarang)**:
+  - lolos 2 pasar = bukti replikasi kuat;
+  - lolos 1 = campur, dicatat;
+  - kalau hanya 1 pasar bervonis, hasil terbaik = "campur", tidak pernah "bukti kuat" (berlaku sekarang: hanya Malaysia bervonis);
+  - lolos 0 dari pasar yang bervonis = **peringatan keras**: keputusan uang nyata H11a Okt 2027 tidak boleh otomatis walau paper tidak pernah WASPADA/GAGAL; harus diputuskan ulang secara eksplisit oleh user, dengan porsi awal maks 10% dari total dana investasi yang direncanakan untuk H11a.
+- Tidak ada pasar pengganti (Indonesia non-syariah, Timur Tengah, dst.) yang ditambahkan setelah melihat hasil. Tidak ada varian filter, biaya, atau periode.
+- **Pembanding replikasi yang sudah gagal**: H13 Set A (H11a di saham non-syariah IDX 2010-2026): CAGR 1,9% < beli-tahan bulanan 5,0%. Hasil H33 dilaporkan berdampingan dengan angka ini.
+- **Keterbatasan (ditulis sebelum uji)**: survivorship (Malaysia 27-38% kode syariah 2006-2010 hilang dari Yahoo; US penuh); syariah point-in-time hanya Malaysia, dengan 3 daftar bolong diperpanjang; kualitas open Yahoo `.KL` tidak bisa dicek silang dengan data resmi Bursa (diblok Cloudflare), aksi korporasi tidak disesuaikan (aturan putus data); kurs Yahoo harian, ambang rupiah tidak disesuaikan inflasi (sama dengan IDX); indeks Malaysia = proksi ETF (25 saham, ada biaya ETF) mulai 2008; minimum fee broker Malaysia tidak dimodelkan; tabel tick sekarang dipakai untuk semua tahun; literatur 52-week high (George & Hwang 2004) berasal dari data US, jadi US tidak sepenuhnya baru secara gagasan.
+
+### Keputusan user (2026-11-07, sebelum backtest)
+1. Konversi ambang: kurs harian.
+2. US: laporan saja; email tidak dipakai di header SEC.
+3. Putus data: lihat butir "Putus data" di atas (tutup di close terakhir sebelum putus, riwayat dimulai ulang, laporkan kejadian).
+4. Malaysia mulai 2007 sesuai aturan; 2008-2009 dilaporkan terpisah.
+5. Indeks Malaysia = `0821EA.KL`, kriteria vs indeks dihitung mulai Feb 2008. Biaya 0,23%/sisi plus minimum fee broker RM8, modal setara paper Rp100 jt.
+6. **Catatan bias (ditulis sebelum uji, kriteria tidak diubah)**: survivorship Malaysia (hanya 62% kode daftar 2006 dan 73% daftar 2010 ada di Yahoo) membuat kriteria vs indeks bias menguntungkan strategi, karena indeks (ETF) memuat saham yang kemudian delisting sedangkan universe strategi tidak. Bobot bukti ada di kriteria vs bobot sama (bias survivorship sama dengan strategi).
+7. Aturan peringatan keras masuk catatan kriteria evaluasi paper H11a, 2026-11-07.
+
+### Hasil H33 (2026-11-07, sekali jalan per pasar; `backend/research/uji_h33.py`, hasil `hasil_riset/h33_hasil`)
+Cek mesin sebelum dijalankan di data luar: salinan mesin portofolio (parameter biaya/tick/mata uang per pasar) dijalankan di IDX dev 2010-2019 dengan biaya IDX → return bulanan identik dengan mesin audit H11a (`audit/h22_ulang.h11a_log`, selisih 7e-16 setelah harga dibulatkan ke rupiah seperti mesin lama; tanpa pembulatan 0,001). Bobot sama identik persis. `versi_data`: Malaysia sidik `7aa4eda9a2d9543b` (935 kode, 3,9 jt baris, 37 daftar SC), US `166abf1ca600d0f3` (214 kode, holding SPUS 6 Nov 2026). `cek_kualitas_data` hanya untuk IDX; data luar diperiksa di Langkah 0 + aturan putus data.
+
+**Vonis: Malaysia GAGAL, US laporan saja → gabungan = PERINGATAN KERAS** (lolos 0 dari 1 pasar bervonis). Sesuai kunci: keputusan uang nyata H11a Okt 2027 tidak otomatis walau paper tidak pernah WASPADA/GAGAL; diputuskan ulang eksplisit oleh user, porsi awal maks 10% dari dana yang direncanakan untuk H11a. Status paper H11a/H29 tidak berubah.
+
+**Malaysia 2007-01-02 s/d 2026-11-06** (median 100 simulasi Monte Carlo; rata-rata 75,9 saham lolos per hari, 734 saham pernah lolos, 3.397 sinyal, ±1.125 trade, winrate 40%, tahan median 28 hari)
+
+| Skenario | CAGR (p5-p95) | 1. vs bobot sama | 2. vs indeks (Feb 2008+) | 3. tanpa 5 saham | 4. tanpa 10 saham | 5a. tanpa tahun terbaik vs bobot sama | 5b. vs indeks | Lulus |
+|---|---|---|---|---|---|---|---|---|
+| Dasar | 9,43% (7,6-11,3), DD -36,4% | 9,43 vs 5,39 ✔ | 9,34 vs 1,67 ✔ | 5,56 vs 3,99 ✔ | 3,68 vs 3,02 ✔ | 5,94 vs 3,13 ✔ | 5,69 vs -0,19 ✔ | 6/6 |
+| S1 biaya 2 tick | 1,12% (-1,0-3,1), DD -54,4% | 1,12 vs 5,39 ✘ | 0,91 vs 1,67 ✘ | -2,29 vs 3,99 ✘ | -4,35 vs 3,02 ✘ | -2,08 vs 3,13 ✘ | -2,39 vs -0,19 ✘ | 0/6 |
+| S2 ≥ Rp20 M (29,4 lolos/hari) | 5,19% (4,5-5,7), DD -44,9% | 5,19 vs 5,62 ✘ | 5,21 vs 1,67 ✔ | 1,26 vs 3,59 ✘ | -1,03 vs 2,00 ✘ | 1,74 vs 3,33 ✘ | 1,55 vs -0,19 ✔ | 2/6 |
+| S3 ≥ Rp200 | 9,97% (8,0-12,0), DD -36,3% | 9,97 vs 5,39 ✔ | 9,93 vs 1,67 ✔ | 6,13 vs 4,01 ✔ | 4,18 vs 3,04 ✔ | 6,49 vs 3,13 ✔ | 6,25 vs -0,19 ✔ | 6/6 |
+
+- **Penyebab gagal**: (1) biaya tick. Satu tick tambahan per sisi memotong 8,3 poin/th: tick Bursa 0,005 di saham < RM1 = 0,5-2% per sisi, dan ±56 trade/th @10% ekuitas. Keunggulan dasar hanya ada di asumsi 1 tick. (2) Di saham yang benar-benar likuid (≥ Rp20 M ≈ RM5-6 jt/hari) strategi kalah dari bobot sama (5,2% vs 5,6%) dan bergantung pada pemenang besar (tanpa 5 saham 1,3% vs 3,6%). Pola sama dengan H11a di dev IDX (S2 3,7%).
+- Sub-periode (laporan): s/d 2019 9,35% (bobot sama 6,03%, indeks 2,59%), 2020+ 8,88% (4,19%, 0,11%), **2008-2009 -0,58%/th** (bobot sama -2,77%, indeks -8,88%); 2008 dan 2009 rata-rata saham lolos < 30.
+- Tahun terbaik strategi 2020 (contoh seed 7 +115,7%), bobot sama dan indeks 2009. Per tahun (seed 7): 2007 +12,7, 2008 -14,8, 2009 +16,7, 2010 +9,0, 2011 +11,8, 2012 -5,0, 2013 +19,1, 2014 -8,6, 2015 +17,7, 2016 -11,0, 2017 +60,1, 2018 -14,4, 2019 +29,7, 2020 +115,7, 2021 -1,2, 2022 -4,1, 2023 -21,3, 2024 +15,0, 2025 -7,5, 2026 -2,3.
+- 10 penyumbang terbesar (seed 7): 7106, 5273, 0155, 3867, 7153, 5012, 8869, 5202, 7113, 3336 = 119% dari total laba (sisanya rugi bersih). Di S2 semua 10 masih ada di universe; pemenang S2: 7106, 8869, 7153, 0225, 3867, 5878, 5141, 5168, 0208, 7113 (127% laba). Bobot sama: 5878, 8869, 7160, 7153, 5141, 5286, 0128, 4065, 5005, 7113 (dua sama dengan strategi: 8869, 7153, 7113).
+- Putus data: 4.428 kejadian di 389 saham dalam periode uji (4.642 sejak 2005); hanya 11 kejadian di saham yang sedang lolos filter (0065, 0086, 0097, 0162, 5099, 5141, 5202, 5843, 7195, 8052, 9466); median 2 trade per simulasi ditutup karena putus.
+- Dalam rupiah (laporan): 12,4%/th (ringgit menguat terhadap rupiah). Korelasi return bulanan dengan H11a IDX 0,13. DD median -36,4% (p5 -44,0%, p95 -31,5%).
+
+**US 2006-01-02 s/d 2026-11-06 (laporan saja; universe holding SPUS hari ini, survivorship penuh)**: CAGR 11,36% (9,8-13,3), DD -28,7%; bobot sama 16,61%; `^IMUS` 10,41%; tanpa 5 saham 8,31% vs 15,88%; tanpa 10 6,68% vs 15,20%; tanpa tahun terbaik 10,03% vs 15,52% (indeks 9,42%). Lulus 2/6 di semua skenario (hanya kalahkan indeks). S1 10,94%, S2 11,48%, S3 sama dengan dasar (filter tidak menyaring). Sub-periode: s/d 2019 10,9% (bobot sama 17,0%), 2020+ 12,8% (15,8%), 2008-2009 -9,1% (-0,2%). Penyumbang terbesar: FLEX, TWLO, VRT, CIEN, AMD, NVDA, CEG, TYL, WELL, URI. Bobot sama sangat terbantu survivorship (hanya saham yang masih ada dan masih di S&P 500 Shariah 2026), jadi perbandingannya tidak adil ke dua arah; tidak dihitung lolos/gagal. Putus data 8 kejadian (3 di saham lolos: AMD, JCI, VRTX). Korelasi dengan H11a IDX 0,08.
+
+**Dibanding replikasi lain**: H13 Set A (IDX non-syariah) CAGR 1,9% < beli-tahan 5,0%. Malaysia dasar lebih baik (9,4% vs 5,4%), tapi tidak tahan biaya 2 tick dan universe likuid. Gambaran yang sama dengan audit H11a di dev IDX: keunggulan hanya muncul di saham kecil-menengah dengan asumsi biaya minimal, dan hilang di saham likuid.
+
+**Pelajaran**: Follow Tren tidak terreplikasi di pasar syariah kedua dengan standar seragam. Hasil 2020+ IDX (CAGR ±21%) tetap tidak punya pendukung di luar IDX; harapan untuk uang nyata harus rendah.
+
+## Audit aturan evaluasi paper H11a & H29 (dikunci 2026-11-07 atas permintaan user, sebelum dihitung; analisis sifat aturan, BUKAN hipotesis baru dan BUKAN reaksi atas hasil paper) — aturan v2 dikunci 2026-11-07
+Konteks saat ditulis: H11a NORMAL dan belum pernah WASPADA; H29 pernah WASPADA 4 Nov 2026 (drawdown, zona laporan saja). Lanjutan dari "Peluang gagal syarat walau strategi normal" (43-49% / 12-13%). `paper_*`, `paper_h22_*`, `batas_paper/h11a_v1`, `pantau_batas`, `pantau_zona` tidak diubah; sidik isi dicocokkan sebelum dan sesudah. Script `backend/research/audit_aturan_paper.py` (baca saja), hasil `hasil_riset/audit_aturan_paper`.
+
+### Aturan yang diaudit
+1. **Zona h11a_v1 WASPADA**: return < p5 mulai hari ke-21; DD terdalam < p5; rugi beruntun > p95 (per jumlah trade).
+2. **Zona h11a_v1 GAGAL**: return < p1 mulai hari ke-63; DD < p1; rugi beruntun > p99.
+3. **DD paper < -45%** = GAGAL (H11a dan H29).
+4. **Syarat uang nyata H11a Okt 2027**: tidak pernah WASPADA/GAGAL. Di kode (`pantau.status_gabung`) WASPADA juga menyala karena insiden yang belum terjelaskan (< 5 hari bursa), U2 WASPADA DATA, dan U4; dihitung terpisah di butir 8-10.
+5. **Peringatan keras H33** (sudah menyala 2026-11-07): sifatnya dinilai dari angka yang ada (seberapa mungkin strategi yang punya keunggulan lolos standar seragam di pasar lain), tidak ada alarm berjalan.
+6. **Zona h29_v1** (laporan WASPADA): return < p5 mulai hari ke-21; DD < p5.
+7. **H29 GAGAL**: DD < -45% atau bug eksekusi. Kriteria 2027 H29 = tidak GAGAL; "rugi kecil dibandingkan dengan bobot sama dan JII" bukan syarat angka.
+8. **U1 bug eksekusi**: insiden tak terjelaskan > 5 hari bursa → GAGAL; insiden terbuka ≤ 5 hari → WASPADA (ikut butir 4).
+9. **U2** `u2_v1` (H11a: > 3 ticker-hari sinyal beda per 21 hari, return paper - replay di luar pita p1-p99) dan `u2_h22_v1` (isi rebalance beda > 2 saham, pita H22 dan H29) → WASPADA DATA.
+10. **U4**: > 10% hari memakai cadangan Yahoo → WASPADA (catatan).
+Aturan lain yang ditemukan di kode: tidak ada (selisih harga > p99 hanya dicatat, bukan status).
+
+### Definisi "normal" (dua versi)
+- **(a) bootstrap 2020+** (data sudah terbuka, in-sample): bootstrap blok 20 hari, 5.000 jalur, seed 20261022, cara yang sama dengan pembuatan h11a_v1. H11a: kurva harian `h11a_2020_konservatif` contoh seed 7 (dibangun ulang dari trade tersimpan); rugi beruntun diambil acak dari net trade selesai seperti h11a_v1. H29: kurva h29_v1 (hash dicek sama).
+- **(b) jendela bergulir dev 2010-2019**: 100 simulasi Monte Carlo H11a dev (universe 217, versi konservatif ARA/ARB, mesin dan biaya sama dengan backtest), kurva harian penuh; jendela mulai tiap 5 hari bursa sejak 2011-01-03 (sesudah pemanasan 250 hari); rugi beruntun dari trade yang selesai di dalam jendela. H29 dev: H11a dev (100 simulasi) + H22 dev (`uji_h21_h22`, deterministik) digabung 50/50 dengan `simulasi_h29.gabung`, Feb 2011-2019. Jendela mulai dengan posisi yang sudah dipegang (paper mulai dari kas): dicatat sebagai keterbatasan.
+
+### Definisi "tanpa edge" (null), dihitung di dua rezim yang sama dengan (a) dan (b)
+1. **Bobot sama** universe syariah likuid (filter H11a; dev = daftar 217, 2020+ = DES point-in-time), rebalance akhir bulan, biaya sama: tiap rebalance, nilai yang berpindah × (fee rata-rata 0,20% + 1 tick/harga) per sisi.
+2. **Beli-tahan JII** (`indeks/JKII`, harga saja, tanpa biaya).
+3. **Pilihan acak**: tiap saham-hari yang lolos filter jadi sinyal dengan peluang p = jumlah sinyal H11a / jumlah saham-hari lolos di periode itu; masuk open besok, slot 10 @10% dipilih acak, stop 3×ATR14 trailing, jual open besok, batas 500 hari, versi konservatif dan biaya persis H11a (`uji_tren.simulasi`). **200 simulasi Monte Carlo** per periode (seed 1001-1200).
+- H29 null = 50% null (3) + 50% null (1), digabung dengan `simulasi_h29.gabung`.
+- Rezim (a): null (1) dan (2) = bootstrap blok 20 hari 5.000 jalur dari return harian 2020+; null (3) = 25 jalur bootstrap per simulasi (5.000 jalur). Rezim (b): jendela bergulir dev seperti normal (b).
+
+### Kriteria "lolos 2027" yang dipakai untuk lolos palsu
+- H11a: tidak pernah WASPADA/GAGAL zona h11a_v1 (butir 1-2) dan DD tidak pernah < -45% selama T hari.
+- H29: DD tidak pernah < -45% selama T hari (kriteria resmi); dilaporkan juga versi ketat "tidak pernah WASPADA h29_v1".
+- Butir 4/8-10 (insiden, data) tidak berlaku untuk jalur simulasi.
+
+### Ukuran yang dihitung (horizon 63 / 125 / 250 hari bursa)
+- Alarm palsu: P(pernah WASPADA), P(pernah GAGAL), P(pernah DD < -45%) di jalur normal (a) dan (b).
+- Lolos palsu: P(null lolos) untuk null (1), (2), (3).
+- Daya pembeda: P(normal lolos) vs P(null lolos).
+- **Horizon minimum T** (1-60 bulan, 21 hari bursa per bulan): kriteria posisi akhir "return hari T ≥ persentil 20 normal" (jadi P(normal lolos) = 80% menurut definisi); T terkecil dengan P(null lolos) ≤ 10%, per null dan per rezim. Bila tidak tercapai sampai 60 bulan, ditulis apa adanya. Rezim (b) memakai jendela dev sepanjang T (makin panjang makin sedikit jendela).
+- U1/U2/U4: dari riwayat yang ada. U2: pasangan IDX vs Yahoo historis yang dipakai membuat pita (kalau bisa dihitung ulang) → P(pernah keluar pita dalam 250 hari). U1/U4: kalau riwayat tidak cukup, ditulis tidak cukup.
+
+### Ambang keputusan (dikunci sekarang)
+- Aturan GAGAL dianggap rusak bila alarm palsu 250 hari > 5%.
+- WASPADA: bila dipakai sebagai syarat uang nyata, alarm palsu 250 hari harus ≤ 10%; bila hanya info, tanpa ambang.
+- Aturan tidak punya daya pembeda bila P(null lolos kriteria 2027) > 20%.
+
+### Kandidat pengganti (hanya ini; dipilih dari sifat aturan, bukan dari hasil paper)
+- **(i) pita simultan**: satu kuantil q untuk return (mulai hari ke-21 WASPADA / ke-63 GAGAL, seperti v1), DD, dan rugi beruntun, digeser sampai P(pernah menyentuh dalam 250 hari) di jalur normal (a) = 5% (GAGAL) / 10% (WASPADA); diperiksa silang di (b).
+- **(ii) posisi akhir**: hanya return dan DD terdalam di hari ke-250, kuantil q yang sama sehingga P(normal kena) = 5% (GAGAL) / 10% (WASPADA).
+- **(iii) info saja**.
+- Cara memilih (dikunci): untuk tiap aturan yang rusak, pilih (i) atau (ii) yang alarm palsunya memenuhi ambang di (a) DAN (b) dengan P(null kena) terbesar (daya pembeda); bila keduanya tidak memberi P(null lolos) ≤ 20% atau alarm palsu (b) melewati ambang, pilih (iii).
+
+### Hasil audit (2026-11-07; `hasil_riset/audit_aturan_paper`; sidik 17 koleksi paper/zona/pantau sama sebelum dan sesudah)
+Jalur: H11a normal (a) 5.000, (b) 38.900 jendela; H29 normal (a) 5.000 (kurva sama dengan h29_v1: ya), (b) 38.500; null (1)/(2) (a) 5.000 jalur bootstrap, (b) ±390-400 jendela (satu kurva); null (3) 200 simulasi per periode (peluang sinyal acak 3,6% 2020+ / 4,1% dev; CAGR median -4,7% / -1,0%); bobot sama dengan biaya -5,9%/th 2020+, 6,3%/th dev. Jendela null (3) dev tiap 10 hari (memori).
+
+**H11a, aturan sekarang (peluang dalam T hari bursa, %)**
+
+| | Normal (a) 63/125/250 | Normal (b) 63/125/250 | Null 1 bobot sama (a)/(b) 250 | Null 2 JII (a)/(b) 250 | Null 3 acak (a)/(b) 250 |
+|---|---|---|---|---|---|
+| Pernah WASPADA | 33,3 / 40,5 / **44,9** | 12,7 / 18,5 / **23,9** | 55,7 / 47,4 | 67,0 / 42,9 | 68,1 / 58,4 |
+| Pernah GAGAL zona | 8,6 / 11,1 / **13,4** | 2,2 / 2,2 / 2,2 | 33,8 / 25,3 | 43,2 / 14,7 | 34,4 / 29,5 |
+| Pernah DD < -45% | 0 / 0 / 0,1 (500 hari: 1,5) | 0 / 0 / 0 (500: 0) | 7,6 / 0 | 9,0 / 0 | 4,0 / 0,6 |
+| **Lolos kriteria 2027** | 66,7 / 59,5 / **55,1** | 87,3 / 81,5 / **76,1** | **44,3 / 52,6** | **33,0 / 57,1** | **31,9 / 41,6** |
+
+**H29, aturan sekarang**: lolos (DD > -45%) normal 99,0% (a) / 100% (b), null (50% acak + 50% bobot sama) 96,7% / 100% → tidak ada daya pembeda. Zona h29_v1 pernah WASPADA 250 hari: normal 32,1% / 12,5%, null 37,3% / 30,9% (laporan saja). DD < -45%: normal 1,0% di 250 hari, 5,7% di 500 hari (a).
+
+**Kandidat (kuantil dikalibrasi di normal (a), 250 hari)**
+
+| Aturan | Kandidat | Batas | Alarm palsu (a)/(b) | P(null kena) (a) 1/2/3; (b) 1/2/3 |
+|---|---|---|---|---|
+| H11a GAGAL | (i) pita simultan q 0,34% | hari 63: return -22,4% / DD -25,5%; hari 250: -35,5% / -41,4%; beruntun 20 trade > 16 | 5,0 / 1,0 | 26,9 / 33,8 / 23,0; 17,0 / 4,9 / 18,5 |
+| H11a GAGAL | (ii) posisi akhir q 3,46% | hari 250: return < -22,7% atau DD < -33,3% | 5,0 / 0,0 | 27,4 / 33,7 / 25,1; 9,3 / 0,0 / 15,3 |
+| H11a WASPADA | (i) q 0,70% | hari 63: -20,2% / -23,9%; hari 250: -33,0% / -39,0%; beruntun 20 > 14 | 10,1 / 1,0 | 31,7 / 40,1 / 31,7; 22,6 / 11,8 / 26,0 |
+| H11a WASPADA | (ii) q 7,08% | hari 250: return < -16,5% atau DD < -29,7% | 10,0 / 0,2 | 36,0 / 45,2 / 36,4; 17,5 / 1,3 / 24,8 |
+| H29 GAGAL (baru) | (i) q 0,40% | hari 250: -40,5% / -49,2% | 5,0 / 0,3 | 8,4; 3,8 |
+| H29 GAGAL (baru) | (ii) q 3,66% | hari 250: return < -27,0% atau DD < -39,1% | 5,0 / 0,0 | 13,3; 6,3 |
+
+Kriteria 2027 H11a dengan kandidat (i) WASPADA + (i) GAGAL + DD -45%: normal lolos 90,0% / 99,0%, null lolos 68,4 / 59,9 / 68,3 (a), 77,4 / 88,2 / 74,0 (b). Dengan (ii): normal 90,0 / 99,8%, null 64,0 / 54,8 / 63,6 (a), 82,5 / 98,7 / 75,2 (b). **Semua > 20% → kriteria 12 bulan tidak punya daya pembeda dengan kandidat mana pun.**
+
+**Horizon minimum** (return hari T ≥ persentil 20 normal; T terkecil dengan P(null) ≤ 10%):
+- H11a (a): vs bobot sama 48 bulan, vs JII 32 bulan, vs acak **tidak tercapai** (10,6% di 60 bulan). (b): vs bobot sama 51, vs JII **tidak tercapai** (28,9% di 60), vs acak 45. Di 12 bulan P(null) 36-80%.
+- H29 (a): **tidak tercapai** (15,5% di 60 bulan). (b): 43 bulan. Di 12 bulan 54-73%.
+- Jendela (b) 48-60 bulan dari dev 9 tahun hanya ±1-2 jalur independen.
+
+**U1/U2/U4**
+- U2 `u2_v1` pita replay H11a: pernah keluar dalam 250 hari **16,8%** di riwayat (in-sample, ambang dibuat dari data yang sama); sinyal beda > 3 per 21 hari 1,8%. `u2_h22_v1`: pita H22 24,1% (satu jalur, 278 jendela), pita H29 25,6%, isi rebalance > 2 saham 0% (maks historis 2 = batas). Di kode WASPADA DATA ikut mengubah status H11a jadi WASPADA, jadi ikut syarat "tidak pernah WASPADA".
+- U1: belum ada satu pun insiden tercatat → **data tidak cukup**.
+- U4: 10 catatan sumber paper (0 cadangan), jadwal harian 5 hari → **data tidak cukup**.
+
+**Peringatan keras H33**: tidak ada alarm berjalan; sudah menyala. Sifatnya: H11a sendiri gagal standar seragam di dev IDX (S1 6,1%, S2 3,7%), jadi strategi seperti H11a hampir pasti gagal standar ini di pasar lain walau punya keunggulan kecil; aturan ini mengukur ketahanan terhadap biaya/likuiditas, bukan membedakan edge vs tanpa edge. Tidak ada kandidat yang perlu dihitung.
+
+**Penilaian terhadap ambang yang dikunci**
+- H11a GAGAL zona h11a_v1: alarm palsu (a) 13,4% > 5% → **rusak** (di (b) 2,2%).
+- H11a WASPADA sebagai syarat uang nyata: 44,9% / 23,9% > 10% → **rusak**.
+- Kriteria 2027 H11a: null lolos 32-57% > 20% → **tanpa daya pembeda**.
+- DD -45% (H11a & H29): alarm palsu ≤ 1% di 250 hari → **lulus** sebagai rem darurat; daya pembedanya kecil (null 0-9%).
+- Kriteria 2027 H29: null lolos 97-100% → **tanpa daya pembeda**. Zona h29_v1 info saja → tanpa ambang.
+- U2 WASPADA DATA sebagai bagian syarat uang nyata: 16,8% > 10% → **rusak** sebagai syarat; wajar sebagai info.
+
+**Pilihan kandidat menurut aturan pilih yang dikunci**: aturan pilih menulis "pilih (iii) bila tidak ada kandidat yang memberi P(null lolos) ≤ 20%". Dibaca harfiah, semua kandidat jatuh ke (iii) karena tidak ada aturan 12 bulan yang punya daya pembeda. Kalau syarat daya pembeda dibaca hanya untuk kriteria 2027 (bukan untuk rem GAGAL), pilihan dengan P(null kena) terbesar: H11a GAGAL (i), H11a WASPADA (i), H29 GAGAL (ii). **Tafsir mana yang dipakai = keputusan user** (dicatat sebelum dikunci).
+
+**Keterbatasan**: survivorship (saham delisting tidak ada); syariah point-in-time baru sejak Des 2019 (dev memakai daftar 217 hari ini); bootstrap blok mengabaikan rezim pasar; jalur independen sedikit (2020+ ±7 tahun, dev 9 tahun; jendela saling tumpang tindih); (a) in-sample (data 2020+ sudah terbuka, kandidat dikalibrasi di sana); jendela (b) mulai dengan posisi yang sudah dipegang; null (1)/(2) tidak punya trade sehingga aturan rugi beruntun tidak pernah menyala untuk mereka; zona dibuat dari volatilitas 2020+ sehingga di dev yang lebih tenang alarm lebih jarang.
+
+### Keputusan user & penguncian aturan v2 (2026-11-07)
+**Alasan perubahan = sifat aturan dari audit di atas, bukan hasil paper.** Dicatat terpisah sebagai perubahan aturan evaluasi; aturan strategi H11a/H29 (sinyal, stop, ukuran, dst.) TIDAK berubah.
+
+Keputusan user:
+1. Tafsir aturan pilih: syarat daya pembeda (P null lolos ≤ 20%) hanya untuk kriteria keputusan 2027. Rem GAGAL dinilai dari alarm palsu (≤ 5%).
+2. Dikunci (job `kunci_aturan_v2`, `backend/paper/aturan_v2.py`):
+   - **`batas_paper/h11a_v2`** GAGAL = pita simultan q 0,34% (kandidat i): return < pita mulai hari ke-63, drawdown terdalam < pita, atau rugi beruntun > pita; contoh batas hari ke-63 return -22,4% / DD -25,5%, hari ke-250 -35,5% / -41,4%, 20 trade > 16 rugi beruntun. Hari > 500 memakai pita hari ke-500.
+   - WASPADA H11a = pita simultan q 0,70%, **info saja** (bukan syarat uang nyata).
+   - **`pantau_batas/h29_v2`** GAGAL H29 (kandidat ii): di hari bursa ke-250 return < -26,96% (≈ -27,0%) atau drawdown terdalam sampai hari itu < -39,06% (≈ -39,1%).
+   - U2 (`u2_v1`, `u2_h22_v1`) semua = info saja: di status v2 tidak lagi mengubah status (catatan `info_data`).
+   - DD -45%, U1 (bug eksekusi > 5 hari bursa → GAGAL; insiden terbuka = info waspada), U4 (cadangan Yahoo > 10% = info waspada) tetap.
+3. **Kriteria Okt/Nov 2027**: syarat "tidak pernah WASPADA/GAGAL → uang nyata 10-20%" DIGANTI. Okt 2027 (H11a) dan 1 Nov 2027 (H29) = **keputusan manual user dengan porsi kecil** (peringatan keras H33: porsi awal maks 10% dari dana yang direncanakan untuk H11a), dicatat eksplisit **BUKAN bukti edge**. Rem GAGAL tetap mengikat.
+   - **Horizon bukti** (audit, return hari T ≥ persentil 20 normal dan P(null) ≤ 10%): **H11a ±32-51 bulan** (vs JII 32, vs bobot sama 48-51, vs pilihan acak 45 bulan di dev; di rezim 2020+ vs pilihan acak tidak tercapai sampai 60 bulan); **H29 ±43 bulan atau lebih** (dev 43; 2020+ tidak tercapai sampai 60 bulan).
+4. Aturan lama (`h11a_v1`, `h29_v1`) tetap dihitung dan disimpan berdampingan di `pantau_zona` (logika lama tidak diubah, termasuk U2 di status lama, sebagai pembanding). Status v2 disimpan di koleksi baru `swing.pantau_zona_v2` (satu dokumen per hari per strategi, tidak ditimpa; 6 Nov ke belakang diisi mundur dengan tanda `isi_mundur`), dihitung di job `pantau_paper` langkah 5.
+
+**Saat dikunci (2026-11-07, Sabtu, data paper s/d 6 Nov 2026):** H11a 13 hari tercatat, status NORMAL, belum pernah WASPADA/GAGAL; H29 6 hari tercatat, status NORMAL, pernah WASPADA 4 Nov 2026 (zona h29_v1, laporan). Sidik isi saat dikunci (sha256 16 huruf, sama dengan sebelum audit): paper_cek 23 dok `dc02aef41eb90306`, paper_ekuitas 13 `b0b8dc96d7158df2`, paper_h22_cek 7 `a9025d98b609ed47`, paper_h22_ekuitas 6 `92d4d9ca18f07556`, paper_h22_koreksi 110 `0305b8363ca593ba`, paper_h22_posisi 22 `390290bc37599e99`, paper_h22_rebalance 1 `8fbd2633abc41469`, paper_h22_status 1 `14c5310747b3a86e`, paper_h22_transaksi 22 `033550948002fd37`, paper_posisi 4 `2560a774ac92c180`, paper_sinyal 13 `7cf342de799b9649`, paper_status 1 `37273c0fa1feb253`, paper_sumber 10 `004630f51591dcda`, paper_transaksi 0 `e3b0c44298fc1c14`, batas_paper/h11a_v1 `2f994a438fb3c013`. Dokumen lama di `pantau_batas` (3 dok, `343a48e3746ce584`) dan `pantau_zona` (19 dok, `76e65ea493670b74`) tidak berubah; yang bertambah hanya `batas_paper/h11a_v2` dan `pantau_batas/h29_v2`. Sidik juga disimpan di dokumen v2 (`sidik_paper`, `status_paper`).
+
+Tampilan: panel "Aturan evaluasi (v2)" di tab Paper Follow Tren dan Momentum Blend (status v2, rem hari ini, keputusan 2027, aturan lama sebagai pembanding, tabel hasil audit, horizon bukti); grafik zona h11a_v1 diberi label "lama (pembanding)" dan garis rem GAGAL v2. API `/api/paper/aturan?strategi=h11a|h29`.
