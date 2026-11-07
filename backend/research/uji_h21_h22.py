@@ -132,6 +132,9 @@ def peringkat(S, t, jenis, calon):
         from backend.research import uji_h30
         s = uji_h30.skor(S, t).reindex(calon).dropna()
         return list(s.sort_values(ascending=False, kind="mergesort").index)
+    if jenis == "h32":
+        from backend.research import uji_h32
+        return uji_h32.urutan(S, t, calon)
     s = momentum(S, t).reindex(calon).dropna()
     return list(s.sort_values(ascending=False, kind="mergesort").index)
 

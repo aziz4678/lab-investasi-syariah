@@ -1323,3 +1323,151 @@ Tidak ada pemenang tegas, tidak ada rekomendasi cara masuk.
 - `lump` vs cicil bergantung periode: dev (2010-2018, pasar naik bertahap) sekaligus menang ±65-70%; holdout (2019-2021, Covid lalu JII melemah) sekaligus kalah, menang hanya ±30-39%.
 - Holdout 5 th terlalu kecil untuk disimpulkan (33 tanggal mulai tumpang tindih, praktis satu episode pasar).
 - Tidak ada uji lanjutan atau variasi (ambang, horizon, aset) dari analisis ini.
+
+## H31: H20 dengan kas = NAV reksa dana pasar uang syariah asli (dikunci 2026-11-07 atas permintaan user, sebelum kode uji dibuat dan sebelum ada angka return apa pun) — uji ulang pasca hasil
+**Uji ulang pasca hasil (lencana `pasca_hasil`).** H20 gagal di kriteria 5 (kas 0%): kemampuannya menyamai beli-tahan bergantung pada asumsi bunga kas (FRED antarbank − 1,5%). H31 menguji sinyal H20 yang **persis sama**, hanya kas diganti NAV asli RD pasar uang syariah. Periode dan sinyal H20 sudah pernah dilihat (dev H20 2001-2014, eksplorasi H20 2020+), jadi hasilnya bukti lemah: lulus = kandidat uji maju untuk lapisan saham inti, bukan diadopsi. **Tujuan: mengurangi drawdown, bukan menambah return.** Satu hipotesis, tanpa varian. Gagal = ditutup tanpa variasi jumlah bulan, jenis MA, jeda, RD, atau instrumen. (Nama "H31" pernah dipakai di brief analisis cicil JII; analisis itu tidak masuk katalog H.)
+
+Cek data sebelum dikunci (2026-11-07, hanya kelengkapan, tanpa return strategi):
+- NAV harian Pasardana RD pasar uang syariah baru ada sejak Okt 2025 → tidak dipakai. NAB bulanan OJK (`swing.rd_ojk`, tipe Money Market Fund, syariah): 109 produk, Jun 2013 s/d Sep 2026; jumlah produk 1 (2013), 3 (2014), 10 (2015), 14-23 (2016-2017), 33-69 (2018-2026).
+- Riwayat terpanjang (dipilih karena panjang, bukan hasil): **BNIAM Dana Lancar Syariah** (kunci `BNIAM DANA LANCAR SYARIAH|BANK MAYBANK INDONESIA`, fund Pasardana 380), Jun 2013 s/d Sep 2026, 157 dari 160 bulan (hilang 2018-06, 2018-12, 2019-02), tidak ada bulan |return| > 1,5%, NAB terkecil Rp10 M.
+
+Data & instrumen:
+- **JII**: sama persis dengan H20 (`indeks/JKII` close lewat `backend/db/harga.py` `indeks`, + dividen 2,5%/th − expense 2,0%/th diakru harian; open tidak dipakai).
+- **Kas**: NAV bulanan OJK BNIAM Dana Lancar Syariah. Return bulan m = NAV akhir m ÷ NAV akhir m−1, dibagi rata geometris ke hari bursa JII di bulan m. Bulan NAV hilang: return dari NAV terakhir yang ada ke NAV berikutnya dibagi rata ke semua hari bursa di bulan-bulan itu. NAV sudah bersih dari biaya pengelolaan (tanpa potongan tambahan); keuntungan RD tidak dipajaki di investor; biaya beli/jual RD 0%.
+- **Biaya JII** (model proyek, sama dengan H20): keluar 0,70% (fee jual 0,25% + 1 tick 0,45%), masuk 0,60% (fee beli 0,15% + 1 tick 0,45%).
+
+Aturan (sinyal = H20 persis):
+- Sinyal di close hari bursa terakhir tiap bulan: JII < rata-rata 10 close akhir bulan (termasuk bulan ini) → posisi berikutnya KAS (RD); ≥ → PASAR. Hanya bertindak kalau posisi berubah. Sinyal dihitung dari seluruh riwayat JII sejak 2000.
+- Keluar (PASAR → KAS): jual JII di close hari bursa ke-1 bulan berikutnya (biaya 0,70%), hari ke-2 s/d 4 return 0, RD mulai berbunga hari ke-5.
+- Masuk (KAS → PASAR): pencairan RD hari bursa ke-1 (bunga berhenti), hari ke-1 s/d 4 return 0, beli JII di close hari bursa ke-4 (biaya 0,60%).
+- Beli-tahan (pembanding): JII + dividen 2,5% − expense 2,0%, satu kali biaya masuk 0,60%, tanpa perpindahan.
+
+Periode (keputusan user 2026-11-07; data NAV terakhir Sep 2026):
+- **Dev**: hari bursa pertama Jul 2013 s/d 31 Des 2019. Titik awal = close 28 Jun 2013 (hari bursa terakhir Jun 2013). Posisi awal H31 = sinyal akhir Jun 2013: kalau PASAR, H31 masuk seperti beli-tahan (biaya 0,60% di close hari bursa pertama Jul 2013); kalau KAS, RD berbunga sejak hari bursa pertama Jul 2013.
+- **Holdout**: 1 Jan 2020 s/d 30 Sep 2026, **tidak bersih**. Dibuka SEKALI, hanya kalau dev lulus semua kriteria. Posisi awal = posisi H31 di akhir dev; beli-tahan dianggap sudah memegang (tanpa biaya masuk); CAGR, DD, dan jendela dihitung dari ekuitas awal Jan 2020 (puncak di-reset).
+- **Catatan bobot bukti holdout (permintaan user):** kriteria 1-2 di holdout sudah praktis diketahui dari eksplorasi H20 2020+ (DD -26,1% vs -57,5%, CAGR -3,0% vs -10,4%, kas FRED). Bobot bukti holdout ada di kriteria **3, 5, dan 7**.
+
+Kriteria lulus (dev dan holdout, semua harus terpenuhi):
+1. Max drawdown H31 ≤ 2/3 × max drawdown beli-tahan JII.
+2. CAGR H31 ≥ CAGR beli-tahan − 2%/th (ongkos asuransi maksimum; return tidak perlu lebih tinggi).
+3. **Timing, bukan sekadar porsi saham lebih kecil**: campuran tetap JII (+ dividen/expense sama) dan RD yang sama, porsi JII = % hari H31 berada di pasar (1 − % hari di kas/transit), dikembalikan ke porsi itu tiap close hari bursa terakhir bulan, tanpa biaya. Lulus kalau max DD H31 lebih dangkal dari max DD campuran **dan** CAGR H31 ≥ CAGR campuran − 1%/th.
+4. Rata-rata perpindahan ≤ 3 per tahun (setiap keluar = 1, setiap masuk = 1).
+5. Jendela **3 tahun** bergulir (titik mulai tiap akhir bulan, ≥ 500 hari bursa): menang kalau DD H31 lebih dangkal dari DD beli-tahan **dan** CAGR H31 ≥ CAGR beli-tahan − 2%. Lulus kalau menang di ≥ 60% jendela.
+6. Sensitivitas, masing-masing terpisah, kriteria 1-2 tetap lulus: 6a dividen 4%/th; 6b expense 1,6%/th.
+7. Sensitivitas kas = median return bulanan semua RD pasar uang syariah IDR di `rd_ojk` yang punya NAV di bulan m−1 dan m (bulan tanpa satu pun: seperti bulan hilang di atas): kriteria 1-2 tetap lulus.
+
+Standar seragam (keputusan user 2026-11-07 untuk bagian yang tidak cocok):
+- a. Pembanding: beli-tahan JII, "di atas JII" = kriteria 1-2. Bobot sama universe syariah likuid **hanya dilaporkan** (H31 tidak memilih saham dan tujuannya DD): `uji_h21_h22.pembanding_sama` dev (universe & filter H22, tanpa biaya), dinilai ulang dari close 28 Jun 2013.
+- b. Tanpa 5/10 saham terbaik: tidak berlaku (satu indeks). **Tanpa tahun kalender terbaik berlaku**: return harian tahun kalender terbaik H31 dibuang dari H31 dan tahun terbaik beli-tahan dibuang dari beli-tahan (2013 = Jul-Des ikut dihitung sebagai tahun), CAGR & DD dari sisa hari yang disambung; kriteria 1-2 tetap lulus.
+- c. **S1 biaya 2 tick** berlaku: keluar 1,15%, masuk 1,05% (beli-tahan masuk 1,05%); kriteria 1-2 tetap lulus. S2 (Rp20 M) dan S3 (harga ≥ Rp200) tidak berlaku (tanpa universe saham).
+- d. Lolos dev DAN holdout.
+- e. Kualitas data: `cek_kualitas_data` hanya memeriksa saham; JII dan NAV dicek kelengkapan + lonjakan di kode uji. `versi_data` menyimpan `dt.versi("indeks/JKII")`, sidik close JII, sidik seri NAV yang dipakai, dan `harga.status_koreksi()`.
+
+Hanya dilaporkan (bukan syarat):
+- Kas 0% (pengganti kriteria 5 H20; keputusan user).
+- Jeda pencairan RD 7 hari bursa: masuk = pencairan hari bursa ke-1, return 0 hari ke-1 s/d 8, beli JII di close hari bursa ke-8 (dana tiba T+7); keluar tidak berubah.
+- Bobot sama universe syariah likuid (poin a).
+Yang dilaporkan: CAGR, max DD, perpindahan/th, % waktu di kas, porsi & hasil campuran tetap, jendela menang, per tahun kalender, untuk dasar + semua skenario.
+
+Kelemahan (dicatat sebelum uji):
+- Satu RD saja, dipilih karena masih ada sampai sekarang (survivorship produk); NAV bulanan, bukan harian.
+- Dev 6,5 tahun dengan ±1-3 kali pindah per tahun: kekuatan statistik rendah. Jul 2013 - Des 2014 sudah terlihat di dev H20; 2015-2019 sinyal H20 belum pernah dijalankan, tapi harga JII-nya sudah terlihat (analisis cicil JII).
+- JII = indeks harga; dividen asumsi; eksekusi di close sedikit optimis (sama dengan H20). Kendaraan nyata = RD indeks syariah dengan biaya & jeda sendiri.
+- Pencairan RD pasar uang nyata bisa sampai 7 hari bursa (dilaporkan).
+- Uji ke ±47.
+
+### Hasil H31 dev Jul 2013 - Des 2019 (2026-11-07, `backend/research/uji_h31.py --periode dev`, hasil `hasil_riset/h31_dev`): GAGAL, holdout tidak dibuka
+Sebelum dijalankan, mekanisme dicek dengan data tiruan: keluar = return hari ke-1 × (1 − 0,70%), hari ke-2 s/d 4 return 0, RD berbunga mulai hari ke-5; masuk = return 0 hari ke-1 s/d 3, biaya 0,60% di close hari ke-4 (jeda 7: close hari ke-8). Satu bug sebelum uji diperbaiki: di holdout, sinyal akhir dev harus diproses di hari pertama holdout. Sesudah putaran pertama, baris 2013 (Jul-Des) hilang dari laporan per tahun (bug laporan saja, tidak dipakai kriteria mana pun); diperbaiki lalu dijalankan ulang, angka lain identik. `versi_data`: sidik close JII `9640098b05126973`, sidik NAV `43a6e373a616620c`, cek kualitas terakhir 2026-11-06 (status ADA TEMUAN, 0 temuan; hanya saham, tidak dipakai H31). Cek data: JII tanpa lonjakan > 15%, jeda terlama 12 hari kalender (libur Lebaran); NAV hilang 2018-06, 2018-12, 2019-02, tanpa lonjakan > 1,5%. Posisi awal = PASAR (sinyal Jun 2013). Periode efektif close 28 Jun 2013 s/d 30 Des 2019.
+
+| Skenario | CAGR H31 | DD H31 | CAGR beli-tahan | DD beli-tahan | k1 | k2 |
+|---|---|---|---|---|---|---|
+| Dasar | 0,54% | -25,2% | 1,54% | -26,0% | ✘ (batas -17,4%) | ✔ |
+| 6a. dividen 4% | 1,33% | -23,6% | 3,00% | -25,5% | ✘ | ✔ |
+| 6b. expense 1,6% | 0,75% | -24,7% | 1,93% | -25,9% | ✘ | ✔ |
+| 7. kas median RDPU syariah | 0,39% | -25,3% | 1,54% | -26,0% | ✘ | ✔ |
+| S1 biaya 2 tick | -0,57% | -27,2% | 1,47% | -26,0% | ✘ | ✘ |
+| Laporan: kas 0% | -1,78% | -29,2% | 1,54% | -26,0% | ✘ | ✘ |
+| Laporan: jeda pencairan 7 hari | 0,45% | -26,0% | 1,54% | -26,0% | ✘ | ✔ |
+
+Kriteria:
+1. ✘ DD -25,2% vs batas 2/3 × -26,0% = -17,4%.
+2. ✔ CAGR 0,54% vs batas -0,46%.
+3. ✘ Campuran tetap 54% JII / 46% RD: DD -13,5%, CAGR 3,67%. H31 kalah di keduanya (DD lebih dalam, CAGR di bawah batas 2,67%).
+4. ✔ 2,31 perpindahan/th (15 kali; H20 dev 1,24/th).
+5. ✘ Menang di 47% dari 43 jendela 3 tahun.
+6a/6b/7/S1 ✘ (kriteria 1 gagal di semua skenario).
+Tanpa tahun terbaik ✘: H31 tanpa 2014 CAGR -1,05%, DD -25,2%; beli-tahan tanpa 2014 CAGR -1,30%, DD -29,2% (batas -19,5%).
+Laporan: bobot sama universe syariah likuid (H22 dev, tanpa biaya) CAGR 2,19%, DD -34,5%.
+
+Per tahun (%): 2013 (Jul-Des) H31 -1,5 / beli-tahan -10,1 / campuran -4,8; 2014 9,8 / 18,7 / 13,5; 2015 -4,5 / -12,3 / -3,7; 2016 7,0 / 15,6 / 11,6; 2017 -1,4 / 9,9 / 8,0; 2018 -3,6 / -9,3 / -3,0; 2019 -1,4 / 2,4 / 3,8.
+
+Kesimpulan:
+- Dengan kas realistis pun, di 2013-2019 filter MA10 **tidak mengurangi drawdown** (-25,2% vs -26,0%). JII periode ini tidak punya kejatuhan panjang seperti 2008. Yang ada penurunan pendek (2013, 2015, 2018) dan pemulihan cepat, sehingga sinyal bulanan keluar terlambat dan masuk lagi terlambat (whipsaw 15 kali).
+- Memegang porsi tetap 54% JII + 46% RD (tanpa timing) jauh lebih baik di DD (-13,5%) dan CAGR (3,67%). Pengurangan risiko di periode ini datang dari porsi saham yang lebih kecil, bukan dari timing.
+- Kas RD asli (±5%/th) vs kas 0% memang membantu (+2,3 poin CAGR), tapi tidak cukup menolong kriteria DD.
+- Pelajaran tambahan (bukan bukti): hasil bagus H20 di dev 2001-2014 kemungkinan besar datang dari satu peristiwa (2008: -8% vs -56%).
+- Sesuai aturan: GAGAL = ditutup, tanpa variasi. Holdout 2020+ tidak dibuka.
+
+## H32: Frog-in-the-Pan (FIP) momentum (dikunci 2026-11-07 atas permintaan user, sebelum kode uji dibuat dan sebelum ada angka return apa pun)
+Literatur: Da, Gurun & Warachka (2014), "Frog in the Pan: Continuous Information and Momentum", Review of Financial Studies 27(7), 2171-2218. Bukti internasional: Goyal, Jegadeesh & Subrahmanyam (2025), Review of Finance. Alasan (user): H22 dan H30 gagal karena hasilnya bergantung pada segelintir saham yang melonjak; FIP memilih saham momentum yang naiknya mulus (banyak hari naik kecil), bukan yang naik karena beberapa lonjakan. Satu hipotesis, tanpa varian. Gagal = ditutup tanpa variasi ukuran kelompok, jendela, atau cara menghitung ID.
+
+Posisi di keluarga momentum (dari registry): yang bernama "momentum" = H11b, H22, H23 (dual momentum lintas aset), H29, H30 → **H32 = uji ke-6** (ke-5 kalau H23 tidak dihitung karena bukan momentum antar-saham; sinyal antar-saham yang benar-benar baru hanya H22 dan H30, H29 memakai ulang H22). Kategori "tren" seluruhnya (H11a + variannya) → ke-10. Seluruh katalog ±ke-48.
+
+Sinyal (satu-satunya yang beda dari H22):
+- **PRET** = return close tersesuaikan akhir bulan t−12 → akhir bulan t−1 (`uji_h21_h22.momentum`, sama persis dengan H22).
+- **ID** = sign(PRET) × (%hari return negatif − %hari return positif). Return harian dari close tersesuaikan yang sama (`c`, ffill), hari bursa kalender IHSG sesudah akhir bulan t−12 s/d akhir bulan t−1 (bulan t dilewati seperti PRET). Penyebut = semua hari dengan return valid; hari return 0 (termasuk tanpa transaksi) ikut penyebut, tidak dihitung positif/negatif. Makin negatif ID = makin mulus.
+- **Peringkat**: (1) kelompok momentum = 2N saham lolos dengan PRET tertinggi (N = rumus H22), diurutkan ID naik (seri: PRET lebih tinggi dulu); (2) lalu sisa saham lolos urut PRET turun; saham tanpa PRET tidak diranking.
+- Mesin H22 tidak diubah: beli peringkat ≤ N, pegang selama ≤ 2N. Artinya beli N saham ID terendah di antara 2N momentum teratas; dijual saat keluar dari 2N teratas menurut PRET. Jumlah saham akhir = N, sama dengan H22.
+- **Ukuran kelompok 2N (dipilih satu, disetujui user)**: N H22 = 20% saham lolos = kuintil teratas, jadi kelompok harus > N agar filter ID berarti; 2N (±40% teratas) = batas pegang H22 yang sudah dikunci, tidak ada angka baru, dan aturan jual tetap persis H22. Kelompok lebih besar menjauh dari paper (pilih di dalam momentum teratas).
+
+Aturan lain = H22 persis (`uji_h21_h22.py`, cabang `h32` di `peringkat`; H22 dibuktikan identik sebelum uji): universe dev 766 kode DES 2019-2026; filter median nilai transaksi 60 hari ≥ Rp5 M, harga ≥ Rp100, data ≥ 250 hari, aktif ≥ 90%; sinyal close akhir bulan, eksekusi open hari bursa pertama; N = maks(10, 20% saham lolos); posisi baru 1/N, pangkas > 2/N; saham hilang & biaya ±1,2% pulang-pergi dari turnover nyata.
+
+Periode:
+- **Dev**: sinyal akhir Jan 2011, eksekusi Feb 2011 s/d Des 2019 (sama dengan H22).
+- **Holdout**: Jan 2020 s/d Okt 2026, **tertutup**; dibuka sekali hanya kalau dev lulus, dengan izin user.
+
+Kriteria = standar seragam penuh (semua harus lulus, daftar sama dengan H30):
+- a1. CAGR bersih > bobot sama semua saham lolos (tanpa biaya).
+- a2. CAGR bersih > JII + dividen 2,5%/th.
+- b1. Tanpa 5 saham penyumbang laba terbesar: CAGR > bobot sama tanpa 5 penyumbang terbesarnya.
+- b2. Tanpa 10 saham penyumbang laba terbesar: CAGR > bobot sama tanpa 10 penyumbang terbesarnya. (b1/b2 = tempat H22 dan H30 gagal.)
+- b3. Tanpa tahun kalender terbaik: CAGR > bobot sama dan > JII, masing-masing tanpa tahun terbaiknya.
+- S1 biaya 2 tick, S2 likuiditas ≥ Rp20 M, S3 harga ≥ Rp200 (pembanding ikut): a1-a2 dan b1-b3 tetap lulus.
+- Lolos dev DAN holdout, tanpa pengecualian.
+
+Pembanding H22 (wajib dilaporkan, **bukan syarat lulus**, keputusan user 2026-11-07): H22 dijalankan ulang dengan data, periode, dan versi data yang sama di semua skenario; dilaporkan CAGR, DD, b1/b2/b3 per skenario, korelasi bulanan H32 vs H22, % pegangan yang sama, 5 penyumbang terbesar masing-masing.
+
+Kelemahan (dicatat sebelum uji):
+- Dev tidak buta: pemenang H22 di dev (NIKL, BRPT, SMBR, TKIM, AKRA) dan hasil per tahunnya sudah terbuka.
+- Kekuatan statistik rendah: ±58 saham lolos, kelompok ±24, N ±12, 9 tahun; pegangan kemungkinan besar banyak beririsan dengan H22.
+- Dev bukan point-in-time (survivorship, status syariah); lompatan harga sebelum 2020 tanpa bukti dokumen tidak terverifikasi; open Yahoo 2010-2012 rusak.
+- Pembanding bobot sama tanpa biaya (konservatif, disengaja). `versi_data` disimpan di hasil.
+
+### Hasil H32 dev Feb 2011 - Des 2019 (2026-11-07, `backend/research/uji_h32.py --periode dev`, hasil `hasil_riset/h32_dev`): GAGAL, holdout tidak dibuka
+Persiapan: `cek_kualitas_data` 2026-11-07 08:02 = 0 temuan; 6 aturan ditahan semuanya PPGL Okt-Nov 2026 (di luar dev). H22 dengan cabang baru dibuktikan identik dengan kode lama (selisih ekuitas 0, `PYTHONHASHSEED=0`, CAGR 18,79%). `versi_data`: sidik 805bc7de753a5142, 766 kode, 11.340 koreksi aktif. Catatan jalannya uji: run pertama berhenti karena error encoding saat mencetak nama skenario "≥", sebelum angka return apa pun tercetak dan tanpa hasil tersimpan; dijalankan ulang sekali dengan kode yang sama (`PYTHONIOENCODING=utf-8`).
+
+Universe: rata-rata 58,4 saham lolos, N 11,9, kelompok momentum 23,7; 56,9% pilihan sinyal H32 = pilihan sinyal H22 di bulan yang sama.
+
+| Skenario | H32 CAGR / DD | vs bobot sama | Tanpa 5 saham | Tanpa 10 saham | Tanpa tahun terbaik | H32 | H22 periode sama (laporan) |
+|---|---|---|---|---|---|---|---|
+| Dasar | 20,18% / -33,7% | 6,27% | 9,79% vs 3,82% | 3,40% vs 1,87% | 16,68% vs 3,46% / JII 5,30% | lulus 5/5 | 18,78% / -35,6%, lulus 5/5 |
+| S1 biaya 2 tick | 18,35% / -34,9% | 6,27% | 8,21% vs 3,82% | 1,95% vs 1,87% | 14,95% vs 3,46% / JII 5,30% | lulus 5/5 | 17,12% / -37,5%, gagal 4/5 |
+| S2 likuiditas ≥ Rp20 M | 7,17% / -39,8% | 3,57% | **-0,12% vs 0,25%** | **-3,51% vs -1,96%** | **4,98% vs 0,96% / JII 5,30%** | **gagal 2/5** | 7,24% / -44,1%, gagal 2/5 |
+| S3 harga ≥ Rp200 | 19,61% / -35,1% | 6,60% | 9,87% vs 4,14% | 4,69% vs 2,11% | 16,53% vs 4,08% / JII 5,30% | lulus 5/5 | 22,90% / -30,1%, lulus 5/5 |
+
+JII + dividen 2,5%/th: 6,96%, DD -22,68%. Angka CAGR/DD dari return bulanan (harian dasar 20,20% / -34,76%).
+
+Per tahun (H32 / H22 / bobot sama): 2011 (Feb-Des) 41,9 / 36,9 / 12,9; 2012 30,2 / 26,6 / 17,0; 2013 0,7 / 13,6 / -5,5; 2014 36,8 / 37,2 / 24,3; 2015 -10,4 / -25,9 / -23,0; 2016 51,9 / 59,7 / 31,4; 2017 32,6 / 33,5 / 10,3; 2018 29,3 / 29,1 / -0,9; 2019 -13,3 / -15,8 / 0,3.
+
+Lain-lain: volatilitas 21,8% (H22 24,5%), Sharpe 0,69 (H22 0,58), turnover 172,3%/th (H22 131,6%), kas rata-rata 4,2%. Korelasi bulanan dengan H22 0,93, 64,3% pegangan sama; korelasi dengan Follow Tren 0,65. Lima penyumbang terbesar INKP, TKIM, NIKL, BRPT, SMBR = 77,5% dari total laba (H22: TKIM, NIKL, INKP, BRPT, SMBR = 92,5%).
+
+Kesimpulan:
+- Gagal standar seragam di S2 (universe likuid Rp20 M): tanpa 5 dan tanpa 10 pemenang di bawah bobot sama, tanpa tahun terbaik di bawah JII. Dasar, S1, dan S3 lulus semua (S1 b2 sangat tipis, 1,95% vs 1,87%).
+- Dibanding H22 di data dan periode yang sama (laporan, bukan syarat): sedikit lebih baik hampir di semua angka, termasuk lulus S1 yang gagal di H22, tapi pemenangnya sama dan korelasinya 0,93. Filter ID mengurangi ketergantungan pada lonjakan sedikit, tidak mengubah sifatnya.
+- Pelajaran: H22, H30, dan H32 (tiga cara memilih momentum antar-saham) memberi pemenang yang sama, dan di saham yang benar-benar likuid hasilnya tetap bergantung pada segelintir saham yang naik besar.
+- Sesuai aturan: GAGAL = ditutup, tanpa variasi ukuran kelompok, jendela, atau cara menghitung ID. Holdout 2020+ tidak dibuka.
+
+## Penutupan keluarga momentum antar-saham (2026-11-07, keputusan user)
+- Keluarga momentum antar-saham **H22 (RS 12-1), H30 (Residual Momentum), H32 (Frog-in-the-Pan) ditutup.** Ketiganya gagal standar seragam di dev dan berakhir di pemenang yang sama: INKP, TKIM, NIKL, BRPT, SMBR. Korelasi bulanan H30 vs H22 0,89, H32 vs H22 0,93. Cara memilih momentum yang berbeda tidak mengubah sumber hasilnya: segelintir saham yang naik besar, dan di universe likuid Rp20 M tes tanpa 5/10 saham terbaik gagal.
+- **Tidak ada varian momentum antar-saham baru** (jendela lain, skor lain, filter tambahan, ukuran kelompok lain, gabungan sinyal) tanpa alasan yang benar-benar berbeda, misalnya data baru yang tidak tersedia saat H22/H30/H32 diuji, atau mekanisme ekonomi yang tidak bermuara pada peringkat return masa lalu. Alasan itu ditulis dan disetujui user sebelum kode dibuat.
+- **H11a (Follow Tren) dan H29 (Momentum Blend) tetap jalan di paper trade** sesuai kriteria evaluasi yang sudah dikunci (H11a keputusan utama Okt 2027, H29 evaluasi 1 Nov 2027). Penutupan ini tidak mengubah aturan, data, atau jadwal kedua paper itu.

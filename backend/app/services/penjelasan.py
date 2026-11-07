@@ -41,14 +41,16 @@ BAGIAN = {
     "H18": [("## Reksa Dana & Sukuk", None)],
     "H20": [("## H20:", None)],
     "H21": [("## H21", None)],
-    "H22": [("## H21", None), ("## Audit H11a & H22", None)],
+    "H22": [("## H21", None), ("## Audit H11a & H22", None), ("## Penutupan keluarga momentum", None)],
     "H23": [("## H23:", None)],
     "H25": [("## H25:", None)],
     "H26": [("## H26:", None)],
     "H27": [("## H27:", None)],
     "H28": [("## H28:", None)],
     "H29": [("## H29:", None), ("## Audit H11a & H22", None)],
-    "H30": [("## H30:", None), ("## Standar seragam", None)],
+    "H30": [("## H30:", None), ("## Standar seragam", None), ("## Penutupan keluarga momentum", None)],
+    "H31": [("## H31:", None), ("## H20:", None), ("## Standar seragam", None)],
+    "H32": [("## H32:", None), ("## Penutupan keluarga momentum", None), ("## Standar seragam", None)],
 }
 for _k in "abcdefg":
     BAGIAN[f"H19{_k}"] = [("## H19:", None)]
