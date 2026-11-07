@@ -1,7 +1,6 @@
 import argparse
 import json
 
-import numpy as np
 import pandas as pd
 
 from backend.db import data as dt

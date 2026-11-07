@@ -222,7 +222,7 @@ def kurva_h11a(siap, tr, mulai, akhir, seeds):
     return out
 
 
-def sinyal_acak(siap, p, rng):
+def sinyal_acak(p, rng):
     return lambda x: pd.Series(rng.random(len(x)) < p, index=x.index)
 
 
@@ -231,7 +231,7 @@ def null_acak(siap, mulai, akhir, p, seeds):
     out = []
     for seed in seeds:
         rng = np.random.default_rng(seed)
-        tr = ut.kumpulkan(siap, sinyal_acak(siap, p, rng))
+        tr = ut.kumpulkan(siap, sinyal_acak(p, rng))
         tr = tr[(tr["tgl"] >= mulai) & (tr["tgl"] <= akhir)].reset_index(drop=True)
         tr = ib.konservatif(tr, siap).reset_index(drop=True)
         dok = ib.dokumen_trade("x", tr, set(), siap)
@@ -302,10 +302,6 @@ def set_bootstrap(nama, kurva_jual, rng, per_kurva=None, n_total=JALUR):
     st = np.concatenate(sts)
     rt = np.repeat(rate, per)
     return Set(nama, x, lambda T: st, lambda T: np.round(rt * T).astype(int))
-
-
-def akhir_T(S_x, T):
-    return S_x[:, T - 1] - 1 if S_x.shape[1] >= T else None
 
 
 def horizon_minimum(normal, nulls):
@@ -448,7 +444,6 @@ def jalankan(bagian):
     tr["tgl_beli"], tr["tgl_jual"] = pd.to_datetime(tr["tgl_beli"]), pd.to_datetime(tr["tgl_jual"])
     tr = tr.sort_values(["tgl_beli", "ticker"]).reset_index(drop=True)
     ek = bp.kurva_harian(tr)
-    net = tr.loc[tr["status"] == "selesai"].sort_values("tgl_jual")["net"].to_numpy(float)
     jual_a = [(pd.Timestamp(t), n) for t, n in zip(tr.loc[tr["status"] == "selesai", "tgl_jual"], tr.loc[tr["status"] == "selesai", "net"])]
     N11a = set_bootstrap("H11a normal (a)", [(ek, sorted(jual_a))], rng)
 

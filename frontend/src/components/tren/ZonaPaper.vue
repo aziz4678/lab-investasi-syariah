@@ -29,7 +29,7 @@ const ZONA = {
 };
 
 const hari = computed(() => z.value?.paper?.hari ?? 0);
-const jangkau = computed(() => Math.min(z.value?.horizon || 500, Math.max(63, Math.ceil(hari.value * 1.6) + 10)));
+const jangkau = computed(() => Math.min(z.value?.horizon || 500, Math.max(z.value?.v2 ? 100 : 63, Math.ceil(hari.value * 1.6) + 10)));
 
 const data = computed(() => {
   tema.value;
