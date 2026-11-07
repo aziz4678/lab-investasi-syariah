@@ -987,6 +987,9 @@ ANALISIS = [
     {"id": "cicil_jii", "nama": "Cara masuk ke JII: sekaligus vs cicil", "tgl": "2026-11-07",
      "isi": "Selesai, tanpa pemenang tegas. Cicil + tambah saat turun mengalahkan cicil rata di dev (63%) dan holdout (73%, hanya 33 tanggal mulai), tapi rapuh dan untungnya ±1-2 poin per 100 dana. Sekaligus menang di dev (±65-70%) tapi kalah di holdout 2019-2021 (±30-39%).",
      "terkait": [], "sumber": "RENCANA_SCREENER.md:1201"},
+    {"id": "penerbitan", "nama": "Penerbitan saham baru (HMETD, private placement, konversi, merger)", "tgl": "2026-11-07",
+     "isi": "Selesai, bukan hipotesis. 42 kejadian dev 2011-2019 (saham beredar naik > 5% dalam setahun): median 15 poin di bawah bobot sama dan 67% tertinggal, tapi rata-ratanya +1 poin karena beberapa penerbit jadi pemenang besar (AKRA, TKIM, BRPT, ANTM). Efek kuat tidak terpenuhi (3/5), holdout tidak dibuka.",
+     "terkait": [], "sumber": "RENCANA_SCREENER.md:1475"},
 ]
 
 

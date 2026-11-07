@@ -5,6 +5,7 @@ import zipfile
 import pandas as pd
 
 from backend.db import data as dt
+from backend.ingest import koreksi_ksei
 
 URL = "https://web.ksei.co.id/Download/BalanceposEfek{}.zip"
 MULAI = (2009, 12)
@@ -70,6 +71,7 @@ def baca_zip(f):
 def bangun():
     df = pd.concat([baca_zip(n) for n in dt.daftar_arsip(folder="ksei", awalan="BalanceposEfek")], ignore_index=True)
     df = df[df["saham"] > 0].drop_duplicates(["tgl", "kode"])
+    df = koreksi_ksei.terapkan(df)
     df = df.reset_index(drop=True)
     dt.tulis("ksei", df)
     cek = (df[[f"L_{t}" for t in TIPE]].sum(axis=1) - df["L_total"]).abs() / df["saham"]

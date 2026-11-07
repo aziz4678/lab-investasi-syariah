@@ -1471,3 +1471,126 @@ Kesimpulan:
 - Keluarga momentum antar-saham **H22 (RS 12-1), H30 (Residual Momentum), H32 (Frog-in-the-Pan) ditutup.** Ketiganya gagal standar seragam di dev dan berakhir di pemenang yang sama: INKP, TKIM, NIKL, BRPT, SMBR. Korelasi bulanan H30 vs H22 0,89, H32 vs H22 0,93. Cara memilih momentum yang berbeda tidak mengubah sumber hasilnya: segelintir saham yang naik besar, dan di universe likuid Rp20 M tes tanpa 5/10 saham terbaik gagal.
 - **Tidak ada varian momentum antar-saham baru** (jendela lain, skor lain, filter tambahan, ukuran kelompok lain, gabungan sinyal) tanpa alasan yang benar-benar berbeda, misalnya data baru yang tidak tersedia saat H22/H30/H32 diuji, atau mekanisme ekonomi yang tidak bermuara pada peringkat return masa lalu. Alasan itu ditulis dan disetujui user sebelum kode dibuat.
 - **H11a (Follow Tren) dan H29 (Momentum Blend) tetap jalan di paper trade** sesuai kriteria evaluasi yang sudah dikunci (H11a keputusan utama Okt 2027, H29 evaluasi 1 Nov 2027). Penutupan ini tidak mengubah aturan, data, atau jadwal kedua paper itu.
+
+## Analisis penerbitan saham baru: apakah saham yang menerbitkan saham baru tertinggal setelahnya? (dikunci 2026-11-07 atas permintaan user, sebelum kode dibuat dan sebelum ada angka return apa pun; deskriptif, bukan uji strategi)
+Id `analisis_penerbitan`. Awalnya diusulkan sebagai hipotesis H33 (bobot sama universe H22 dikurangi saham yang jumlah saham beredarnya naik > 5% dalam 12 bulan); atas keputusan user 2026-11-07 **tidak dikunci sebagai hipotesis** karena kekuatan statistiknya terlalu rendah (±5 dari ±56 saham universe per tahun terkena, 9 siklus dev), sehingga hasil uji kemungkinan besar "tidak terdeteksi". Diganti analisis deskriptif: tidak masuk katalog H, standar seragam tidak berlaku. Kalau hasilnya menunjukkan efek kuat (definisi di bawah), baru dibahas sebagai hipotesis (kemungkinan filter H11a); untuk itu keputusan user sudah dicatat: wajib di atas ketiga pembanding (bobot sama tahunan dengan biaya, bobot sama bulanan tanpa biaya, JII), konversi dan merger dihitung penerbitan, kasus diverifikasi sebelum backtest, dev = siklus Feb 2011 - Jan 2020.
+
+**Literatur (campur, dicatat sebelum dijalankan).** McLean, Pontiff & Watanabe (JFE 2009, 41 negara): penerbitan saham memprediksi return lebih rendah, kuat. Rafik & Azmi (2019): underperformance pasca rights issue di Indonesia. Watanabe (2008): efeknya tidak ada di pasar berkembang. Sitasi dari user, belum dicek ulang.
+
+**Data.**
+- Jumlah saham beredar: `lab_data.ksei` kolom `saham` (KSEI BalanceposEfek akhir bulan, Des 2009 - Sep 2026, 202 bulan tanpa bolong). Dicek dengan kejadian yang diketahui: split BBCA ×5 Okt 2021, merger BRIS Feb 2021, split BBRI ×5 Nov 2017, HMETD BBRI Sep 2021 = cocok.
+- Koreksi KSEI (2026-11-07, permintaan user; registry baru `lab_data.koreksi_ksei` lewat `backend/ingest/koreksi_ksei.py`, otomatis diterapkan di `ksei.bangun`; nilai asli + alasan + bukti disimpan): ADMF 2025-09, JTPE 2022-07, MSIN 2020-12, MFIN 2025-09 (persis ×100 bulan sebelumnya lalu kembali ke skala normal → nilai bulan sebelumnya); SMRA 2010-06 (8.673.140.840 → 6.873.140.840, digit tertukar); BUMI 2014-09 (52,97 M → 36,63 M: hasil HMETD 2014 hanya 15,85 M saham baru, 20,774 + 15,853 = nilai Okt 2014). Pola ×100 lain (BATA Sep 2013 dan MLBI Nov 2014 split 1:100, KOPI Mei 2014 reverse) adalah aksi korporasi sungguhan, tidak diubah. Tidak ada koreksi yang jatuh di nilai Desember kasus dev.
+- Faktor split/reverse/saham bonus: `stock_splits` Yahoo (lewat `harga.banyak`). Dicek: saham bonus 1:1 SMRA Jun 2013 (bukti KSEI) tercatat sebagai split 2,0, jadi saham bonus ikut tersaring. Dividen saham diperlakukan sama bila Yahoo mencatatnya sebagai split.
+- Sumber jadwal aksi korporasi yang dites (2026-11-07, Chrome Lab): `GetCalendar` IDX kosong untuk 2010-2017; `/primary/ListingActivity/GetIssuedHistory` (parameter `caType`, `dateFrom`/`dateTo` format `yyyymmdd`, `start`, `length`) ada sejak lama tetapi **tidak lengkap**: ±1 baris per emiten (1.791 baris untuk 1.029 kode; 2009-2019 hanya 6-67 baris per tahun), hanya 8 dari 42 kasus dev ditemukan. Dipakai sebagai bukti pendukung saja, tidak dijadikan sumber data. Pengumuman IDX di DB baru sejak 3 Jul 2023.
+- Harga: `uji_h21_h22.susun` dengan konfigurasi dev diperpanjang sampai 31 Jan 2020 (data 1 Jan 2010 - 31 Jan 2020), harga adjusted Yahoo (dividen masuk), lewat `harga.py`. Cek kualitas terakhir 2026-11-07 08:02: 0 temuan; yang ditahan hanya PPGL Okt 2026 (di luar periode).
+
+**Aturan.**
+- Siklus Y = 2011..2019. Sinyal di close hari bursa terakhir Januari Y. Universe = `uji_h21_h22.lolos(S, t, 5e9, 100)` persis H22 dev (median nilai transaksi 60 hari ≥ Rp5 M, harga ≥ Rp100, ≥ 250 hari data, volume > 0 di ≥ 90% dari 250 hari; dev memakai semua kode yang pernah masuk DES, sama dengan H22 dev).
+- Penerbitan bersih = saham KSEI akhir Des(Y−1) ÷ (saham KSEI akhir Des(Y−2) × hasil kali `stock_splits` Yahoo bertanggal sesudah tanggal KSEI Des(Y−2) s/d tanggal KSEI Des(Y−1)) − 1. Data KSEI Desember terbit sebelum akhir Januari (tanpa look-ahead).
+- **Kejadian** = penerbitan bersih **> 5%**. Konversi (waran, obligasi, ESOP) dan merger dihitung penerbitan (keputusan user). Saham tanpa data KSEI di salah satu bulan → bukan kejadian, jumlahnya dilaporkan.
+- Return 12 bulan setiap saham universe: beli di open hari bursa pertama Februari Y, nilai di close hari bursa terakhir Januari Y+1 (adjusted, dividen masuk, kotor tanpa biaya). Open ≤ 0/kosong → close hari itu (sama dengan `pembanding_sama`). Saham yang berhenti diperdagangkan > 30 hari sebelum akhir data bernilai 0 dan merger FREN → EXCL mengikuti `susun` (aturan H22).
+- Pembanding per kejadian = rata-rata return 12 bulan semua saham universe siklus yang sama (bobot sama beli-tahan, termasuk saham kejadian). **Selisih** = return kejadian − pembanding.
+
+**Ukuran.** Per kejadian: kode, siklus, penerbitan bersih, penyebab (tabel verifikasi di bawah), return, pembanding, selisih. Ringkasan: jumlah kejadian, **median selisih, rata-rata selisih, % kejadian tertinggal (selisih < 0)**, dan per siklus (jumlah kejadian, jumlah universe, pembanding, median & rata-rata selisih).
+
+**Efek kuat** (ditetapkan sebelum dijalankan; semua harus terpenuhi):
+1. median selisih ≤ −5 poin,
+2. rata-rata selisih ≤ −5 poin,
+3. ≥ 60% kejadian tertinggal,
+4. median selisih per siklus negatif di ≥ 6 dari 9 siklus (siklus tanpa kejadian dihitung tidak negatif),
+5. rata-rata selisih tetap negatif setelah 5 kejadian paling tertinggal dibuang.
+
+**Laporan saja (tidak mengubah kesimpulan):** pembanding bobot sama tanpa saham kejadian; per penyebab (HMETD / tanpa HMETD / merger / konversi waran / campuran / belum bersumber); per besar penerbitan (5-20% vs > 20%); tanpa 5 kejadian paling unggul; uji tanda satu sisi (binomial) jumlah tertinggal.
+
+**Periode.** Dev saja: siklus Feb 2011 - Jan 2020 (sinyal Jan 2011 - Jan 2019). **Kejadian siklus 2020+ tidak dihitung dan tidak dilihat** (kode menolak Y > 2019). Harga Jan 2020 ikut terpakai sebagai akhir siklus terakhir (disetujui user).
+
+**Verifikasi 42 kasus dev (2026-11-07, sebelum return dilihat).** Semua 42 adalah penerbitan sungguhan, bukan split/bonus/salah cetak: tidak ada yang harganya turun sebanding jumlah saham di sekitar bulan perubahan (turun 1 hari terdalam vs 1/(1+kenaikan); MPPA 29 Apr 2010 turun ×0,84 = ex-date dividen Rp180), dan split di 5 kasus (MLPL, MEDC, PPRO, TPIA, IKAI) tanggalnya cocok dengan bulan KSEI. MLPL 2010: reverse 4:1 (7 Apr 2010, KSEI) lalu HMETD 9:32 → bersih KSEI +13,9% sebulan cocok. Penyebab bersumber 26/42, sisanya "belum bersumber" (tetap kejadian):
+
+| Siklus | Kode | Bersih | Penyebab | Bukti |
+|---|---|---|---|---|
+| 2011 | AKRA | +20,9% | HMETD 5:1 | detik 21 Jan 2010 |
+| 2011 | BLTA | +93,1% | HMETD | FinanceAsia / detik 2010 |
+| 2011 | BSDE | +60,0% | HMETD | JPNN Nov 2010 |
+| 2011 | BUMI | +7,1% | belum bersumber | rencana tanpa HMETD 10% 2010 |
+| 2011 | ELTY | +100,4% | HMETD | detik 2010 |
+| 2011 | ENRG | +181,8% | HMETD | Kontan (Rp4,84 T Feb 2010) |
+| 2011 | LPKR | +25,0% | belum bersumber | |
+| 2011 | MLPL | +355,6% | campuran (reverse 4:1 + HMETD 9:32) | KSEI |
+| 2011 | MPPA | +18,1% | konversi waran Seri I | KSEI Apr 2010 |
+| 2011 | SMRA | +6,8% | belum bersumber | |
+| 2012 | KIJA | +43,8% | HMETD II | detik / jababeka.com |
+| 2012 | LPKR | +6,7% | tanpa HMETD (1,45 M saham) | Bisnis 26 Mei 2011 |
+| 2012 | PWON | +20,0% | HMETD 5:1 | KSEI / laporan tahunan 2011 |
+| 2012 | UNTR | +12,1% | HMETD IV (403 jt saham) | Kontan |
+| 2013 | ASRI | +10,0% | belum bersumber | |
+| 2013 | ELTY | +9,0% | belum bersumber | |
+| 2014 | BWPT | +10,4% | belum bersumber | |
+| 2014 | MLPL | +30,2% | belum bersumber | |
+| 2014 | SCMA | +50,0% | merger (Indosiar, efektif 1 Mei 2013) | Kontan |
+| 2015 | AISA | +10,0% | tanpa HMETD | IDX GetIssuedHistory |
+| 2015 | BUMI | +76,3% | campuran (HMETD sebagian + konversi utang) | Kontan / Bisnis |
+| 2015 | BWPT | +605,1% | HMETD | IDX GetIssuedHistory |
+| 2015 | MAIN | +5,7% | tanpa HMETD | IDX GetIssuedHistory |
+| 2016 | ADHI | +97,7% | belum bersumber | |
+| 2016 | ANTM | +151,9% | HMETD | IDX GetIssuedHistory |
+| 2017 | AALI | +22,2% | HMETD | IDX GetIssuedHistory |
+| 2017 | BTEK | +424,5% | HMETD | Bisnis Apr 2016 |
+| 2017 | EXCL | +25,1% | belum bersumber | |
+| 2017 | JPFA | +7,0% | tanpa HMETD (750 jt ke KKR) | Bisnis |
+| 2017 | JSMR | +6,7% | HMETD | IDX GetIssuedHistory |
+| 2017 | PTPP | +28,0% | HMETD | IDX GetIssuedHistory |
+| 2017 | WIKA | +45,9% | belum bersumber | |
+| 2018 | BUMI | +78,5% | belum bersumber | |
+| 2018 | CTRA | +20,3% | belum bersumber | |
+| 2018 | MEDC | +33,0% | belum bersumber (+ split 4, Yahoo) | |
+| 2018 | PPRO | +9,8% | belum bersumber (+ split 4, Yahoo) | |
+| 2018 | TKIM | +16,5% | konversi waran | Kontan |
+| 2018 | TPIA | +8,5% | belum bersumber (+ split 5, Yahoo) | |
+| 2019 | BRPT | +27,4% | HMETD | Kontan / Bareksa |
+| 2019 | ERAA | +10,0% | belum bersumber | |
+| 2019 | ESSA | +30,0% | HMETD 10:3 | Bisnis / Kontan |
+| 2019 | IKAI | +664,2% | campuran (HMETD Jan + split 2 + HMETD akhir 2018) | Bareksa / Bisnis |
+
+**Output.** `backend/research/analisis_penerbitan.py` (dijalankan sekali), hasil di `hasil_riset/analisis_penerbitan_dev` dengan `versi_data` (`dt.versi("ksei")`, sidik kolom `saham` KSEI kode universe, `harga.sidik` harga universe 2010-01-01 s/d 2020-01-31, `harga.status_koreksi()`, jumlah aturan `koreksi_ksei`).
+
+**Kelemahan (dicatat sebelum dijalankan):**
+- Sampel kecil (42 kejadian, 9 siklus); kejadian di siklus yang sama tidak independen (pasar sama).
+- Survivorship: saham yang menerbitkan saham lalu delisting tidak ada di Yahoo → efek cenderung diremehkan.
+- Universe dev bukan syariah point-in-time; K4 sebelum 2020 tidak terverifikasi; syariah point-in-time baru sejak Des 2019.
+- Penyebab 16 kasus belum bersumber; pembagian per penyebab hanya laporan.
+- Sinyal tahunan: penerbitan Feb-Des Y−1 baru terlihat Jan Y; sebagian efek (bila ada) mungkin sudah terjadi sebelum sinyal.
+
+### Hasil analisis penerbitan dev (2026-11-07, dijalankan sekali, `backend/research/analisis_penerbitan.py`, hasil `hasil_riset/analisis_penerbitan_dev`): efek kuat TIDAK (3/5), tidak dilanjutkan jadi hipotesis
+42 kejadian (sama persis dengan daftar verifikasi), universe 43-65 saham per siklus (113 kode), tidak ada saham universe tanpa data KSEI atau tanpa return. `versi_data`: KSEI sidik `09c5f430eeb27a83` (6 koreksi KSEI aktif), harga sidik `de27580279a54592` (113 kode, 252.205 baris, 2010-01-01 s/d 2020-01-31, 11.340 koreksi harga aktif), cek kualitas 2026-11-07 0 temuan.
+
+| Kriteria efek kuat | Hasil | |
+|---|---|---|
+| 1. median selisih ≤ −5 poin | −15,1 poin | ✔ |
+| 2. rata-rata selisih ≤ −5 poin | +1,2 poin | ✘ |
+| 3. ≥ 60% kejadian tertinggal | 66,7% (28/42) | ✔ |
+| 4. median per siklus negatif ≥ 6 dari 9 | 6 dari 9 | ✔ |
+| 5. rata-rata tetap negatif tanpa 5 paling tertinggal | +10,5 poin | ✘ |
+
+Per siklus (universe / kejadian / bobot sama / median selisih / rata-rata selisih): 2011 49 / 10 / +21,1% / −6,5 / +6,3; 2012 43 / 4 / +16,8% / +15,5 / +5,1; 2013 62 / 2 / −6,9% / −14,3 / −14,3; 2014 55 / 3 / +26,2% / +4,4 / −1,4; 2015 60 / 4 / −29,8% / −20,7 / −15,7; 2016 50 / 2 / +20,1% / +41,0 / +41,0; 2017 58 / 7 / +23,0% / −37,2 / −30,1; 2018 62 / 6 / −7,6% / −10,7 / +18,6; 2019 65 / 4 / −18,8% / −16,5 / +20,2.
+
+Laporan saja: pembanding tanpa saham kejadian median −13,3 / rata-rata +1,3 / tertinggal 64%. Uji tanda 28/42, p satu sisi 0,022 (kejadian dalam siklus sama tidak independen, jadi p ini terlalu optimistis). Tanpa 5 kejadian paling unggul: rata-rata −19,3, median −20,2. Per besar: 5-20% (17) median −9,3 / rata-rata −2,9 / tertinggal 65%; > 20% (25) median −19,9 / rata-rata +4,0 / tertinggal 68%. Per penyebab: HMETD (16) median −1,4 / rata-rata +19,9 / tertinggal 50%; tanpa HMETD (4) median −10,6; konversi waran (2) MPPA −55,1, TKIM +192,6; merger (1) SCMA +4,4; campuran (3) semua tertinggal (MLPL, BUMI, IKAI); belum bersumber (16) median −14,7 / tertinggal 88%.
+
+Bacaan (deskriptif):
+- **Saham yang menerbitkan saham baru biasanya tertinggal** (2 dari 3 kejadian, median −15 poin dari bobot sama dalam 12 bulan), sejalan dengan McLean-Pontiff-Watanabe.
+- **Tapi rata-ratanya tidak tertinggal**, karena segelintir penerbit justru menjadi pemenang terbesar: AKRA 2011 (+199 poin), TKIM 2018 (+193), BRPT 2019 (+169), ANTM 2016 (+119), MLPL 2014 (+83). Membuang semua penerbit juga membuang saham-saham ini; TKIM dan BRPT termasuk 5 pemenang yang menopang H22/H30/H32.
+- Karena itu kriteria 2 dan 5 gagal: efeknya ada di "kejadian biasa", tapi tidak cukup untuk dipakai sebagai pengecualian di portofolio bobot sama (yang hasilnya ditentukan rata-rata, bukan median).
+- Pembagian per penyebab terlalu kecil untuk dibaca; HMETD yang bersumber justru paling tidak tertinggal (median −1,4), sedangkan kelompok "belum bersumber" paling tertinggal (88%). Ini bukan bukti apa pun.
+
+Keputusan: sesuai aturan yang dikunci, **efek kuat tidak terpenuhi → tidak dilanjutkan jadi hipotesis (termasuk sebagai filter H11a)**. Holdout (siklus 2020+) tidak dibuka dan tidak dilihat. Ide lanjutan yang muncul setelah melihat hasil (mis. hanya mengecualikan penerbitan besar, atau memakai median) adalah varian pasca hasil dan tidak dijalankan.
+
+## Catatan: return universe syariah IDX didominasi segelintir pemenang besar (2026-11-07, permintaan user)
+- **Pola yang berulang.** Return universe syariah likuid IDX banyak ditentukan oleh segelintir saham yang naik sangat besar, antara lain TKIM, BRPT, INKP, NIKL, SMBR, AKRA, ANTM. Ini sudah terlihat di:
+  - H22, H30, H32: ketiganya berakhir di pemenang yang sama (INKP, TKIM, NIKL, BRPT, SMBR) dan gagal tes tanpa 5/10 saham terbaik di universe Rp20 M (lihat "Penutupan keluarga momentum antar-saham").
+  - Audit H11a 2026-11-01: tanpa 10 saham terbaik, CAGR turun ke ±2%.
+  - Analisis penerbitan saham: median penerbit tertinggal 15 poin, tapi rata-ratanya +1 poin karena AKRA 2011, TKIM 2018, BRPT 2019, ANTM 2016, MLPL 2014 termasuk pemenang terbesar; membuang semua penerbit juga membuang mereka.
+- **Akibatnya**, filter yang terlihat masuk akal di "kejadian biasa" (median) bisa merugikan portofolio, karena hasil portofolio ditentukan rata-rata dan rata-rata ditentukan ekor kanan.
+- **Aturan untuk hipotesis berikutnya.** Setiap filter atau aturan yang membuang saham secara sistematis dari universe atau strategi dasar (mis. syarat fundamental, penerbitan saham, likuiditas tambahan, sektor) wajib, sejak dikunci, mencantumkan uji dampaknya ke pemenang besar:
+  1. Daftar 10 penyumbang laba terbesar strategi/pembanding dasar di periode uji, dan mana yang ikut terbuang oleh filter (berapa bulan atau siklus).
+  2. Sumbangan laba yang hilang karena saham-saham itu terbuang, dibanding laba yang terselamatkan dari saham yang dibuang dan memang tertinggal.
+  3. Hasil dilaporkan bersama tes konsentrasi simetris standar seragam (tanpa 5/10 saham terbaik). Uji dampak ini tambahan laporan wajib, bukan pengganti, dan tidak melonggarkan standar seragam.
+- Catatan ini berlaku ke depan saja; vonis hipotesis lama tidak berubah.
