@@ -42,6 +42,8 @@ PERINTAH = {
     "paper_cek": ("Cek ulang paper trade", ["-m", "backend.paper.cek_ulang"]),
     "paper_h22": ("Perbarui paper H29 (bagian H22)", ["-m", "backend.paper.h22_harian"]),
     "paper_h22_cek": ("Cek ulang paper H29 (bagian H22)", ["-m", "backend.paper.cek_h22"]),
+    "pantau_paper": ("Pantau paper: jejak posisi, banding backtest, catatan evaluasi", ["-m", "backend.paper.pantau", "harian"]),
+    "pantau_ambang": ("Hitung usulan ambang pantau paper (U2 & zona H29)", ["-m", "backend.research.ambang_pantau"]),
     "cadangan": ("Backup database", ["-m", "backend.db.cadangan", "buat"]),
     "cadangan_data": ("Backup data pasar (mingguan)", ["-m", "backend.db.cadangan", "data"]),
     "pulihkan": ("Pulihkan database dari backup", ["-m", "backend.db.cadangan", "pulihkan"]),
@@ -71,6 +73,8 @@ BENTROK = {
     "otomatis": {"pulihkan", "cadangan_data", "impor_kepemilikan", "impor_pengumuman", "impor_idx_harian"},
     "impor_fundamental": {"impor_lapkeu", "pulihkan"},
     "impor_lapkeu": {"impor_fundamental", "pulihkan"},
+    "pantau_paper": {"paper_harian", "paper_h22", "paper_unduh", "paper_cek", "paper_h22_cek", "kualitas_data", "harga_perbarui", "harga_unduh_ulang", "pasar_perbarui", "pulihkan", "pantau_ambang"},
+    "pantau_ambang": {"harga_perbarui", "harga_unduh_ulang", "pasar_perbarui", "kualitas_data", "isi_backtest", "isi_backtest_h29", "pulihkan", "pantau_paper"},
     "pulihkan": set(PERINTAH),
 }
 

@@ -37,13 +37,35 @@ def susun(db, koleksi):
     return hasil
 
 
-def bandingkan(prod, cek, sampai):
+TOLERANSI_JII = 0.001
+
+
+def pisah_jii(x):
+    jii = {k: [d.get("jii") for d in v] for k, v in x.items()}
+    return {k: [{a: b for a, b in d.items() if a != "jii"} for d in v] for k, v in x.items()}, jii
+
+
+def jii_beda(a, b):
+    beda = []
+    for k in sorted(set(a) & set(b)):
+        for x, y in zip(a[k], b[k]):
+            if (x is None) != (y is None) or (x and y and abs(x / y - 1) > TOLERANSI_JII):
+                beda.append({"kunci": " · ".join(k), "paper": x, "ulang": y})
+    return beda
+
+
+def bandingkan(prod, cek, sampai, info=None):
     beda = []
     for koleksi in KUNCI:
         a, b = susun(prod, koleksi), susun(cek, koleksi)
         if koleksi != h22.K_POSISI:
             a = {k: v for k, v in a.items() if k[0][:10] <= sampai}
             b = {k: v for k, v in b.items() if k[0][:10] <= sampai}
+        if koleksi == h22.K_EKUITAS:
+            a, ja = pisah_jii(a)
+            b, jb = pisah_jii(b)
+            if info is not None:
+                info["jii_beda"] = jii_beda(ja, jb)
         for k in sorted(set(a) | set(b)):
             if a.get(k) != b.get(k):
                 beda.append({"koleksi": koleksi, "kunci": " · ".join(k), "paper": str(a.get(k))[:300], "ulang": str(b.get(k))[:300]})
@@ -80,10 +102,12 @@ def utama():
         print(hasil.stdout[-2000:], hasil.stderr[-2000:])
         klien.drop_database(DB_CEK)
         raise SystemExit("jalankan ulang gagal")
-    beda = bandingkan(prod, cek, sampai)
+    info = {}
+    beda = bandingkan(prod, cek, sampai, info)
     hari = cek[h22.K_EKUITAS].count_documents({})
     prod.paper_h22_cek.insert_one({"waktu": datetime.now(), "sampai": sampai, "hari": hari, "cocok": not beda,
-                                   "jumlah_beda": len(beda), "beda": beda[:MAKS_BEDA], "sesi": status.get("sesi")})
+                                   "jumlah_beda": len(beda), "beda": beda[:MAKS_BEDA], "sesi": status.get("sesi"),
+                                   "jii_beda": info.get("jii_beda", [])[:MAKS_BEDA], "toleransi_jii": TOLERANSI_JII})
     klien.drop_database(DB_CEK)
     if beda:
         print(f"BEDA: {len(beda)} perbedaan antara paper H22 tersimpan dan hasil jalankan ulang ({hari} hari).")
@@ -92,6 +116,8 @@ def utama():
         print("Kemungkinan: yfinance merevisi harga lama, data saham hilang, atau bug. Cek saham yang disebut.")
     else:
         print(f"COCOK: {hari} hari paper H22 identik dengan hasil jalankan ulang (transaksi, posisi, ekuitas, rebalance).")
+    if info.get("jii_beda"):
+        print(f"Info: nilai JII pembanding beda di {len(info['jii_beda'])} hari (lebih dari {TOLERANSI_JII * 100:.1f}%), tidak memengaruhi transaksi/ekuitas.")
     print("SELESAI")
 
 

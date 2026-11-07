@@ -98,7 +98,7 @@ URUTAN_HARIAN = [
     "2. Ambil idx_harian (Chrome Lab); kalau gagal, langkah berikutnya tetap jalan dengan cadangan Yahoo dan ditandai",
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
-    "5. Cek ulang paper (paper_cek, paper_h22_cek)",
+    "5. Cek ulang paper (paper_cek, paper_h22_cek), lalu pantau_paper (jejak posisi H11a, banding dengan mesin backtest, insiden, catatan zona harian)",
     "6. Sumber data browser lain, tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
 ]
 
@@ -166,6 +166,8 @@ def jalan():
         langkah(db, "paper_cek", catatan=log)
     if ada_h22:
         langkah(db, "paper_h22_cek", catatan=log)
+    if ada_h11a or ada_h22:
+        langkah(db, "pantau_paper", catatan=log)
     jalan_browser(db, kecuali={"idx_harian"})
 
     def tulis():

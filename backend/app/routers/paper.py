@@ -121,14 +121,6 @@ def paper_cek(batas: int = Query(5, le=50)):
     return [bersih(x) for x in DB.paper_cek.find({}, {"_id": 0}).sort("waktu", -1).limit(batas)]
 
 
-def rugi_beruntun_terpanjang(net):
-    terpanjang = jalan = 0
-    for x in net:
-        jalan = jalan + 1 if x <= 0 else 0
-        terpanjang = max(terpanjang, jalan)
-    return terpanjang
-
-
 @router.get("/paper/zona")
 def paper_zona():
     b = DB.batas_paper.find_one({"_id": "h11a_v1"})
@@ -140,38 +132,15 @@ def paper_zona():
              "return": b["return"], "dd": b["dd"], "kurva": b["kurva"], "zona": "belum", "alasan": [], "paper": None}
     if not status or not ek:
         return hasil
-    modal = status["modal_awal"]
-    nilai = np.array([e["ekuitas"] for e in ek], dtype=float)
-    puncak = np.maximum.accumulate(np.maximum(nilai, modal))
-    ret = (nilai / modal - 1) * 100
-    dd = np.minimum.accumulate(nilai / puncak - 1) * 100
+    from backend.paper import pantau
+
     net = [t["net_pct"] for t in DB.paper_transaksi.find({"aksi": "jual"}, {"net_pct": 1}).sort("tgl", 1)]
-    h = len(nilai) - 1
-    beruntun = rugi_beruntun_terpanjang(net)
-    hasil["paper"] = {"tgl": [e["tgl"].strftime("%Y-%m-%d") for e in ek], "return": np.round(ret, 2).tolist(), "dd": np.round(dd, 2).tolist(),
-                      "hari": h, "trade": len(net), "beruntun": beruntun}
-    if h < 1:
+    z = pantau.zona_h11a(b, status["modal_awal"], [e["ekuitas"] for e in ek], net)
+    hasil["paper"] = {"tgl": [e["tgl"].strftime("%Y-%m-%d") for e in ek], "return": np.round(z["ret"], 2).tolist(), "dd": np.round(z["dd"], 2).tolist(),
+                      "hari": z["hari"], "trade": z["trade"], "beruntun": z["beruntun"]}
+    if z["hari"] < 1:
         return hasil
-    i = min(h, b["horizon"]) - 1
-    k = min(len(net), len(b["beruntun"]["p95"]))
-    batas = {"ret_p5": b["return"]["p5"][i], "ret_p1": b["return"]["p1"][i], "dd_p5": b["dd"]["p5"][i], "dd_p1": b["dd"]["p1"][i],
-             "beruntun_p95": b["beruntun"]["p95"][k - 1] if k else None, "beruntun_p99": b["beruntun"]["p99"][k - 1] if k else None,
-             "ret_p50": b["return"]["p50"][i]}
-    r, d_ = float(ret[-1]), float(dd[-1])
-    gagal, waspada = [], []
-    if h >= 63 and r < batas["ret_p1"]:
-        gagal.append(f"return {r:.1f}% di bawah persentil 1 ({batas['ret_p1']:.1f}%)")
-    elif h >= 21 and r < batas["ret_p5"]:
-        waspada.append(f"return {r:.1f}% di bawah persentil 5 ({batas['ret_p5']:.1f}%)")
-    if d_ < batas["dd_p1"]:
-        gagal.append(f"drawdown {d_:.1f}% lebih dalam dari persentil 1 ({batas['dd_p1']:.1f}%)")
-    elif d_ < batas["dd_p5"]:
-        waspada.append(f"drawdown {d_:.1f}% lebih dalam dari persentil 5 ({batas['dd_p5']:.1f}%)")
-    if k and beruntun > batas["beruntun_p99"]:
-        gagal.append(f"rugi beruntun {beruntun}x melebihi persentil 99 ({batas['beruntun_p99']}x)")
-    elif k and beruntun > batas["beruntun_p95"]:
-        waspada.append(f"rugi beruntun {beruntun}x melebihi persentil 95 ({batas['beruntun_p95']}x)")
-    hasil.update(zona="gagal" if gagal else "waspada" if waspada else "normal", alasan=gagal + waspada, batas=batas)
+    hasil.update(zona=z["zona"], alasan=z["alasan"], batas=z["batas"])
     return hasil
 
 
