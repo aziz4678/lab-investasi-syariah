@@ -22,6 +22,9 @@ TOL_KONTINU = 0.02
 COCOK_OPEN = 0.02
 KATEGORI_CA = ["split", "hmetd", "aksi", "pencatatan"]
 KATEGORI_HENTI = ["delisting", "suspensi"]
+KATA_CA = ["harga teoretis", "saham bonus", "hmetd", "right issue", "pemecahan nilai nominal", "stock split", "penggabungan nilai nominal", "reverse"]
+JENDELA_SAHAM_SEBELUM, JENDELA_SAHAM_SESUDAH = 5, 45
+SAHAM_BERUBAH = 0.01
 BUKAN_DELISTING_SAHAM = ["waran", "treasuri", "pencatatan kembali", "obligasi", "sukuk"]
 DELISTING_PASTI = ["delisting saham", "penghapusan pencatatan saham", "pembatalan pencatatan saham", "penghapusan pencatatan efek"]
 
@@ -37,8 +40,8 @@ def _idx():
 
 def _pengumuman():
     hasil = {}
-    for d in dt.db()["pengumuman"].find({"kategori": {"$in": KATEGORI_CA + KATEGORI_HENTI}, "kode": {"$ne": None}},
-                                        {"kode": 1, "tgl": 1, "kategori": 1, "judul": 1}):
+    q = {"kode": {"$ne": None}, "$or": [{"kategori": {"$in": KATEGORI_CA + KATEGORI_HENTI}}, {"judul": {"$regex": "|".join(KATA_CA), "$options": "i"}}]}
+    for d in dt.db()["pengumuman"].find(q, {"kode": 1, "tgl": 1, "kategori": 1, "judul": 1}):
         hasil.setdefault(d["kode"], []).append(d)
     return hasil
 
@@ -83,8 +86,12 @@ def _faktor(kode, g, y, registry, umum):
                 if abs(ry - ri) < TOL_KONTINU:
                     bukti.append("yahoo_kontinu")
         if any(t - pd.Timedelta(days=JENDELA_UMUM_SEBELUM) <= pd.Timestamp(p["tgl"]).normalize() <= t + pd.Timedelta(days=JENDELA_UMUM_SESUDAH)
-               and p["kategori"] in KATEGORI_CA for p in umum):
+               and (p["kategori"] in KATEGORI_CA or any(x in p["judul"].lower() for x in KATA_CA)) for p in umum):
             bukti.append("pengumuman")
+        ls = g["ListedShares"].astype(float)
+        jendela = ls[(ls.index >= t - pd.Timedelta(days=JENDELA_SAHAM_SEBELUM)) & (ls.index <= t + pd.Timedelta(days=JENDELA_SAHAM_SESUDAH)) & (ls > 0)]
+        if len(jendela) and jendela.max() / jendela.min() - 1 > SAHAM_BERUBAH:
+            bukti.append("saham_tercatat_berubah")
         beku = not (g.at[t, "prev_volume"] > 0)
         if not (FAKTOR_MIN <= f <= FAKTOR_MAKS):
             status = "terap_ekstrem_terkonfirmasi" if {"split_yahoo_cocok", "yahoo_kontinu"} & set(bukti) else "tahan_ekstrem"
@@ -93,7 +100,7 @@ def _faktor(kode, g, y, registry, umum):
         elif beku or abs(f - 1) < RESET_KECIL:
             status = "tidak_diterapkan_reset_acuan"
         else:
-            status = "terap_tanpa_bukti"
+            status = "tanpa_bukti_tidak_diterapkan"
         if status.startswith("terap"):
             terap[t] = float(f)
         catatan.append({"tgl": str(t.date()), "faktor": round(float(f), 6), "status": status, "bukti": bukti,
@@ -193,6 +200,7 @@ def satu(kode, g, y, registry, umum, div_idx):
         "saham_tercatat": g["ListedShares"].astype(float) / E, "asing_beli": g["ForeignBuy"].astype(float) / E, "asing_jual": g["ForeignSell"].astype(float) / E,
         "dividen": div.astype(float), "dividen_mentah": (div / E).astype(float), "dividen_sumber": div_sumber.astype(str),
         "sumber_open": sumber_open.astype(str), "tanpa_transaksi": (~ada).astype(bool), "beku": beku.astype(bool),
+        "faktor_tanpa_bukti": pd.Series(g.index.isin([pd.Timestamp(c["tgl"]) for c in catatan if c["status"] == "tanpa_bukti_tidak_diterapkan"]), index=g.index).astype(bool),
     }, index=g.index)
     df.index.name = "Date"
     return df, catatan, periode_beku, tanpa_nilai
