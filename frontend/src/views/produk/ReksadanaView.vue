@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, inject } from "vue";
 import { ambil } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import HeaderStrategi from "@/components/common/HeaderStrategi.vue";
@@ -9,11 +9,10 @@ import KatalogTab from "@/views/produk/reksadana/KatalogTab.vue";
 import BandingTab from "@/views/produk/reksadana/BandingTab.vue";
 import SukukTab from "@/views/produk/reksadana/SukukTab.vue";
 import CaraKerjaTab from "@/views/produk/reksadana/CaraKerjaTab.vue";
-import KonservatifTab from "@/views/produk/reksadana/KonservatifTab.vue";
 
 const props = defineProps({ sub: String });
 const emit = defineEmits(["sub"]);
-const SUB = [["mulai", "Mulai di sini"], ["konservatif", "Portofolio Konservatif"], ["katalog", "Reksa Dana"], ["sukuk", "Sukuk & SBN"], ["banding", "Bandingkan"], ["data", "Cara kerja & istilah"]];
+const SUB = [["mulai", "Mulai di sini"], ["katalog", "Reksa Dana"], ["sukuk", "Sukuk & SBN"], ["banding", "Bandingkan"], ["data", "Cara kerja & istilah"]];
 const MAKS_BANDING = 5;
 
 const baca = (k, awal) => {
@@ -38,6 +37,7 @@ const pilih = ref(location.hash.startsWith("#reksadana/katalog/") ? Number(locat
 const kategoriKatalog = ref(baca("rd_kategori", "pasar_uang"));
 const kunciBanding = ref(0);
 const kerjaRd = pakaiPekerjaan();
+const pindahTab = inject("pindahTab");
 
 async function muat() {
   [daftar.value, mulaiData.value] = await Promise.all([ambil("rd/daftar").catch(() => null), ambil("rd/mulai").catch(() => null)]);
@@ -83,11 +83,16 @@ function gantiSub(s) {
       :chip="[{ teks: `${info?.produk ?? '…'} reksa dana syariah`, kelas: 'bg-aksen-lembut text-aksen' }, { teks: `${info?.sukuk ?? '…'} sukuk`, kelas: 'bg-surface-2 text-ink-2' }, { teks: info?.ojk ? `Riwayat sejak ${info.ojk.dari.slice(0, 4)} (OJK)` : 'Riwayat ±1 tahun', kelas: 'bg-surface-2 text-ink-2' }]" />
 
     <ProdukRD v-if="pilih" :id="pilih" @kembali="pilih = null" @banding="keBanding" />
-    <MulaiTab v-else-if="sub === 'mulai'" :m="mulaiData" :data="daftar?.data" @buka="buka" @banding="keBanding" @katalog="keKatalog" @sukuk="gantiSub('sukuk')" @cara="gantiSub('data')" />
+    <template v-else-if="sub === 'mulai'">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-aksen-lembut px-5 py-3">
+        <span class="text-[13px] text-ink-2">Ingin penghasilan rutin dari RD & SBN tanpa daya beli modal berkurang? Lihat hitungannya di Portofolio Konservatif.</span>
+        <button class="tombol-utama" @click="pindahTab('konservatif')">Buka Portofolio Konservatif</button>
+      </div>
+      <MulaiTab :m="mulaiData" :data="daftar?.data" @buka="buka" @banding="keBanding" @katalog="keKatalog" @sukuk="gantiSub('sukuk')" @cara="gantiSub('data')" />
+    </template>
     <KatalogTab v-else-if="sub === 'katalog'" v-model:kategori="kategoriKatalog" :daftar="daftar" :kerja="kerjaRd" @muat="muat" @buka="buka" @banding="keBanding" />
     <BandingTab v-else-if="sub === 'banding'" :key="kunciBanding" />
     <SukukTab v-else-if="sub === 'sukuk'" />
-    <KonservatifTab v-else-if="sub === 'konservatif'" />
     <CaraKerjaTab v-else :daftar="daftar" :m="mulaiData" />
   </div>
 </template>

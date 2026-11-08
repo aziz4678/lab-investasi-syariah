@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
-import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, ShieldCheck, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-vue-next";
+import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, ShieldCheck, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw, PiggyBank } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { modeTema, setTema, temaGelap } from "@/composables/tema";
 import logoTerang from "@/assets/logo/logo.svg";
@@ -12,6 +12,7 @@ import ReksadanaView from "@/views/produk/ReksadanaView.vue";
 import EtfView from "@/views/produk/EtfView.vue";
 import RencanaView from "@/views/lainnya/RencanaView.vue";
 import HipotesisView from "@/views/riset/HipotesisView.vue";
+import KonservatifView from "@/views/riset/KonservatifView.vue";
 import EmitenView from "@/views/produk/EmitenView.vue";
 import PanduanView from "@/views/lainnya/PanduanView.vue";
 import KualitasDataView from "@/views/lainnya/KualitasDataView.vue";
@@ -20,7 +21,7 @@ const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H33" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H33" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "kualitas", l: "Kualitas data", ikon: ShieldCheck, ket: "Cek & koreksi harga", sub: "Cek & koreksi harga" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -40,8 +41,9 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "konservatif", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
+const ALIH = { "reksadana/konservatif": "konservatif" };
 const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
 const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
@@ -114,7 +116,8 @@ onMounted(() => {
   pantau = setInterval(cekBuild, 20000);
   const [h, xAsli] = location.hash.replace("#", "").split("/");
   const x = SUB_LAMA[h]?.[xAsli] || xAsli;
-  if (LAMA[h]) pilih(h);
+  if (ALIH[`${h}/${xAsli}`]) pilih(ALIH[`${h}/${xAsli}`]);
+  else if (LAMA[h]) pilih(h);
   else if (TAB.some((t) => t.k === h)) {
     tab.value = h;
     if (SUB_TAB[h]?.includes(x)) subTab.value = { ...subTab.value, [h]: x };
@@ -210,6 +213,7 @@ onMounted(() => {
       <EtfView v-else-if="tab === 'etf'" :sub="sub" @sub="gantiSub" />
       <EmitenView v-else-if="tab === 'emiten'" />
       <HipotesisView v-else-if="tab === 'hipotesis'" />
+      <KonservatifView v-else-if="tab === 'konservatif'" />
       <RencanaView v-else-if="tab === 'rencana'" />
       <KualitasDataView v-else-if="tab === 'kualitas'" />
       <PanduanView v-else />
