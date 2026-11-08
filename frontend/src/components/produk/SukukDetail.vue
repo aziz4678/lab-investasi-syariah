@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import { ArrowLeft } from "lucide-vue-next";
 import { ambil } from "@/api/client";
-import { persen } from "@/utils/format";
+import { persen, tanggal } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import Logo from "@/components/common/Logo.vue";
@@ -43,7 +43,7 @@ const angka = (v) => (v == null ? "–" : v.toLocaleString("id-ID", { minimumFra
       <p v-if="ket" class="m-0 mt-4 rounded-2xl bg-surface-2 px-4 py-3 text-[13px] leading-relaxed text-ink-2">{{ ket }}</p>
       <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Kupon per tahun</div><div class="mt-0.5 text-[17px] font-medium">{{ x.kupon == null ? "–" : persen(x.kupon * 100, 2, false) }}</div><div class="text-[11px] text-muted">{{ x.jenis_kupon === "Fixed" ? "tetap" : x.jenis_kupon || "" }}</div></div>
-        <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Yield</div><div class="mt-0.5 text-[17px] font-medium">{{ x.ytm == null ? "–" : persen(x.ytm * 100, 2, false) }}</div><div class="text-[11px] text-muted">kalau dibeli sekarang & ditahan</div></div>
+        <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Yield</div><div class="mt-0.5 text-[17px] font-medium">{{ x.ytm == null ? "–" : persen(x.ytm * 100, 2, false) }}</div><div class="text-[11px] text-muted">kalau dibeli sekarang & ditahan · sebelum pajak 10%<template v-if="x.ytm_bersih != null"> · bersih {{ persen(x.ytm_bersih * 100, 2, false) }}</template><template v-if="x.tgl_harga"> · harga {{ tanggal(x.tgl_harga) }}</template></div></div>
         <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Harga</div><div class="mt-0.5 text-[17px] font-medium">{{ angka(x.harga) }}</div><div class="text-[11px] text-muted">% dari nilai pokok</div></div>
         <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Jatuh tempo</div><div class="mt-0.5 text-[15px] font-medium">{{ tglPanjang(x.jatuh_tempo) }}</div><div class="text-[11px] text-muted">{{ x.sisa_tahun == null ? "" : `${x.sisa_tahun.toLocaleString("id-ID", { maximumFractionDigits: 1 })} tahun lagi` }}</div></div>
         <div class="rounded-2xl border border-garis px-4 py-3"><div class="text-xs text-muted">Kepekaan harga</div><div class="mt-0.5 text-[17px] font-medium">{{ x.durasi == null ? "–" : x.durasi.toLocaleString("id-ID", { maximumFractionDigits: 1 }) }}</div><div class="text-[11px] text-muted">turun ±{{ x.durasi == null ? "–" : x.durasi.toLocaleString("id-ID", { maximumFractionDigits: 1 }) }}% kalau bunga naik 1%</div></div>

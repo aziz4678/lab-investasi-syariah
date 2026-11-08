@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from curl_cffi import requests
 
+from backend.core import obligasi
 from backend.db import koneksi as d
 
 DASAR = "https://pasardana.id/api"
@@ -149,7 +150,9 @@ def perbarui_sukuk(s, db):
                     "jenis_kupon": r.get("InterestType"), "terbit": tgl(r.get("IssueDate")), "jatuh_tempo": tgl(r.get("MatureDate")),
                     "jumlah": r.get("CurrentAmount"), "rating": (r.get("Rating") or {}).get("Name") if isinstance(r.get("Rating"), dict) else r.get("Rating"),
                     "harga": b.get("LastPrice"), "ytm": b.get("Ytm"), "current_yield": b.get("CurrentYield"), "sisa_tahun": b.get("Ttm"),
-                    "durasi": b.get("ModDur"), "frekuensi": b.get("Freq"), "data_tgl": tgl(b.get("DateModified")), "mata_uang": r.get("Currency")})
+                    "durasi": b.get("ModDur"), "frekuensi": b.get("Freq"), "data_tgl": tgl(b.get("DateModified")), "mata_uang": r.get("Currency"),
+                    "frek_kupon": obligasi.FREK.get(r.get("InterestFrequency")), "nilai_transaksi": b.get("TotalVal")})
+        obligasi.isi(dok[-1])
     if dok:
         db.rd_sukuk.insert_many(dok)
         n_riwayat = 0
@@ -157,7 +160,7 @@ def perbarui_sukuk(s, db):
             if x.get("harga") is None or x.get("data_tgl") is None:
                 continue
             t = x["data_tgl"].replace(hour=0, minute=0, second=0, microsecond=0)
-            db.rd_sukuk_harga.replace_one({"_id": f"{x['_id']}_{t:%Y%m%d}"}, {"kode": x["_id"], "tgl": t, "harga": x["harga"], "ytm": x.get("ytm")}, upsert=True)
+            db.rd_sukuk_harga.replace_one({"_id": f"{x['_id']}_{t:%Y%m%d}"}, {"kode": x["_id"], "tgl": t, "harga": x["harga"], "ytm": x.get("ytm"), "ytm_pasardana": x.get("ytm_pasardana")}, upsert=True)
             n_riwayat += 1
         db.rd_sukuk_harga.create_index([("kode", 1), ("tgl", 1)])
         print(f"Riwayat harga sukuk: {n_riwayat} seri dicatat untuk hari ini, total {db.rd_sukuk_harga.count_documents({})} titik")

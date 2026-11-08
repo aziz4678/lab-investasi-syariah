@@ -76,7 +76,7 @@ const ISTILAH = [
   ["Prospektus", "", "Dokumen resmi lengkap: tujuan, kebijakan investasi, biaya, risiko."],
   ["Unit penyertaan", "UP", "\"Saham\" kamu di reksa dana. Jumlahnya tetap; nilainya ikut NAV."],
   ["Tolok ukur", "Benchmark", "Pembanding resmi produk (mis. bunga deposito, indeks JII)."],
-  ["Hasil kalau ditahan (sukuk)", "YTM", "Perkiraan hasil per tahun sukuk kalau dibeli di harga sekarang dan dipegang sampai jatuh tempo."],
+  ["Hasil kalau ditahan (sukuk)", "YTM", "Perkiraan hasil per tahun sukuk kalau dibeli di harga sekarang dan dipegang sampai jatuh tempo, sebelum pajak kupon 10% (angka bersih ditampilkan terpisah)."],
 ];
 const LENCANA = [
   ["Konsisten", "Dalam ≥ 60% periode 12 bulan, hasilnya di atas nilai tengah RD sejenis. Butuh data ≥ 3 tahun."],

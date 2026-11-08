@@ -4,6 +4,7 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 
+from backend.core import obligasi
 from backend.db import data as dt
 from backend.db import koneksi as d
 
@@ -626,7 +627,7 @@ def racikan(jangka="menengah", profil="rendah"):
 
 def sukuk():
     db = d.koneksi()
-    data = list(db.rd_sukuk.find({}))
+    data = [obligasi.isi(x) for x in db.rd_sukuk.find({})]
     for x in data:
         x["kode"] = x.pop("_id")
     df = pd.DataFrame(data)
@@ -644,6 +645,10 @@ def sukuk_riwayat(kode):
     if x is None:
         return None
     r = list(db.rd_sukuk_harga.find({"kode": kode}).sort("tgl", 1))
+    f = obligasi.frek(x)
+    if f:
+        for z in r:
+            z["ytm"] = obligasi.ytm(z["harga"], x.get("kupon"), x.get("jatuh_tempo"), z["tgl"], f)
     return bersih({"kode": kode, "nama": x.get("nama"), "tgl": [z["tgl"].strftime("%Y-%m-%d") for z in r], "harga": [z["harga"] for z in r],
                    "ytm": [None if z.get("ytm") is None else z["ytm"] * 100 for z in r]})
 
