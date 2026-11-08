@@ -190,7 +190,7 @@ const lamaPulih = (p) => (p.pulih_bulan == null ? "belum pulih" : `${p.pulih_bul
 
 const sim = ref(null);
 const simMemuat = ref(false);
-const simMulai = ref("");
+const simTahun = ref("10");
 const simTarik = ref("aman");
 const tarikPengeluaran = computed(() => (r.value?.sisa ? Math.min((pengeluaran.value * 12) / r.value.sisa, 0.3) : null));
 const PILIHAN_TARIK_TETAP = [0.03, 0.05];
@@ -202,25 +202,30 @@ const pilihanTarikSim = computed(() => {
   return daftar;
 });
 const nilaiTarikSim = computed(() => (simTarik.value === "aman" ? null : simTarik.value === "pengeluaran" ? tarikPengeluaran.value : Number(simTarik.value)));
-const pilihanMulaiSim = computed(() => (sim.value?.pilihan_mulai ?? []).map((b) => [b, b.endsWith("-01") ? b.slice(0, 4) : bulanTeks(b).replace(/^(\w{3})\w*/, "$1")]));
+const pilihanTahunSim = computed(() => (sim.value?.pilihan_tahun ?? [5, 10, 15, 20]).map((t) => [String(t), `${t} tahun`]));
 const muatSim = async () => {
   if (!r.value?.ada || !r.value.sisa) return;
   simMemuat.value = true;
-  const q = new URLSearchParams({ modal: r.value.sisa, opsi: opsi.value, aplikasi: aplikasi.value });
+  const q = new URLSearchParams({ modal: r.value.sisa, opsi: opsi.value, aplikasi: aplikasi.value, tahun: simTahun.value });
   if (nilaiTarikSim.value != null) q.set("tarik", nilaiTarikSim.value);
-  if (simMulai.value) q.set("mulai", simMulai.value);
   sim.value = await ambil(`konservatif/simulasi?${q}`).catch(() => null);
-  if (sim.value?.ada && !simMulai.value) simMulai.value = sim.value.mulai;
   simMemuat.value = false;
 };
 let jedaSim = null;
-watch([() => r.value?.sisa, opsi, aplikasi, simMulai, nilaiTarikSim], () => {
+watch([() => r.value?.sisa, opsi, aplikasi, simTahun, nilaiTarikSim], () => {
   clearTimeout(jedaSim);
   jedaSim = setTimeout(muatSim, 250);
 });
-const simR = computed(() => sim.value?.ringkas);
-const dayaBeliPersen = (v) => (sim.value?.modal ? v / sim.value.modal : null);
+const simA = computed(() => sim.value?.akhir);
+const persenBulat = (v) => (v == null ? "–" : `${Math.round(v * 100)}%`);
 const kelasDayaBeli = (v) => (v == null ? "" : v >= 0.995 ? "text-naik" : v >= 0.9 ? "text-kuning" : "text-turun");
+const peluangKata = (v) => (v == null ? "" : v >= 0.95 ? "hampir pasti" : v >= 0.8 ? "besar" : v >= 0.5 ? "sedang" : v >= 0.2 ? "kecil" : "sangat kecil");
+const tabelSim = computed(() => {
+  const t = sim.value?.per_tahun ?? [];
+  const n = t.length - 1;
+  const langkah = n > 10 ? 5 : 1;
+  return t.filter((x) => x.tahun > 0 && (x.tahun % langkah === 0 || x.tahun === n));
+});
 
 const jalur = computed(() => port.value?.jalur ?? []);
 const pilihanTarik = computed(() => jalur.value.map((j) => [String(j.tarik), `${pr(j.tarik)}${j.tarik === port.value?.aman_5 ? " (aman)" : ""}`]));
@@ -455,12 +460,12 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         </ol>
       </Panel>
 
-      <Panel judul="6 · Simulasi: kalau dulu sudah mulai" :ket="`Memutar ulang data sebenarnya dengan modal investasi ${rupiahRingkas(r.sisa)} dan gaya ${NAMA_OPSI[opsi]}, sampai ${bulanTeks(r.periode.akhir)}`">
+      <Panel judul="6 · Simulasi ke depan" :ket="`Modal investasi ${rupiahRingkas(r.sisa)}, gaya ${NAMA_OPSI[opsi]}, mulai sekarang`">
         <template #aksi><Pemutar v-if="simMemuat" /></template>
         <div class="grid gap-4">
           <div class="min-w-0">
-            <div class="text-xs text-muted">Mulai investasi</div>
-            <Segmen v-model="simMulai" :pilihan="pilihanMulaiSim" kecil class="mt-1.5" />
+            <div class="text-xs text-muted">Jangka waktu</div>
+            <Segmen v-model="simTahun" :pilihan="pilihanTahunSim" kecil class="mt-1.5" />
           </div>
           <div class="min-w-0">
             <div class="text-xs text-muted">Berapa yang diambil tiap tahun</div>
@@ -468,63 +473,69 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           </div>
         </div>
 
-        <template v-if="sim?.ada && simR">
-          <div class="mt-5 rounded-2xl px-5 py-4" :class="simR.habis ? 'bg-turun-bg' : 'bg-surface-2'">
+        <template v-if="sim?.ada && simA">
+          <div class="mt-5 rounded-2xl px-5 py-4" :class="simA.habis >= 0.5 ? 'bg-turun-bg' : simA.utuh >= 0.8 ? 'bg-naik-bg' : 'bg-kuning-bg'">
             <p class="m-0 text-[14px] leading-relaxed text-ink">
-              Kalau mulai <b class="font-medium">{{ bulanTeks(sim.mulai) }}</b> dengan {{ rupiahRingkas(sim.modal) }} dan mengambil
-              <b class="font-medium">{{ rupiahRingkas(simR.ambil_awal) }}/bulan</b> ({{ pr(sim.tarik) }} per tahun, naik ikut inflasi sampai {{ rupiahRingkas(simR.ambil_akhir) }}/bulan),
-              <template v-if="simR.habis">
-                <b class="font-medium text-turun">uangnya habis di {{ bulanTeks(simR.habis) }}</b>, setelah {{ rupiahRingkas(simR.total_ambil) }} terambil.
+              Kalau mulai sekarang dan mengambil <b class="font-medium">{{ rupiahRingkas(sim.per_tahun[0].ambil_bulan) }}/bulan</b> ({{ pr(sim.tarik) }} per tahun, naik ikut inflasi<template v-if="simA.habis < 0.5"> sampai ±{{ rupiahRingkas(simA.ambil_bulan) }}/bulan di tahun ke-{{ sim.tahun }}</template>),
+              <template v-if="simA.habis >= 0.5">
+                <b class="font-medium text-turun">uangnya kemungkinan besar habis</b> ({{ persenBulat(simA.habis) }} dari kemungkinan), biasanya di tahun ke-{{ Math.round(sim.habis_median_tahun) }}.
               </template>
               <template v-else>
-                sampai {{ bulanTeks(sim.akhir) }} kamu sudah menerima <b class="font-medium">{{ rupiahRingkas(simR.total_ambil) }}</b>, dan modalmu masih
-                <b class="font-medium">{{ rupiahRingkas(simR.nilai_akhir) }}</b>, setara {{ rupiahRingkas(simR.daya_beli_akhir) }} uang saat mulai
-                (<span :class="kelasDayaBeli(dayaBeliPersen(simR.daya_beli_akhir))">daya beli {{ modalPersen(dayaBeliPersen(simR.daya_beli_akhir)) }}</span>).
+                dalam {{ sim.tahun }} tahun kamu akan menerima sekitar <b class="font-medium">{{ rupiahRingkas(simA.total_ambil) }}</b>.
+                Daya beli modal biasanya <b class="font-medium" :class="kelasDayaBeli(simA.daya_p50)">{{ persenBulat(simA.daya_p50) }}</b> dari sekarang;
+                di kondisi buruk <b class="font-medium" :class="kelasDayaBeli(simA.daya_p10)">{{ persenBulat(simA.daya_p10) }}</b>.
+                Peluang daya beli modal tetap utuh: <b class="font-medium">{{ persenBulat(simA.utuh) }}</b> ({{ peluangKata(simA.utuh) }}).
               </template>
             </p>
           </div>
 
           <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Total sudah diambil</div>
-              <div class="text-[17px] font-semibold tabular-nums">{{ rupiahRingkas(simR.total_ambil) }}</div>
-              <div class="text-[11px] text-muted">{{ simR.bulan }} bulan</div>
+              <div class="text-[11px] text-muted">Total diterima {{ sim.tahun }} tahun</div>
+              <div class="text-[17px] font-semibold tabular-nums">{{ rupiahRingkas(simA.total_ambil) }}</div>
+              <div class="text-[11px] text-muted">biasanya</div>
             </div>
             <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Nilai modal sekarang</div>
-              <div class="text-[17px] font-semibold tabular-nums">{{ rupiahRingkas(simR.nilai_akhir) }}</div>
-              <div class="text-[11px] text-muted">awal {{ rupiahRingkas(sim.modal) }}</div>
+              <div class="text-[11px] text-muted">Daya beli modal, biasanya</div>
+              <div class="text-[17px] font-semibold tabular-nums" :class="kelasDayaBeli(simA.daya_p50)">{{ persenBulat(simA.daya_p50) }}</div>
+              <div class="text-[11px] text-muted">nilai ±{{ rupiahRingkas(simA.nilai_p50) }}</div>
             </div>
             <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Daya beli modal sekarang</div>
-              <div class="text-[17px] font-semibold tabular-nums" :class="kelasDayaBeli(dayaBeliPersen(simR.daya_beli_akhir))">{{ modalPersen(dayaBeliPersen(simR.daya_beli_akhir)) }}</div>
-              <div class="text-[11px] text-muted">harga naik {{ pr(sim.inflasi, 0) }} sejak mulai</div>
+              <div class="text-[11px] text-muted">Daya beli, kondisi buruk</div>
+              <div class="text-[17px] font-semibold tabular-nums" :class="kelasDayaBeli(simA.daya_p10)">{{ persenBulat(simA.daya_p10) }}</div>
+              <div class="text-[11px] text-muted">1 dari 10 kemungkinan lebih buruk</div>
             </div>
             <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">{{ simR.habis ? "Uang habis" : "Titik terendah daya beli" }}</div>
-              <div class="text-[17px] font-semibold tabular-nums" :class="simR.habis ? 'text-turun' : ''">{{ simR.habis ? bulanTeks(simR.habis) : modalPersen(dayaBeliPersen(simR.terendah.daya_beli)) }}</div>
-              <div class="text-[11px] text-muted">{{ simR.habis ? "tidak ada lagi yang bisa diambil" : bulanTeks(simR.terendah.bulan) }}</div>
+              <div class="text-[11px] text-muted">{{ simA.habis > 0 ? "Peluang uang habis" : "Peluang modal tetap utuh" }}</div>
+              <div class="text-[17px] font-semibold tabular-nums" :class="simA.habis > 0 ? 'text-turun' : ''">{{ persenBulat(simA.habis > 0 ? simA.habis : simA.utuh) }}</div>
+              <div class="text-[11px] text-muted">{{ simA.habis > 0 ? `biasanya di tahun ke-${Math.round(sim.habis_median_tahun)}` : "daya beli ≥ 100% di akhir" }}</div>
             </div>
           </div>
 
-          <div class="mt-5"><GrafikSimulasi :seri="sim.seri" :modal="sim.modal" /></div>
+          <div class="mt-5">
+            <div class="mb-1 text-[12px] text-muted">Daya beli modal (dalam rupiah hari ini)</div>
+            <GrafikSimulasi :tahun="sim.per_tahun" :modal="sim.modal" />
+          </div>
 
           <div class="mt-5 overflow-x-auto">
             <table class="tabel w-full text-[13px] max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5 max-sm:[&_th]:whitespace-normal">
-              <thead><tr><th>Tahun</th><th class="text-right!">Diambil/bln</th><th class="text-right!">Modal akhir th</th><th class="text-right!">Daya beli</th></tr></thead>
+              <thead><tr><th><span class="sm:hidden">Th</span><span class="max-sm:hidden">Tahun ke-</span></th><th class="text-right!">Diambil/bln</th><th class="text-right!">Daya beli biasanya</th><th class="text-right!">Kondisi buruk</th><th class="text-right!"><span class="sm:hidden">Utuh</span><span class="max-sm:hidden">Peluang utuh / habis</span></th></tr></thead>
               <tbody>
-                <tr v-for="t in sim.per_tahun" :key="t.tahun">
-                  <td class="tabular-nums">{{ t.tahun }}<span v-if="t.bulan < 12" class="text-[11px] text-muted"> ({{ t.bulan }} bln)</span></td>
-                  <td class="text-right tabular-nums">{{ rupiahRingkas(t.ambil_bulan) }}</td>
-                  <td class="text-right tabular-nums">{{ rupiahRingkas(t.nilai) }}</td>
-                  <td class="text-right tabular-nums" :class="kelasDayaBeli(dayaBeliPersen(t.daya_beli))">{{ modalPersen(dayaBeliPersen(t.daya_beli)) }}</td>
+                <tr v-for="t in tabelSim" :key="t.tahun">
+                  <td class="tabular-nums">{{ t.tahun }}</td>
+                  <td class="text-right tabular-nums" :class="t.habis >= 0.5 ? 'text-muted' : ''">{{ t.habis >= 0.5 ? "uang habis" : rupiahRingkas(t.ambil_bulan) }}</td>
+                  <td class="text-right tabular-nums" :class="kelasDayaBeli(t.daya_p50)">{{ persenBulat(t.daya_p50) }}</td>
+                  <td class="text-right tabular-nums" :class="kelasDayaBeli(t.daya_p10)">{{ persenBulat(t.daya_p10) }}</td>
+                  <td class="text-right tabular-nums">{{ t.habis > 0 ? `habis ${persenBulat(t.habis)}` : persenBulat(t.utuh) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="m-0 mt-3 text-[11px] leading-relaxed text-muted">
-            Ini memutar ulang yang sudah terjadi (NAV bulanan RD dari OJK, inflasi BPS, kupon sukuk negara yang benar-benar terbit), bukan ramalan.
-            Dihitung dari {{ NAMA_SKENARIO[sim.skenario] }}, cara yang sama dengan angka di atas. Sukuk negara dihitung di harga 100 karena ditahan sampai jatuh tempo. Daya beli = nilai modal setelah dikurangi kenaikan harga.
+            Bukan ramalan. Masa depan dibentuk dengan mengacak potongan 12 bulan dari data {{ bulanTeks(sim.data.awal) }} – {{ bulanTeks(sim.data.akhir) }} (hasil RD dari OJK dan inflasi BPS pada bulan yang sama), {{ sim.jumlah_jalur.toLocaleString("id-ID") }} kemungkinan.
+            Kalau masa depan lebih buruk dari periode itu, hasilnya juga lebih buruk.
+            <template v-if="sim.porsi_sbn > 0"> Kupon sukuk negara dianggap tetap {{ pr(sim.kupon_sbn, 2) }} per tahun (penawaran terdekat, sebelum pajak 10%) dan diputar ulang ke seri baru saat jatuh tempo; kupon nyata bisa naik atau turun.</template>
+            Penghasilan dinaikkan setiap tahun sesuai inflasi tahun itu. "Biasanya" = nilai tengah; "kondisi buruk" = hanya 1 dari 10 kemungkinan yang lebih buruk.
           </p>
         </template>
       </Panel>

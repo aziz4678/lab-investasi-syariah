@@ -43,9 +43,9 @@ def konservatif():
 
 
 @router.get("/konservatif/simulasi")
-def konservatif_simulasi(modal: float = 1_000_000_000, opsi: str = "sbn50", tarik: float | None = None, mulai: str | None = None, aplikasi: str = "semua"):
+def konservatif_simulasi(modal: float = 1_000_000_000, opsi: str = "sbn50", tarik: float | None = None, tahun: int = 10, aplikasi: str = "semua"):
     from backend.app.services import penarikan
-    return penarikan.simulasi(modal, opsi, tarik, mulai, aplikasi)
+    return penarikan.simulasi(modal, opsi, tarik, tahun, aplikasi)
 
 
 @router.get("/konservatif/rencana")

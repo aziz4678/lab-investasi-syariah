@@ -320,6 +320,10 @@ def rencana(modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50"
 
 
 TARIK_MAKS = 0.30
+TAHUN_MAKS = 30
+PILIHAN_TAHUN = (5, 10, 15, 20)
+JUMLAH_JALUR = 1000
+SEED_JALUR = 7
 _KONTEKS = {}
 
 
@@ -341,52 +345,80 @@ def _konteks(skenario_pakai, aplikasi):
     return _KONTEKS[kunci]
 
 
-def simulasi(modal=1_000_000_000, opsi="sbn50", tarik=None, mulai=None, aplikasi="semua"):
-    from backend.research import analisis_penarikan as ap
+def simulasi(modal=1_000_000_000, opsi="sbn50", tarik=None, tahun=10, aplikasi="semua", jumlah=JUMLAH_JALUR, seed=SEED_JALUR):
+    import numpy as np
     from backend.research import keranjang as kr
     aplikasi = aplikasi if aplikasi in kr.APLIKASI else "semua"
     opsi = opsi if opsi in OPSI else "sbn50"
+    tahun = int(min(max(int(tahun), 1), TAHUN_MAKS))
     h, dok = _dok_rencana(aplikasi)
     if dok is None:
         return {"ada": False}
     pakai, port, _ = skenario(dok, opsi, aplikasi)
-    r, cpi, akhir, awal_data, sbn, bi = _konteks(pakai, aplikasi)
-    pilihan = [str(awal_data)] + [f"{y}-01" for y in range(awal_data.year + 1, akhir.year) if pd.Period(f"{y}-01", "M") + 11 <= akhir]
-    t0 = pd.Period(mulai, "M") if mulai else pd.Period(pilihan[0], "M")
-    t0 = min(max(t0, awal_data), akhir - 11)
+    r, cpi, akhir, awal_data, _, _ = _konteks(pakai, aplikasi)
     tarik = port.get("aman_5") if tarik is None else min(max(float(tarik), 0.0), TARIK_MAKS)
     tarik = tarik or 0.0
-    riil, terkunci, gagal = ap.simulasi(t0, akhir, "rd", port["porsi_sbn"], tarik, r, cpi, sbn, bi)
-    acuan = cpi[t0 - 1]
-    bulan = pd.period_range(t0, akhir, freq="M")
-    habis = int(gagal[0]) if gagal else None
-    nominal_tarik = tarik / 12
-    seri, total_ambil = [], 0.0
-    for i, t in enumerate(bulan):
-        if i > 0 and i % 12 == 0:
-            nominal_tarik *= cpi[t - 1] / cpi[t - 13]
-        nilai = float(riil[i] * cpi[t] / acuan * modal)
-        if habis is None or i < habis:
-            ambil = nominal_tarik * modal
-        elif i == habis:
-            ambil = float(riil[i - 1] * cpi[t - 1] / acuan * modal) if i > 0 else modal
-        else:
-            ambil = 0.0
-        total_ambil += ambil
-        seri.append({"bulan": str(t), "nilai": nilai, "daya_beli": float(riil[i] * modal), "ambil": ambil, "total_ambil": total_ambil,
-                     "terkunci": float(terkunci[i])})
-    per_tahun = []
-    for y in sorted({int(x["bulan"][:4]) for x in seri}):
-        b = [x for x in seri if x["bulan"].startswith(str(y))]
-        per_tahun.append({"tahun": y, "bulan": len(b), "ambil_bulan": max(x["ambil"] for x in b), "ambil_tahun": sum(x["ambil"] for x in b),
-                          "nilai": b[-1]["nilai"], "daya_beli": b[-1]["daya_beli"], "total_ambil": b[-1]["total_ambil"]})
-    terendah = min(range(len(seri)), key=lambda i: seri[i]["daya_beli"])
+    w = port["porsi_sbn"]
+    kupon_th = None
+    if w > 0:
+        sbn = _varian_sbn(penawaran_berikut())
+        kupon_list = [v["kupon"] for v in (sbn or {}).get("varian", []) if v.get("kupon") is not None]
+        kupon_th = float(np.mean(kupon_list)) if kupon_list else None
+    kupon_bersih = (kupon_th or 0.0) * (1 - PAJAK_KUPON)
+
+    bulan = pd.period_range(awal_data, akhir, freq="M")
+    rpt = np.array([r["PT"][t] for t in bulan])
+    rpu = np.array([r["PU"][t] for t in bulan])
+    inf = np.array([cpi[t] / cpi[t - 1] - 1 for t in bulan])
+    rng = np.random.default_rng(seed)
+    mulai_blok = rng.integers(0, len(bulan) - 11, size=(jumlah, tahun))
+    idx = (mulai_blok[:, :, None] + np.arange(12)).reshape(jumlah, tahun * 12)
+    RPT, RPU, INF = rpt[idx], rpu[idx], inf[idx]
+
+    a = np.full(jumlah, (1 - w) / 2 * modal)
+    b = a.copy()
+    pokok_sbn = w * modal
+    kupon = pokok_sbn * kupon_bersih / 12
+    tarik_bln = np.full(jumlah, tarik * modal / 12)
+    harga = np.ones(jumlah)
+    harga_th = np.ones(jumlah)
+    habis = np.full(jumlah, -1)
+    total_ambil = np.zeros(jumlah)
+    q = lambda v, p: float(np.percentile(v, p))
+    per_tahun = [{"tahun": 0, "daya_p10": 1.0, "daya_p50": 1.0, "daya_p90": 1.0, "nilai_p50": float(modal), "ambil_bulan": float(tarik * modal / 12),
+                  "total_ambil": 0.0, "utuh": 1.0, "habis": 0.0}]
+    for k in range(tahun * 12):
+        if k > 0 and k % 12 == 0:
+            tarik_bln = tarik_bln * harga_th
+            harga_th = np.ones(jumlah)
+        a *= 1 + RPT[:, k]
+        b *= 1 + RPU[:, k]
+        harga *= 1 + INF[:, k]
+        harga_th *= 1 + INF[:, k]
+        sisa = tarik_bln - kupon
+        lebih = np.clip(-sisa, 0, None)
+        a += lebih / 2
+        b += lebih / 2
+        sisa = np.clip(sisa, 0, None)
+        cair = a + b
+        gagal = sisa > cair + 1e-9
+        habis[gagal & (habis < 0)] = k
+        f = np.where(gagal, 0.0, 1 - sisa / np.where(cair > 0, cair, 1.0))
+        total_ambil += np.where(gagal, cair + np.minimum(kupon, tarik_bln), tarik_bln)
+        a *= f
+        b *= f
+        if (k + 1) % 12 == 0:
+            tot = a + b
+            a, b = tot / 2, tot / 2
+            nilai = a + b + pokok_sbn
+            daya = nilai / harga / modal
+            per_tahun.append({"tahun": (k + 1) // 12, "daya_p10": q(daya, 10), "daya_p50": q(daya, 50), "daya_p90": q(daya, 90),
+                              "nilai_p50": q(nilai, 50), "ambil_bulan": q(tarik_bln, 50), "total_ambil": q(total_ambil, 50),
+                              "utuh": float(np.mean(daya >= 1)), "habis": float(np.mean(habis >= 0))})
+    habis_th = habis[habis >= 0] // 12 + 1
     return bersih({
-        "ada": True, "skenario": pakai, "opsi": opsi, "porsi_sbn": port["porsi_sbn"], "aman_5": port.get("aman_5"), "modal": float(modal), "tarik": tarik,
-        "mulai": str(t0), "akhir": str(akhir), "pilihan_mulai": pilihan, "inflasi": float(cpi[akhir] / acuan - 1),
-        "ringkas": {"bulan": len(seri), "total_ambil": total_ambil, "nilai_akhir": seri[-1]["nilai"], "daya_beli_akhir": seri[-1]["daya_beli"],
-                    "terendah": {"bulan": seri[terendah]["bulan"], "daya_beli": seri[terendah]["daya_beli"]},
-                    "ambil_awal": seri[0]["ambil"], "ambil_akhir": seri[habis - 1]["ambil"] if habis else seri[-1]["ambil"],
-                    "habis": seri[habis]["bulan"] if habis is not None else None},
-        "seri": seri, "per_tahun": per_tahun,
+        "ada": True, "skenario": pakai, "opsi": opsi, "porsi_sbn": w, "aman_5": port.get("aman_5"), "modal": float(modal), "tarik": tarik, "tahun": tahun,
+        "jumlah_jalur": jumlah, "data": {"awal": str(awal_data), "akhir": str(akhir), "bulan": len(bulan)}, "kupon_sbn": kupon_th,
+        "per_tahun": per_tahun, "akhir": per_tahun[-1],
+        "habis_median_tahun": float(np.median(habis_th)) if len(habis_th) else None, "pilihan_tahun": list(PILIHAN_TAHUN),
     })
