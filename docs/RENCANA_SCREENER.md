@@ -731,6 +731,7 @@ Sidik `paper_*` & `batas_paper` sama sebelum/sesudah uji.
 - H17d: penghasilan tinggi di 2019-2025 (4,6-11,6%, didorong batu bara), tapi 2015-2017 hanya 2,4-2,8% (gagal syarat 80%); 2015 -32,9% dan DD -52,7%. Total return mengalahkan IHSG dan bobot sama, tapi itu pasca hasil (bukan bukti).
 - Sesuai aturan: tanpa varian.
 - **Keputusan user 2026-10-25: uji maju dividen_v1 DIHENTIKAN** karena H17c & H17d gagal. Data `paper_dividen_*` (status menunggu + pratinjau) dan `batas_paper/dividen_v1` diarsip ke `swing.arsip_paper_dividen` lalu dihapus; job `paper_dividen` dan jadwalnya dicabut; tab Uji maju dihapus. Kode simulasi dipindah ke `backend/research/dividen_v1.py` (dipakai `uji_h17cd.py`). Catatan kejujuran: H17c/H17d gagal tidak membuktikan dividen_v1 pasti gagal ke depan; penghentian adalah keputusan user berdasarkan bukti data lama.
+- **Lapisan Pendapatan kosong** (catatan 2026-11-08): H17a/c/d gagal dan uji maju dihentikan 25 Okt 2026; lapisan ini tidak berisi strategi sampai ada yang lulus uji.
 
 ## H24: efek Ramadan pada JII — dihapus dari katalog (2026-10-28, permintaan user)
 Pernah dikunci dan diuji sekali (2026-10-28): JII hanya selama Ramadan vs kas, dev Ramadan 2001-2014 GAGAL 4/6 (rata-rata bersih +0,74%/Ramadan, tapi tidak lebih baik dari jendela acak, p 0,30; tanpa 2007 negatif). Holdout tidak dibuka. Detail, kode, dan hasil dihapus atas permintaan user; baris ini disimpan supaya jumlah uji tetap tercatat dan ide ini tidak diuji ulang tanpa sadar.

@@ -32,7 +32,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Ikut pembelian saham oleh direksi/komisaris (H25) | Gagal di dev 2023-2024 | Rata-rata terlihat bagus, tapi separuh lebih trade kalah dari pasar; hasil ditarik beberapa saham yang melonjak di 2024. |
 | Faktor kualitas ala Buffett (ROE, utang, harga wajar), seri K | Gagal di dev 2011-2019 | Semua varian kalah dari memegang semua saham syariah likuid secara rata. Kolam saham syariah likuid terlalu kecil (28-62 saham) untuk membedakan keunggulan faktor dari kebetulan. Lihat [docs/RISET_KUALITAS.md](docs/RISET_KUALITAS.md). |
 
-Katalog lengkap 45 hipotesis (H0-H29) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
+Katalog lengkap 49 hipotesis (H0-H33 tanpa H24) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
 
 ## Cara riset
 

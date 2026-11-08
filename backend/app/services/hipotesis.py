@@ -573,7 +573,7 @@ HIPOTESIS = [
      "aturan": {"Rencana": "Reksa dana dengan skor kuartil teratas di tahun T, apakah tetap di atas median kategori di tahun T+1 lebih sering dari 50%?",
                 "Syarat jalan": "Riwayat NAV ≥ 3 tahun (pengumpulan harian mulai 23 Okt 2026, atau sumber riwayat panjang)."},
      "periode": [], "kriteria": [], "angka": [],
-     "kenapa": "Belum diuji: data NAV baru ±1 tahun.", "kelemahan": [], "pelajaran": "",
+     "kenapa": "Belum diuji. Data: NAB bulanan OJK (`rd_ojk`) Feb 2013 – Sep 2026, ±290 RD syariah dengan riwayat ≥ 36 bulan (termasuk yang sudah bubar); NAV harian Pasardana baru sejak Okt 2025. Hipotesis belum ditulis dan dikunci.", "kelemahan": [], "pelajaran": "",
      "terkait": [], "sumber": "RENCANA_SCREENER.md:433"},
 ]
 
