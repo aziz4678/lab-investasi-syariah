@@ -1888,3 +1888,41 @@ Tampilan: panel "Aturan evaluasi (v2)" di tab Paper Follow Tren dan Momentum Ble
 - Open: IDX mengosongkan OpenPrice di ±93% hari 2020-2024 → open Yahoo bila close Yahoo cocok ≤ 2%, selain itu close IDX (`sumber_open`).
 - Validasi vs `harga` (921 kode): selisih return harian median 0, p99 0, beda > 1% di 0,03% hari (tidak sepenuhnya independen: `harga` sudah ditambal sel IDX).
 - 19 kode DES tidak ada di data IDX 2020+: bukan ganti kode, tapi perusahaan publik yang sudah delisting / tidak tercatat dan masih melapor ke OJK (BRAU, CPDW, RINA, ATPK, ...).
+
+## H34: "Warren Buffett" — cicil saham syariah berkualitas + tambah beli saat turun (dikunci 2026-11-08 atas permintaan user, sebelum kode uji dibuat dan sebelum ada angka return apa pun)
+Draf diusulkan 2026-11-08, disetujui user dengan perubahan (keranjang = ROE TTM terendah 8 kuartal tertinggi; delisting utama dinilai 0; laporkan kas menganggur dan saham tak terbeli). Uji ke ±50. Satu versi, tanpa varian.
+
+**Ide.** Cicil rutin ke 10 saham syariah yang ROE-nya konsisten tinggi, tambah beli dari kas cadangan saat harga turun jauh dari rata-rata beli dan valuasi murah dibanding dirinya sendiri, jual hanya kalau kualitas memburuk atau keluar DES.
+
+**Data & periode.** Harga `harga_bersih_2020` (IDX resmi, termasuk delisting & suspensi, lewat `harga.bersih*`), DES `swing.des` (point-in-time), fundamental `swing.fundamental` (hanya laporan dengan `tgl_publikasi` < tanggal keputusan; laba = laba pemilik entitas induk, YTD). Dev Jan 2020 – Des 2023 (data dipotong 29 Des 2023), holdout Jan 2024 – data terakhir, dibuka sekali dan hanya kalau dev lulus semua, setelah review user.
+
+**Aturan.**
+- Universe (tiap keputusan): DES pada tanggal itu, median nilai transaksi 60 hari bursa terakhir ≥ Rp5 M, close mentah ≥ Rp50, tidak beku di hari terakhir, ≥ 60 hari data.
+- ROE TTM per laporan = laba TTM ÷ ekuitas induk akhir periode; laba TTM = YTD + laba setahun tahun lalu − YTD tahun lalu (`laba_lalu`); laporan tahunan (AUDIT) = labanya sendiri. Laba setahun 2018 diambil dari `laba_lalu` laporan tahunan 2019, dianggap terbit 2019-04-30 (laporan 2018 sudah publik saat itu; satu-satunya sumber di data kita). Ekuitas ≤ 0 → tidak lolos. Ekuitas awal tidak tersedia untuk 2019, jadi pakai ekuitas akhir periode (keputusan teknis sebelum uji).
+- Saringan kualitas: laporan dengan periode akhir dalam 24 bulan sebelum keputusan, laporan terbaru ≤ 300 hari; minimal 4 ROE TTM (8 bila ada). **ROE terendah ≥ 12%** (keuangan ≥ 10%). Non-keuangan juga: arus kas operasi TTM laporan terbaru > 0 dan DER = liabilitas ÷ ekuitas total ≤ 1,0. Keuangan = sektor 'Keuangan' di `profil_idx` (snapshot hari ini; kode tanpa profil = non-keuangan). Data tidak cukup = tidak lolos.
+- Keranjang: 10 saham universe yang lolos dengan **ROE TTM terendah (8 kuartal) tertinggi**, bobot sama. Dibentuk di hari bursa pertama bulan pertama sejak Jan 2020 dengan ≥ 10 saham lolos (fundamental baru ada sejak 2019, jadi kemungkinan Mar-Mei 2020) atau di Juni pertama, mana yang lebih dulu; lalu dibentuk ulang tiap hari bursa pertama Juni. Kurang dari 10 lolos = semua yang lolos.
+- Cicil: tiap hari bursa pertama bulan sejak Jan 2020 setor Rp5 jt: 80% ke kas cicil, 20% ke cadangan (indeks RD pasar uang syariah `analisis_likuiditas` 'PU', bulanan). Kas cicil (sisa + dividen + hasil jual) dibagi rata ke saham keranjang yang ada transaksi hari itu, beli lot utuh (100 lembar mentah) di open. Jatah < 1 lot = "tidak terbeli" (dihitung), uang tetap di kas. Sebelum keranjang ada, uang menunggu di kas cicil.
+- Tambah saat turun: tiap close hari bursa terakhir bulan, untuk saham yang dipegang dan masih DES: close ≤ rata-rata harga beli × 0,85 **dan** PBV < median PBV sendiri **dan** lolos saringan kualitas (data terbit ≤ hari itu) → beli di open hari bursa berikutnya sebesar min(cadangan, Rp5 jt), lot utuh, urut penurunan terdalam dulu. Cadangan dicairkan di nilai akhir bulan. PBV = close × saham tercatat ÷ ekuitas induk laporan terakhir yang terbit (USD × kurs). Median PBV sendiri = median PBV di akhir tiap kuartal kalender sebelum keputusan (minimal 4 titik); titik 2019 memakai harga `harga.saham` (Yahoo, satu-satunya harga 2019) × saham tercatat 2 Jan 2020 (keputusan teknis sebelum uji).
+- Batas: nilai satu saham maks 15% total (saham + kas + cadangan); pembelian (cicil maupun tambahan) dipotong supaya tidak melewati batas.
+- Jual (semua lembar, open, −1 tick, fee 0,25%): (1) di hari rebalance Juni kalau gagal saringan kualitas (termasuk data tidak cukup); (2) tiap hari bursa pertama bulan kalau tidak lagi di DES. Saham yang keluar dari 10 besar tapi masih lolos tetap dipegang tanpa cicilan. Tidak ada jual karena harga. Tidak bisa ditransaksikan (beku) → coba bulan berikutnya.
+- Biaya: fee beli 0,15% + jual 0,25% + 1 tick fraksi IDX per sisi (harga mentah). Dividen tunai (kolom `dividen`) × lembar × 0,9 masuk kas cicil di tanggal ex.
+- Delisting (data berhenti sebelum akhir dev): **utama dinilai 0**; sensitivitas dicairkan di harga beku terakhir. Saham beku belum delisting: utama dinilai di harga beku terakhir; sensitivitas dinilai 0 selama beku.
+
+**Ukuran.** XIRR dari setoran bulanan dan nilai akhir 29 Des 2023 (utama); turun terdalam harian dari nilai ÷ total setoran; kas menganggur = kas cicil ÷ total setoran (rata-rata & maks harian, cadangan dilaporkan terpisah); jumlah kejadian tidak terbeli; return tertimbang waktu (TWR) per tahun kalender.
+
+**Pembanding.** (a) keranjang dan aturan jual sama, 100% setoran ke cicilan, tanpa cadangan & tambahan; (b) cicil JII (`indeks/JKII`, close hari bursa pertama bulan) + dividen asumsi 2,5%/th diakru harian, tanpa biaya (angka khayal, bukan produk); (c) cicil indeks RD saham syariah (`analisis_profil`, NAV bulanan sudah setelah biaya MI, masuk di NAV akhir bulan sebelumnya), laporan; (d) plasebo 500 acakan (seed 0-499): jumlah dan nominal kejadian tambahan sama dengan H34, tiap kejadian dipindah ke akhir bulan acak (setelah keranjang ada) dan saham acak di antara yang dipegang saat itu, tetap dibatasi cadangan & 15%; (e) standar seragam: cicil bobot sama semua saham universe (rebalance bulanan, tanpa biaya, close + dividen tanpa pajak, delisting diperlakukan sama).
+
+**Kriteria lulus dev (semua):**
+1. XIRR > bobot sama universe. 2. XIRR > JII + 2,5%.
+3. Tanpa 5 saham penyumbang laba terbesar (dijalankan ulang tanpa saham itu di universe) > bobot sama tanpa 5 penyumbang terbesarnya. 4. Sama untuk 10 saham.
+5. TWR tahunan gabungan tanpa tahun kalender terbaik > bobot sama dan JII tanpa tahun terbaiknya masing-masing.
+6-8. S1 biaya 2 tick, S2 likuiditas ≥ Rp20 M (pembanding ikut), S3 harga ≥ Rp200 (pembanding ikut): 1-5 tetap lulus.
+9. XIRR > (a). 10. XIRR > persentil 95 plasebo (d). 11. Turun terdalam tidak lebih buruk dari (a) lebih dari 2 poin.
+Holdout: semua kriteria yang sama tidak boleh gagal.
+Laporan saja: (c), sensitivitas delisting di harga beku, beku dinilai 0, setoran Rp1 jt/bulan, isi keranjang per Juni, kejadian tambahan per tahun, 10 penyumbang terbesar (aturan "pemenang besar mendominasi").
+
+**Peringatan sebelum uji.**
+- Riset lama keluarga kualitas/valuasi gagal semua: H16a-c (Undervalue tidak mengalahkan pasar), K1-K3 (kalah dari bobot sama; K3 hanya > 26% portofolio acak), analisis konvergensi (Undervalue tidak menambah peluang), analisis cicil JII (tambah saat turun hanya +1-2 poin dan rapuh).
+- Kekuatan statistik rendah: dev 4 tahun, 10 saham, keranjang pertama baru ±Mar-Mei 2020, kejadian tambahan kemungkinan sedikit. Dev tidak buta: harga 2020-2023 sudah dipakai di H11a holdout dan eksplorasi 2020+.
+- Risiko utama: averaging down ke saham yang terus turun atau dibekukan; laporan keuangan terlambat ±1-3 bulan sehingga "masih lolos kualitas" bisa basi.
+- Keterbatasan data: fundamental baru sejak 2019, sektor snapshot hari ini, open IDX 2020-2024 sebagian besar dari Yahoo, 19 kode DES tidak tercatat di IDX.
