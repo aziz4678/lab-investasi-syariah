@@ -30,6 +30,12 @@ def rd_produk(fid: int):
     return x
 
 
+@router.get("/rd/penarikan")
+def rd_penarikan():
+    from backend.app.services import penarikan
+    return penarikan.hasil()
+
+
 @router.get("/rd/sukuk")
 def rd_sukuk():
     return rdn.sukuk()

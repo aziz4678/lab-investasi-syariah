@@ -1,4 +1,6 @@
 import argparse
+import hashlib
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -6,6 +8,7 @@ import pandas as pd
 from backend.core.config import ROOT
 from backend.db import data as dt
 from backend.db import harga as hg
+from backend.db import koneksi as d
 from backend.research import analisis_likuiditas as al
 
 MULAI_PALING_CEPAT = pd.Period("2016-04", "M")
@@ -15,6 +18,10 @@ DIVIDEN_JII = 0.025
 HORIZON = 60
 PORTOFOLIO = [("Opsi 1 RD PT/PU 50/50", "rd", 0.0), ("Opsi 2a SBN 30%", "rd", 0.30), ("Opsi 2b SBN 50%", "rd", 0.50),
               ("Opsi 2c SBN 70%", "rd", 0.70), ("Pembanding 54% JII/46% PU", "jii", 0.0)]
+KODE = {"Opsi 1 RD PT/PU 50/50": "tanpa_sbn", "Opsi 2a SBN 30%": "sbn30", "Opsi 2b SBN 50%": "sbn50", "Opsi 2c SBN 70%": "sbn70",
+        "Pembanding 54% JII/46% PU": "jii_pu"}
+TABEL_SIMPAN = [0.01, 0.015, 0.02, 0.025, 0.03]
+_CACHE = {}
 
 
 def bi_rate():
@@ -143,6 +150,13 @@ def ringkas(nilai):
 
 
 def evaluasi(jenis, w, tr, ctx):
+    kunci_cache = (jenis, w, round(tr, 4))
+    if kunci_cache not in _CACHE:
+        _CACHE[kunci_cache] = _evaluasi(jenis, w, tr, ctx)
+    return _CACHE[kunci_cache]
+
+
+def _evaluasi(jenis, w, tr, ctx):
     r, cpi, akhir, awal, sbn, bi = ctx
     r3, r5, dd, kunci_rata, kunci_maks = [], [], [], [], []
     gagal3 = gagal5 = gagal_bln = 0
@@ -193,7 +207,52 @@ def cari_maks(jenis, w, h, ctx, langkah=0.001, batas=0.03):
     return grid[lo]
 
 
-def utama(tarik=TARIK, cari=False):
+def cagr_tanpa_tarik(jenis, w, ctx):
+    r, cpi, akhir, awal, sbn, bi = ctx
+    riil, _, _ = simulasi(awal[0], akhir, jenis, w, 0.0, r, cpi, sbn, bi)
+    n = len(riil)
+    nominal = riil[-1] * cpi[akhir] / cpi[awal[0] - 1]
+    return nominal ** (12 / n) - 1, riil[-1] ** (12 / n) - 1
+
+
+def sidik_input(akhir):
+    db = d.koneksi()
+    oj = db.rd_ojk.find_one({}, {"tgl": 1}, sort=[("tgl", -1)])
+    inf = dt.baca("makro/inflasi")
+    bi = dt.baca("makro/bi_rate")
+    csv = (ROOT / "data" / "sbsn_ritel.csv").read_bytes()
+    return {"rd_ojk": f"{oj['tgl']:%Y-%m}" if oj else None, "inflasi": f"{pd.Timestamp(inf.index.max()):%Y-%m}",
+            "bi_rate": f"{pd.Timestamp(bi.index.max()):%Y-%m-%d}", "sbsn_csv": hashlib.sha256(csv).hexdigest()[:16], "akhir": str(akhir) if akhir is not None else None}
+
+
+def ringkas_angka(v):
+    v = np.array(v)
+    return {"median": float(np.median(v)), "terburuk": float(v.min()), "utuh": float(np.mean(v >= 1))} if len(v) else None
+
+
+def simpan(ctx, mulai, akhir, hasil_cari):
+    sbn = ctx[4]
+    dok = {"dihitung": datetime.now(), "periode": {"awal": str(mulai), "akhir": str(akhir)}, "sidik": sidik_input(akhir),
+           "syarat": "modal riil >= 100% di >= 80% tanggal mulai, tanpa gagal likuiditas; langkah 0,1% antara 0-3%",
+           "dividen_jii": DIVIDEN_JII, "pajak_kupon": PAJAK, "n_penawaran_sbn": int(sbn["dasar"].nunique()),
+           "n_mulai_3": len([x for x in ctx[3] if x + 35 <= akhir]), "n_mulai_5": len([x for x in ctx[3] if x + 59 <= akhir]), "portofolio": []}
+    for nama, jenis, w in PORTOFOLIO:
+        c_nom, c_riil = cagr_tanpa_tarik(jenis, w, ctx)
+        a3, a5 = hasil_cari[nama]
+        tabel = []
+        for tr in TABEL_SIMPAN:
+            m = evaluasi(jenis, w, tr, ctx)
+            tabel.append({"tarik": tr, "riil5": ringkas_angka(m["r5"]), "riil3": ringkas_angka(m["r3"]), "gagal5": m["gagal5"]})
+        di5 = evaluasi(jenis, w, a5, ctx) if a5 is not None else None
+        dok["portofolio"].append({"kode": KODE[nama], "nama": nama, "jenis": jenis, "porsi_sbn": w, "cagr_nominal": c_nom, "cagr_riil": c_riil,
+                                  "aman_3": a3, "aman_5": a5, "kunci_rata": evaluasi(jenis, w, TABEL_SIMPAN[0], ctx)["kunci_rata"],
+                                  "di_aman_5": ringkas_angka(di5["r5"]) if di5 else None, "tabel": tabel})
+    dt.db()["hasil_penarikan"].insert_one(dok)
+    print()
+    print(f"Disimpan ke {dt.NAMA_DB}.hasil_penarikan ({dok['dihitung']:%Y-%m-%d %H:%M}, data {mulai} s/d {akhir})")
+
+
+def utama(tarik=TARIK, cari=False, simpan_hasil=False):
     r, cpi, akhir, mulai = siapkan()
     sbn = penawaran()
     bi = bi_rate()
@@ -218,14 +277,21 @@ def utama(tarik=TARIK, cari=False):
     for nama, _, _ in PORTOFOLIO:
         ok = [tr for tr in tarik if lolos(hasil[(nama, tr)], 5)]
         print(f"  {nama}: {f'{max(ok) * 100:.1f}%' if ok else 'tidak ada'}")
-    if cari:
+    hasil_cari = {}
+    if cari or simpan_hasil:
         print()
         print("Tingkat penarikan maksimum yang lolos (langkah 0,1%, 0-3%; syarat sama, horizon 3 th dan 5 th):")
         print(f"{'portofolio':27s}{'3 th':>11s}{'5 th':>11s}")
         for nama, jenis, w in PORTOFOLIO:
             m3, m5 = cari_maks(jenis, w, 3, ctx), cari_maks(jenis, w, 5, ctx)
+            hasil_cari[nama] = (m3, m5)
             f = lambda x: "tidak ada" if x is None else f"{x * 100:.1f}%"
             print(f"{nama:27s}{f(m3):>11s}{f(m5):>11s}", flush=True)
+    print()
+    print("CAGR tanpa penarikan (seluruh periode " + f"{mulai} s/d {akhir}" + "), nominal / riil:")
+    for nama, jenis, w in PORTOFOLIO:
+        c_nom, c_riil = cagr_tanpa_tarik(jenis, w, ctx)
+        print(f"  {nama:27s}{c_nom * 100:6.2f}% / {c_riil * 100:5.2f}%")
     print()
     print("Porsi terkunci rata-rata: " + "; ".join(f"{n} {hasil[(n, tarik[0])]['kunci_rata'] * 100:.0f}%" for n, j, w in PORTOFOLIO if j == "rd"))
     print()
@@ -234,11 +300,14 @@ def utama(tarik=TARIK, cari=False):
     print("  - Indeks RD = NAV bulanan bobot sama tanpa biaya beli/jual & tanpa survivorship RD terpilih; SBN dinilai di 100 (tidak mark-to-market), early redemption ST & batas pembelian per orang diabaikan.")
     print("  - Kupon ST direkonstruksi dari BI-Rate tiap 11 Feb/Mei/Agu/Nov + spread (ST010-ST015 spread turunan), kupon dihitung penuh mulai bulan setelah terbit.")
     print(f"  - JII = indeks harga + dividen asumsi {DIVIDEN_JII * 100:.1f}%/th; inflasi BPS YoY dibagi rata per bulan; tanpa pajak selain kupon SBN 10%.")
+    if simpan_hasil:
+        simpan(ctx, mulai, akhir, hasil_cari)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--tarik", default=",".join(str(x * 100) for x in TARIK))
     ap.add_argument("--cari", action="store_true")
+    ap.add_argument("--simpan", action="store_true")
     a = ap.parse_args()
-    utama([float(x) / 100 for x in a.tarik.split(",")], a.cari)
+    utama([float(x) / 100 for x in a.tarik.split(",")], a.cari, a.simpan)
