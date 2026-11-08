@@ -143,16 +143,16 @@ def sebaran(seri, idx, akhir, lompat):
     return baris
 
 
-def utama():
+def semua_indeks(cetak=False):
     df, bagi = muat()
     pilih, seri, dobel = pilih_seri(df, bagi)
-    c = cpi()
     akhir = df["tgl"].max()
-    print(f"Data rd_ojk syariah IDR s/d {akhir}. Seri kelas dobel dikeluarkan: {dobel}. Seri dipakai: {len(pilih)} "
-          f"(PU {sum(pilih.kelompok == 'PU')}, PT {sum(pilih.kelompok == 'PT')}).")
-    print(f"Bagi hasil tunai dikeluarkan: {int(pilih.bh.sum())} (tanda Pasardana {int(pilih.bh_pasardana.sum())}, "
-          f"NAV datar <{DATAR * 100:.0f}%/th median 12 bln {int((pilih.bh_datar & ~pilih.bh_pasardana).sum())} tambahan); "
-          f"per kelompok PU {int(pilih[pilih.kelompok == 'PU'].bh.sum())}, PT {int(pilih[pilih.kelompok == 'PT'].bh.sum())}.")
+    if cetak:
+        print(f"Data rd_ojk syariah IDR s/d {akhir}. Seri kelas dobel dikeluarkan: {dobel}. Seri dipakai: {len(pilih)} "
+              f"(PU {sum(pilih.kelompok == 'PU')}, PT {sum(pilih.kelompok == 'PT')}).")
+        print(f"Bagi hasil tunai dikeluarkan: {int(pilih.bh.sum())} (tanda Pasardana {int(pilih.bh_pasardana.sum())}, "
+              f"NAV datar <{DATAR * 100:.0f}%/th median 12 bln {int((pilih.bh_datar & ~pilih.bh_pasardana).sum())} tambahan); "
+              f"per kelompok PU {int(pilih[pilih.kelompok == 'PU'].bh.sum())}, PT {int(pilih[pilih.kelompok == 'PT'].bh.sum())}.")
     L, periksa, lompat = {}, [], set()
     for k in KELOMPOK:
         for versi, saring in (("", ~pilih.bh), ("+bh", pilih.bh | ~pilih.bh)):
@@ -168,10 +168,16 @@ def utama():
             R = R.mask(ekstrem)
             lv, n = indeks(R)
             L[k + versi] = lv
-            if lv is not None:
+            if lv is not None and cetak:
                 print(f"  {k + versi:6s} mulai {lv.index[1]}  produk awal {n[lv.index[1]]}, akhir {n[akhir] if akhir in n.index else 0}, "
                       f"min sesudah mulai {n.loc[lv.index[1]:].min()}, total seri {len(idx)}")
+    return {"L": L, "periksa": periksa, "lompat": lompat, "pilih": pilih, "seri": seri, "akhir": akhir}
 
+
+def utama():
+    c = cpi()
+    h = semua_indeks(cetak=True)
+    L, periksa, lompat, pilih, seri, akhir = h["L"], h["periksa"], h["lompat"], h["pilih"], h["seri"], h["akhir"]
     nama = ["PU", "PT", "PU+bh", "PT+bh"]
     M = {k: metrik(L[k], c) for k in nama}
     T = {k: per_tahun(L[k], c) for k in nama}
