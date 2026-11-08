@@ -28,10 +28,12 @@ MULAI_PRODUK = pd.Period("2016-07", "M")
 BATAS_MIN_BELI = {"IDR": 1_000_000, "USD": 100}
 BOBOT_LOKAL = 0.5
 HORISON = {5: 60, 10: 120}
+MIN_PRODUK_GLOBAL = 5
+BIAYA_PENGGANTI = 0.02
 KATEGORI_LK = ("saham", "indeks", "etf")
 KATEGORI_GL = ("global", "indeks", "etf")
 BUKAN_SAHAM = re.compile(r"SUKUK|BALANCED|MIXED|INCOME|FIXED|PASAR UANG|MONEY|CAMPURAN|PENDAPATAN", re.I)
-REGIONAL = re.compile(r"ASIA|CHINA|ASEAN|INDIA|CAKRA|\bUS\b|S&P 500|SNP 500|AMERIKA|FRANCHISE", re.I)
+REGIONAL = re.compile(r"ASIA|CHINA|ASEAN|INDIA|CAKRA|\bUS\b|S&P 500|SNP 500|AMERIKA|FRANCHISE|\bEM\b|EMERGING", re.I)
 SEKTOR = re.compile(r"TECHNOLOGY|TEKNOLOGI|\bTECH\b|HEALTHCARE|KESEHATAN|GOLD", re.I)
 ALASAN_SEKTOR = "ditolak: satu sektor, menambah risiko konsentrasi teknologi AS"
 TEKNOLOGI = re.compile(r"TECHNOLOGY|TEKNOLOGI|\bTECH\b", re.I)
@@ -144,7 +146,7 @@ def pilih(lolos, aplikasi):
 
 def calon_pengganti_global(lolos, gugur):
     return ([{**c, "alasan": ["lolos saringan, belum disetujui user"]} for c in lolos["GL"] if c["id"] not in GLOBAL_DISETUJUI] +
-            [c for c in gugur if c["wadah"] == "GL" and not any(a.startswith("regional") or a == "bukan RD saham" for a in c["alasan"])])
+            [c for c in gugur if c["wadah"] == "GL" and not any(a.startswith("regional") or a.startswith("ditolak") or a == "bukan RD saham" for a in c["alasan"])])
 
 
 def info_aplikasi(lolos):
@@ -290,13 +292,66 @@ def return_wadah(produk, r_kat):
                "lompat": kejadian, "tanpa_ojk": [int(i) for i in ids if i not in seri]}
 
 
-def kategori():
+def kategori_lama():
     Lg, _, info = h35.indeks_rd_global()
     baru, _ = apf.indeks_baru(cetak=False)
     Ll = baru["SH"][0]
     a = max(Lg.index[0], Ll.index[0], MULAI_PRODUK - 1)
     b = min(Lg.index[-1], Ll.index[-1])
     R = pd.DataFrame({"LK": (Ll / Ll.shift(1) - 1).loc[a + 1:b], "GL": (Lg / Lg.shift(1) - 1).loc[a + 1:b]})
+    return R, info
+
+
+def global_luas_ojk():
+    from backend.research import analisis_likuiditas as al
+    db = d.koneksi()
+    df = pd.DataFrame(list(db.rd_ojk.find({"syariah": True, "denominasi": "USD", "tipe": {"$in": ["Global Fund", "Equity Fund"]}},
+                                          {"_id": 0, "kunci": 1, "produk": 1, "tipe": 1, "tgl": 1, "nab": 1, "unit": 1, "fund": 1})))
+    luas = ~df["produk"].str.contains(BUKAN_SAHAM) & ~df["produk"].str.contains(REGIONAL) & ~df["produk"].str.contains(SEKTOR)
+    df = df[luas & (df["unit"] > 0)].copy()
+    df["nav"] = df["nab"] / df["unit"]
+    df["tgl"] = pd.to_datetime(df["tgl"]).dt.to_period("M")
+    df["kelompok"] = "GL"
+    df["seri"] = np.where(df["fund"].notna(), "f" + df["fund"].astype("Int64").astype(str), df["kunci"])
+    bagi = {int(x["_id"]) for x in db.rd_produk.find({"Dividend": True}, {"_id": 1})}
+    pilih, s, _ = al.pilih_seri(df, bagi)
+    idx = pilih[~pilih["bh_pasardana"]].index
+    R = al.tabel_return(s, idx)
+    R = R.mask(R.abs() > LOMPAT)
+    return R, sorted(pilih.loc[idx, "produk"].unique()), int((pilih.loc[idx, "selesai"] < pd.Period(date.today(), "M") - 1).sum())
+
+
+def pengganti_isdw(bulan):
+    from backend.db import harga
+    x = harga.indeks_luar("gl_msci_world_islamic")["adj_close"].dropna()
+    x.index = pd.to_datetime(x.index)
+    m = x.resample("ME").last()
+    m.index = m.index.to_period("M")
+    fx = h35.kurs()
+    usd = (m / m.shift(1) - 1).reindex(bulan)
+    k = (fx / fx.shift(1) - 1).reindex(bulan)
+    return (1 + usd) * (1 + k) * (1 - BIAYA_PENGGANTI) ** (1 / 12) - 1
+
+
+def kategori():
+    baru, _ = apf.indeks_baru(cetak=False)
+    Ll = baru["SH"][0]
+    Rg, nama, bubar = global_luas_ojk()
+    n = Rg.notna().sum(axis=1)
+    a = max(Ll.index[0], MULAI_PRODUK - 1)
+    b = Ll.index[-1]
+    bulan = pd.period_range(a + 1, b, freq="M")
+    n = n.reindex(bulan).fillna(0).astype(int)
+    pakai_pengganti = bool(n.min() < MIN_PRODUK_GLOBAL)
+    if pakai_pengganti:
+        r_gl = pengganti_isdw(bulan)
+        label = f"indeks MSCI World Islamic (ISDW.L, dalam rupiah) dikurangi biaya {BIAYA_PENGGANTI * 100:.0f}%/th, pengganti karena RD saham syariah global luas hanya {n.min()}-{n.max()} produk per bulan (< {MIN_PRODUK_GLOBAL})"
+    else:
+        r_gl = Rg.reindex(bulan).mean(axis=1)
+        label = "rata-rata RD saham syariah global luas (termasuk yang bubar)"
+    R = pd.DataFrame({"LK": (Ll / Ll.shift(1) - 1).reindex(bulan), "GL": r_gl}).dropna()
+    info = {"global_luas_produk": nama, "global_luas_bubar": bubar, "global_luas_per_bulan_min": int(n.min()), "global_luas_per_bulan_maks": int(n.max()),
+            "pengganti": pakai_pengganti, "label_global": label, "biaya_pengganti": BIAYA_PENGGANTI}
     return R, info
 
 
@@ -360,15 +415,37 @@ def rem_min(kandidat, horison):
     return min(ada, key=lambda k: float(np.median(ada[k][horison]["f"])))
 
 
+def kurva(R, biaya=0.0):
+    out = {}
+    for nm, w in (("lokal", 1.0), ("campuran", BOBOT_LOKAL), ("global", 0.0)):
+        V, _ = h35.porto(R.rename(columns={"LK": "idx", "GL": "gl"}), w, biaya)
+        out[nm] = V
+    bulan = [str(b) for b in out["campuran"].index]
+    dd = {nm: (V / V.cummax() - 1) for nm, V in out.items()}
+    tahun = {}
+    for nm, V in out.items():
+        akhir = V.groupby([p.year for p in V.index]).last()
+        awal = akhir.shift(1)
+        awal.iloc[0] = V.iloc[0]
+        tahun[nm] = {str(y): float(akhir[y] / awal[y] - 1) for y in akhir.index}
+    return {"bulan": bulan, "nilai": {nm: [float(x) for x in V] for nm, V in out.items()}, "turun": {nm: [float(x) for x in s] for nm, s in dd.items()},
+            "per_tahun": tahun, "tahun_sebagian": {"awal": bulan[1], "akhir": bulan[-1]}}
+
+
 def hitung(cetak=True):
     hasil_h35 = dt.baca_hasil("h35_hasil")
+    lama = dt.baca_hasil(NAMA_HASIL)
     Ri = h35.seri(h35.DASAR).rename(columns={"idx": "LK", "gl": "GL"})
     Rk, info_kat = kategori()
+    Rl, info_lama = kategori_lama()
     jalur = {"indeks": {str(t): sip(Ri, n=n, biaya=h35.BIAYA_REBAL) for t, n in HORISON.items()},
              "kategori": {str(t): sip(Rk, n=n) for t, n in HORISON.items()}}
     pembanding = {"indeks": {f"{nm}": {str(t): sip(Ri, w=w, n=n, biaya=h35.BIAYA_REBAL) for t, n in HORISON.items()} for nm, w in (("lokal", 1.0), ("global", 0.0))},
                   "kategori": {f"{nm}": {str(t): sip(Rk, w=w, n=n) for t, n in HORISON.items()} for nm, w in (("lokal", 1.0), ("global", 0.0))}}
-    keranjang, isian = {}, {}
+    versi_lama = {"label": "kategori global lama = semua RD saham syariah USD termasuk regional Asia/China/ASEAN/India dan sektor",
+                  "sip": {t: ringkas_sip(sip(Rl, n=n), 1_000_000) for t, n in (("5", 60), ("10", 120))},
+                  "sumber_pakai_lama": (lama or {}).get("pakai", {}).get("semua")}
+    keranjang, isian, kurva_keranjang = {}, {}, None
     for app in APLIKASI:
         dok = terbaru(app)
         if dok is None or not dok["isi"]["LK"] or not dok["isi"]["GL"]:
@@ -379,20 +456,24 @@ def hitung(cetak=True):
         Rb = pd.DataFrame({"LK": r_lk, "GL": r_gl})
         keranjang[app] = {str(t): sip(Rb, n=n) for t, n in HORISON.items()}
         isian[app] = {"LK": i_lk, "GL": i_gl, "dok": dok["_id"]}
+        if app == "semua":
+            kurva_keranjang = kurva(Rb)
     pakai = {}
     for app in APLIKASI:
         pakai[app] = {"5": rem_min({"keranjang": keranjang[app], "kategori": jalur["kategori"]}, "5"),
                       "10": rem_min({"indeks": jalur["indeks"], "kategori": jalur["kategori"], "keranjang": keranjang[app]}, "10")}
     periode = {"indeks": [str(Ri.index[0]), str(Ri.index[-1])], "kategori": [str(Rk.index[0]), str(Rk.index[-1])]}
     isi = {"dihitung": datetime.now(), "periode": periode, "jalur": jalur, "pembanding": pembanding, "keranjang": keranjang, "isian": isian, "pakai": pakai,
-           "info_kategori": {k: v for k, v in info_kat.items() if k != "periksa"} | {"lompat": info_kat["periksa"]},
+           "info_kategori": info_kat, "info_kategori_lama": {k: v for k, v in info_lama.items() if k != "periksa"}, "versi_lama": versi_lama,
+           "kurva": {"indeks": kurva(Ri, h35.BIAYA_REBAL), "kategori": kurva(Rk), "keranjang": kurva_keranjang},
            "indeks_h35": {nm: {x: hasil_h35["jalur1"][nm][x] for x in ("cagr", "dd", "pulih", "sejak_puncak", "j_buruk", "j_baik", "j_menang", "dekade", "mar")}
                           for nm in ("100% IDX", "70/30", "50/50", "100% global")},
            "kriteria_h35": hasil_h35["kriteria"], "k4_h35": hasil_h35["k4"], "varian_h35": {k: v["kriteria"] for k, v in hasil_h35["varian"].items()},
-           "pecah_h35": hasil_h35["pecah"], "dekade": kalimat_dekade(hasil_h35),
+           "pecah_h35": hasil_h35["pecah"], "korelasi_h35": hasil_h35["korelasi"], "dekade": kalimat_dekade(hasil_h35),
            "contoh_desember": contoh_desember(Rk), "sidik": sidik_input()}
     dt.simpan_hasil(NAMA_HASIL, isi)
     if cetak:
+        print(f"kategori global: {info_kat['label_global']}; RD global luas {len(info_kat['global_luas_produk'])} seri ({info_kat['global_luas_bubar']} bubar)")
         for app in APLIKASI:
             for t in ("5", "10"):
                 src = pakai[app][t]
@@ -402,7 +483,9 @@ def hitung(cetak=True):
                     print(f"[{app}] SIP {t} th Rp1 jt/bln: sumber {src} ({r['n_mulai']} tanggal mulai) median Rp{r['median'] / 1e6:.1f} jt, terburuk Rp{r['terburuk'] / 1e6:.1f} jt "
                           f"(mulai {r['mulai_terburuk']}), terbaik Rp{r['terbaik'] / 1e6:.1f} jt, untung {r['untung'] * 100:.0f}% (setor Rp{r['total'] / 1e6:.0f} jt)")
             if isian[app]:
-                print(f"    isian kategori: lokal {isian[app]['LK']['isian'] * 100:.1f}%, global {isian[app]['GL']['isian'] * 100:.1f}%; lompatan {len(isian[app]['LK']['lompat']) + len(isian[app]['GL']['lompat'])}")
+                print(f"    isian kategori: lokal {isian[app]['LK']['isian'] * 100:.1f}%, global {isian[app]['GL']['isian'] * 100:.1f}%")
+        for t, r in versi_lama["sip"].items():
+            print(f"versi lama kategori {t} th: median Rp{r['median'] / 1e6:.1f} jt, terburuk Rp{r['terburuk'] / 1e6:.1f} jt, untung {r['untung'] * 100:.0f}% ({r['n_mulai']} tanggal mulai)")
     return isi
 
 

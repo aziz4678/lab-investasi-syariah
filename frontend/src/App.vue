@@ -42,7 +42,7 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"], pertumbuhan: ["rencana", "historis", "cara"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
 const ALIH = { "reksadana/konservatif": "konservatif" };
 const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
@@ -51,7 +51,7 @@ const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
 const LABEL_TEMA = { sistem: "Tema: ikuti sistem", terang: "Tema: terang", gelap: "Tema: gelap" };
 
 const tab = ref("beranda");
-const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar" });
+const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar", pertumbuhan: "rencana" });
 const sub = computed(() => subTab.value[tab.value]);
 const status = ref(null);
 const kodeEmiten = ref("");
@@ -215,7 +215,7 @@ onMounted(() => {
       <EmitenView v-else-if="tab === 'emiten'" />
       <HipotesisView v-else-if="tab === 'hipotesis'" />
       <KonservatifView v-else-if="tab === 'konservatif'" />
-      <PertumbuhanView v-else-if="tab === 'pertumbuhan'" />
+      <PertumbuhanView v-else-if="tab === 'pertumbuhan'" :sub="sub" @sub="gantiSub" />
       <RencanaView v-else-if="tab === 'rencana'" />
       <KualitasDataView v-else-if="tab === 'kualitas'" />
       <PanduanView v-else />
