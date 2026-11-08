@@ -159,6 +159,7 @@ def evaluasi(jenis, w, tr, ctx):
 def _evaluasi(jenis, w, tr, ctx):
     r, cpi, akhir, awal, sbn, bi = ctx
     r3, r5, dd, kunci_rata, kunci_maks = [], [], [], [], []
+    per_tahun = {k: [] for k in range(1, HORIZON // 12 + 1)}
     gagal3 = gagal5 = gagal_bln = 0
     for t0 in awal:
         if t0 + 35 > akhir:
@@ -166,6 +167,9 @@ def _evaluasi(jenis, w, tr, ctx):
         t_akhir = min(akhir, t0 + HORIZON - 1)
         riil, kunci, g = simulasi(t0, t_akhir, jenis, w, tr, r, cpi, sbn, bi)
         r3.append(riil[35])
+        for k in per_tahun:
+            if len(riil) >= 12 * k:
+                per_tahun[k].append(riil[12 * k - 1])
         if len(riil) >= HORIZON:
             r5.append(riil[HORIZON - 1])
             gagal5 += len(g) > 0
@@ -175,7 +179,7 @@ def _evaluasi(jenis, w, tr, ctx):
         dd.append((jalur / np.maximum.accumulate(jalur) - 1).min())
         kunci_rata.append(kunci.mean())
         kunci_maks.append(kunci.max())
-    return {"r3": r3, "r5": r5, "dd": min(dd), "gagal3": gagal3, "gagal5": gagal5, "gagal_bln": gagal_bln,
+    return {"r3": r3, "r5": r5, "dd": min(dd), "dd_semua": dd, "per_tahun": per_tahun, "gagal3": gagal3, "gagal5": gagal5, "gagal_bln": gagal_bln,
             "kunci_rata": float(np.mean(kunci_rata)), "kunci_maks": max(kunci_maks)}
 
 
@@ -230,6 +234,14 @@ def ringkas_angka(v):
     return {"median": float(np.median(v)), "terburuk": float(v.min()), "utuh": float(np.mean(v >= 1))} if len(v) else None
 
 
+def jalur_tahunan(m, tr):
+    tahun = [{"tahun": 0, "median": 1.0, "terburuk": 1.0, "n": len(m["r3"])}]
+    for k, v in sorted(m["per_tahun"].items()):
+        v = np.array(v)
+        tahun.append({"tahun": k, "median": float(np.median(v)), "terburuk": float(v.min()), "n": len(v)})
+    return {"tarik": tr, "tahun": tahun, "dd_terdalam": float(m["dd"]), "dd_median": float(np.median(m["dd_semua"]))}
+
+
 def simpan(ctx, mulai, akhir, hasil_cari):
     sbn = ctx[4]
     dok = {"dihitung": datetime.now(), "periode": {"awal": str(mulai), "akhir": str(akhir)}, "sidik": sidik_input(akhir),
@@ -244,9 +256,11 @@ def simpan(ctx, mulai, akhir, hasil_cari):
             m = evaluasi(jenis, w, tr, ctx)
             tabel.append({"tarik": tr, "riil5": ringkas_angka(m["r5"]), "riil3": ringkas_angka(m["r3"]), "gagal5": m["gagal5"]})
         di5 = evaluasi(jenis, w, a5, ctx) if a5 is not None else None
+        tingkat = sorted(set(TABEL_SIMPAN) | ({round(a5, 4)} if a5 is not None else set()))
+        jalur = [jalur_tahunan(evaluasi(jenis, w, tr, ctx), tr) for tr in tingkat]
         dok["portofolio"].append({"kode": KODE[nama], "nama": nama, "jenis": jenis, "porsi_sbn": w, "cagr_nominal": c_nom, "cagr_riil": c_riil,
                                   "aman_3": a3, "aman_5": a5, "kunci_rata": evaluasi(jenis, w, TABEL_SIMPAN[0], ctx)["kunci_rata"],
-                                  "di_aman_5": ringkas_angka(di5["r5"]) if di5 else None, "tabel": tabel})
+                                  "di_aman_5": ringkas_angka(di5["r5"]) if di5 else None, "tabel": tabel, "jalur": jalur})
     dt.db()["hasil_penarikan"].insert_one(dok)
     print()
     print(f"Disimpan ke {dt.NAMA_DB}.hasil_penarikan ({dok['dihitung']:%Y-%m-%d %H:%M}, data {mulai} s/d {akhir})")

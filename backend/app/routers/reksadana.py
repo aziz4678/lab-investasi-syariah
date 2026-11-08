@@ -36,6 +36,12 @@ def rd_penarikan():
     return penarikan.hasil()
 
 
+@router.get("/konservatif")
+def konservatif():
+    from backend.app.services import penarikan
+    return penarikan.konservatif()
+
+
 @router.get("/rd/pengingat_sbn")
 def rd_pengingat_sbn():
     from backend.app.services import penarikan
