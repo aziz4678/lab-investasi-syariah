@@ -17,7 +17,8 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) LabInvestasiSyari
 SPUS = "https://www.sp-funds.com/wp-content/uploads/data/TidalFG_Holdings_SPUS.csv"
 PASAR = {"my": {"koleksi": "harga_my", "akhiran": ".KL"}, "us": {"koleksi": "harga_us", "akhiran": ""}}
 INDEKS = {"my_titans25": "0821EA.KL", "my_klci_etf": "0820EA.KL", "my_klci": "^KLSE", "us_djim": "^IMUS",
-          "us_spus": "SPUS", "us_hlal": "HLAL", "us_sp500": "^GSPC", "myridr": "MYRIDR=X", "usdidr": "IDR=X"}
+          "us_spus": "SPUS", "us_hlal": "HLAL", "us_sp500": "^GSPC", "myridr": "MYRIDR=X", "usdidr": "IDR=X",
+          "gl_djim_titans": "^IMXL", "gl_msci_world_islamic": "ISDW.L"}
 
 
 def kode_my():
@@ -89,8 +90,10 @@ def unduh(pasar, mulai=MULAI):
     print(f"{pasar}: {ok}/{len(kode)} ada di Yahoo", flush=True)
 
 
-def unduh_indeks():
+def unduh_indeks(pilih=None):
     for nama, s in INDEKS.items():
+        if pilih and nama not in pilih:
+            continue
         h = yf.download(s, start="2000-01-01", interval="1d", auto_adjust=False, actions=True, progress=False, multi_level_index=False)
         if h is None or h.empty:
             print(f"{nama}: kosong", flush=True)
@@ -104,11 +107,12 @@ def unduh_indeks():
 def utama():
     a = argparse.ArgumentParser()
     a.add_argument("perintah", choices=["my", "us", "spus", "indeks", "semua"])
+    a.add_argument("--nama", nargs="*")
     x = a.parse_args()
     if x.perintah in ("spus", "semua"):
         print(f"SPUS: {len(perbarui_spus())} kode", flush=True)
     if x.perintah in ("indeks", "semua"):
-        unduh_indeks()
+        unduh_indeks(x.nama)
     if x.perintah in ("my", "semua"):
         unduh("my")
     if x.perintah in ("us", "semua"):

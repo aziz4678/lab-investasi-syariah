@@ -1366,6 +1366,34 @@ HIPOTESIS.append({
     "pelajaran": "Di 2020-2023, ROE tinggi yang konsisten tidak memprediksi harga; 'murah dibanding dirinya sendiri' dan 'turun 15% dari rata-rata beli' lebih sering berarti saham yang terus turun. Keluarga kualitas/valuasi gagal lagi, kali ini dengan data bebas survivorship.", "terkait": ["H16a", "H16c", "H14a"], "sumber": "RENCANA_SCREENER.md: H34",
 })
 
+H35_ATURAN = {
+    "Ide": "Lapisan Apresiasi lebih terlindung dari 'dekade hilang' kalau dipegang campuran saham syariah IDX + global (dalam rupiah) daripada 100% IDX. Tujuannya perlindungan, bukan menang tiap dekade.",
+    "Data IDX": "JII (^JKII, harga saja) + dividen 2,5%/th − biaya 0,5%/th. Cek asumsi dividen dengan XIJI 2013+ (laporan).",
+    "Data global": "^IMXL (DJ Islamic Market Titans 100, harga) + dividen 1,8%/th − biaya 0,6%/th s/d Jan 2008; mulai Feb 2008 ISDW.L (MSCI World Islamic, total return, TER di NAV) − biaya 0,3%/th.",
+    "Kurs": "Bulanan FRED kurs akhir periode (makro/kurs_akhir_bulan) s/d Des 2023 (FRED berhenti), Jan 2024+ close terakhir tiap bulan kurs/USD. Kurs harian tidak ditambal.",
+    "Portofolio": "100% IDX, 70/30, 50/50 (utama), 100% global; dikembalikan ke bobot awal tiap akhir Desember, biaya rebalance 0,5% dari nilai yang dipindah.",
+    "Periode": "Jalur 1: return bulanan Jun 2001 - Okt 2026. Per dekade (2001-09, 2010-19, 2020+) dilaporkan, bukan kriteria.",
+    "Kriteria": "K1 jendela 10 th terburuk 50/50 > 100% IDX; K2 MAR (CAGR ÷ |turun terdalam|) 50/50 ≥ 100% IDX; K3 CAGR 50/50 ≥ 100% IDX − 2 poin/th; K4 K1-K3 tetap lolos dengan dividen JII 0%, global 1,0%, ^IMUS menggantikan ^IMXL. Semua harus lolos.",
+    "Jalur 2": "Deskriptif: indeks RD saham syariah lokal vs indeks RD Global Fund saham syariah (NAB OJK, rupiah, termasuk yang bubar, min 5 produk/bulan), Jul 2016+. Periode ini menguntungkan global.",
+    "Status": "Kontaminasi: arah umum data sudah diketahui, level JII & ^IMUS/^IMXL sempat terlihat saat audit. Lolos = 'lolos pasca hasil' + wajib uji maju Jan 2027 (indeks RD/ETF, 3 th) sebelum porsi besar.",
+    "Risiko": "Konsentrasi teknologi AS; kurs dua arah; saringan syariah DES OJK vs AAOIFI/indeks global berbeda; biaya RD global ±2%/th + selisih kurs; minimal beli RD USD; RD Global Fund campuran wilayah; dividen indeks sebelum 2008 diasumsikan.",
+}
+
+HIPOTESIS.append({
+    "kode": "H35", "keluarga": "H35", "nama": "Syariah Global: campuran IDX + global untuk lapisan Apresiasi", "kategori": "rezim", "status": "dikunci",
+    "lencana": ["pasca_hasil"], "tgl_kunci": "2026-11-08", "tgl_uji": None, "skor": "—",
+    "awam": "Daripada menaruh seluruh porsi saham di saham syariah Indonesia, separuhnya ditaruh di saham syariah global (dihitung dalam rupiah). Diuji apakah campuran ini lebih tahan saat salah satu pasar mengalami dekade buruk.",
+    "aturan": H35_ATURAN,
+    "periode": [p("Jalur 1", "Jun 2001 s/d Okt 2026", "Indeks: JII vs DJIM Titans 100 → MSCI World Islamic", False, ket="Belum dijalankan."),
+                p("Jalur 2", "Jul 2016 s/d Okt 2026", "Indeks RD saham syariah lokal vs RD Global Fund syariah (OJK)", False, ket="Deskriptif.")],
+    "kriteria": [k("K1. Jendela 10 th terburuk 50/50 > 100% IDX"), k("K2. MAR 50/50 ≥ 100% IDX"),
+                 k("K3. CAGR 50/50 ≥ 100% IDX − 2 poin/th"), k("K4. K1-K3 tetap lolos di asumsi pesimis")],
+    "angka": [], "kenapa": None,
+    "kelemahan": ["Tidak ada holdout bersih: arah umum data sudah diketahui.", "Dividen indeks sebelum 2008 diasumsikan.",
+                  "FRED kurs akhir periode berhenti Des 2023; 2024+ dari Yahoo.", "Indeks, bukan produk yang bisa dibeli dengan biaya nyata (jalur 2 hanya 2016+)."],
+    "pelajaran": None, "terkait": ["H23", "H20", "H33"], "sumber": "RENCANA_SCREENER.md: H35",
+})
+
 GRAFIK["H32"] = [batang("Return per tahun, dev (2011 = Feb-Des)", ["2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019"],
                         [("H32", [41.9, 30.2, 0.7, 36.8, -10.4, 51.9, 32.6, 29.3, -13.3]), ("H22 periode sama", [36.9, 26.6, 13.6, 37.2, -25.9, 59.7, 33.5, 29.1, -15.8]),
                          ("Bobot sama", [12.9, 17.0, -5.5, 24.3, -23.0, 31.4, 10.3, -0.9, 0.3])], "Bobot sama semua saham lolos, tanpa biaya. H22 hanya laporan."),
@@ -1386,6 +1414,7 @@ KELUARGA = {
     "H17": {"judul": "Pemburu Dividen", "ket": "Portofolio dividen tahunan untuk penghasilan rutin. Uji maju dividen_v1 dihentikan 25 Okt 2026 setelah H17c & H17d gagal."},
     "H21-H22": {"judul": "Faktor bulanan", "ket": "Dua portofolio bulanan dengan kerangka sama (universe, buffer, biaya, pembanding), dinilai terpisah dengan kriteria masing-masing."},
     "H32": {"judul": "Frog-in-the-Pan", "ket": "Momentum 12-1 yang naiknya mulus (information discreteness, Da, Gurun & Warachka 2014). Kerangka H22 persis, hanya peringkat yang berubah. Dinilai dengan standar seragam 2026-11-01."},
+    "H35": {"judul": "Syariah Global", "ket": "Lapisan Apresiasi: saham syariah IDX, global, atau campuran, dalam rupiah. Indeks 2001-2026 + RD nyata 2016+ (deskriptif). Lencana pasca hasil karena arah umum data sudah diketahui."},
     "H34": {"judul": "Warren Buffett", "ket": "Cicil rutin ke saham syariah berkualitas (ROE konsisten) + tambah beli saat turun dari kas cadangan. Data harga IDX 2020+ termasuk delisting. Dinilai dengan standar seragam 2026-11-01."},
     "H33": {"judul": "Replikasi pasar luar", "ket": "H11a persis di saham syariah Malaysia (daftar SC point-in-time) dan US (laporan saja). Uji out-of-sample, satu kali jalan per pasar, standar seragam."},
     "H30": {"judul": "Residual Momentum", "ket": "Momentum 12-1 dari return khas saham setelah pengaruh pasar dibuang (literatur Blitz, Huij & Martens 2011). Kerangka H22 persis, hanya sinyal yang berubah. Dinilai dengan standar seragam 2026-11-01."},
