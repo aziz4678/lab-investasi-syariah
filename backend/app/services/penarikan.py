@@ -317,3 +317,76 @@ def rencana(modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50"
                       "id_hitungan": kr_dok.get("id_keranjang"), "tanpa_platform": tanpa_platform},
         "banding": banding,
     })
+
+
+TARIK_MAKS = 0.30
+_KONTEKS = {}
+
+
+def _konteks(skenario_pakai, aplikasi):
+    from backend.research import analisis_likuiditas as al
+    from backend.research import analisis_penarikan as ap
+    from backend.research import keranjang as kr
+    akhir_hitung = dt.db()["hasil_penarikan"].find_one({}, {"dihitung": 1}, sort=[("dihitung", -1)])
+    kunci = (skenario_pakai, aplikasi if skenario_pakai == "keranjang" else None, akhir_hitung["dihitung"] if akhir_hitung else None)
+    if kunci not in _KONTEKS:
+        _KONTEKS.clear()
+        h = al.semua_indeks()
+        L = None
+        if skenario_pakai == "keranjang":
+            _, _, _, mulai = ap.siapkan(h)
+            L, _ = kr.indeks(kr.terbaru(aplikasi)["isi"], h["L"], mulai)
+        r, cpi, akhir, mulai = ap.siapkan(h, L)
+        _KONTEKS[kunci] = (r, cpi, akhir, mulai, ap.penawaran(), ap.bi_rate())
+    return _KONTEKS[kunci]
+
+
+def simulasi(modal=1_000_000_000, opsi="sbn50", tarik=None, mulai=None, aplikasi="semua"):
+    from backend.research import analisis_penarikan as ap
+    from backend.research import keranjang as kr
+    aplikasi = aplikasi if aplikasi in kr.APLIKASI else "semua"
+    opsi = opsi if opsi in OPSI else "sbn50"
+    h, dok = _dok_rencana(aplikasi)
+    if dok is None:
+        return {"ada": False}
+    pakai, port, _ = skenario(dok, opsi, aplikasi)
+    r, cpi, akhir, awal_data, sbn, bi = _konteks(pakai, aplikasi)
+    pilihan = [str(awal_data)] + [f"{y}-01" for y in range(awal_data.year + 1, akhir.year) if pd.Period(f"{y}-01", "M") + 11 <= akhir]
+    t0 = pd.Period(mulai, "M") if mulai else pd.Period(pilihan[0], "M")
+    t0 = min(max(t0, awal_data), akhir - 11)
+    tarik = port.get("aman_5") if tarik is None else min(max(float(tarik), 0.0), TARIK_MAKS)
+    tarik = tarik or 0.0
+    riil, terkunci, gagal = ap.simulasi(t0, akhir, "rd", port["porsi_sbn"], tarik, r, cpi, sbn, bi)
+    acuan = cpi[t0 - 1]
+    bulan = pd.period_range(t0, akhir, freq="M")
+    habis = int(gagal[0]) if gagal else None
+    nominal_tarik = tarik / 12
+    seri, total_ambil = [], 0.0
+    for i, t in enumerate(bulan):
+        if i > 0 and i % 12 == 0:
+            nominal_tarik *= cpi[t - 1] / cpi[t - 13]
+        nilai = float(riil[i] * cpi[t] / acuan * modal)
+        if habis is None or i < habis:
+            ambil = nominal_tarik * modal
+        elif i == habis:
+            ambil = float(riil[i - 1] * cpi[t - 1] / acuan * modal) if i > 0 else modal
+        else:
+            ambil = 0.0
+        total_ambil += ambil
+        seri.append({"bulan": str(t), "nilai": nilai, "daya_beli": float(riil[i] * modal), "ambil": ambil, "total_ambil": total_ambil,
+                     "terkunci": float(terkunci[i])})
+    per_tahun = []
+    for y in sorted({int(x["bulan"][:4]) for x in seri}):
+        b = [x for x in seri if x["bulan"].startswith(str(y))]
+        per_tahun.append({"tahun": y, "bulan": len(b), "ambil_bulan": max(x["ambil"] for x in b), "ambil_tahun": sum(x["ambil"] for x in b),
+                          "nilai": b[-1]["nilai"], "daya_beli": b[-1]["daya_beli"], "total_ambil": b[-1]["total_ambil"]})
+    terendah = min(range(len(seri)), key=lambda i: seri[i]["daya_beli"])
+    return bersih({
+        "ada": True, "skenario": pakai, "opsi": opsi, "porsi_sbn": port["porsi_sbn"], "aman_5": port.get("aman_5"), "modal": float(modal), "tarik": tarik,
+        "mulai": str(t0), "akhir": str(akhir), "pilihan_mulai": pilihan, "inflasi": float(cpi[akhir] / acuan - 1),
+        "ringkas": {"bulan": len(seri), "total_ambil": total_ambil, "nilai_akhir": seri[-1]["nilai"], "daya_beli_akhir": seri[-1]["daya_beli"],
+                    "terendah": {"bulan": seri[terendah]["bulan"], "daya_beli": seri[terendah]["daya_beli"]},
+                    "ambil_awal": seri[0]["ambil"], "ambil_akhir": seri[habis - 1]["ambil"] if habis else seri[-1]["ambil"],
+                    "habis": seri[habis]["bulan"] if habis is not None else None},
+        "seri": seri, "per_tahun": per_tahun,
+    })
