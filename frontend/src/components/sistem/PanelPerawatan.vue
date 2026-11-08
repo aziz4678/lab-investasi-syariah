@@ -135,6 +135,20 @@ function waktu(s) {
         </div>
       </div>
 
+      <div v-if="sbn?.ojk" class="flex items-start gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
+        <Landmark class="mt-0.5 h-4.5 w-4.5 shrink-0 text-muted" />
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 text-[13px] font-medium">NAB bulanan OJK
+            <span class="chip" :class="sbn.ojk.peringatan ? 'bg-turun-bg text-turun' : 'bg-naik-bg text-naik'">{{ sbn.ojk.peringatan ? "impor dibatalkan" : "aman" }}</span>
+          </div>
+          <template v-if="sbn.ojk.peringatan">
+            <div class="text-xs text-turun">Impor {{ waktu(sbn.ojk.peringatan.waktu) }} dibatalkan: bulan lama di file baru tidak cocok dengan arsip. Data lama tidak diubah.</div>
+            <div v-for="x in sbn.ojk.peringatan.pesan" :key="x" class="text-[11px] break-words text-muted">{{ x }}</div>
+          </template>
+          <div class="text-xs text-muted">data s/d {{ sbn.ojk.sampai || "–" }} · diimpor {{ waktu(sbn.ojk.diimpor) }} · diambil otomatis lewat Chrome Lab saat jadwal, dicocokkan dulu dengan arsip (jumlah baris sama, total NAB selisih ≤ 0,1%)</div>
+        </div>
+      </div>
+
       <div class="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
         <FileCheck2 class="h-4.5 w-4.5 shrink-0 text-muted" />
         <div class="min-w-0 flex-1">
