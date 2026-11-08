@@ -99,8 +99,42 @@ def norm(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+TOLERANSI_NAB = 0.001
+
+
+def banding_arsip(nama, isi):
+    if not dt.ada_arsip(nama):
+        return [], 0
+    lama = dt.baca_arsip_json(nama) or {}
+    lama_bulan = lama.get("bulan") or {}
+    masalah, sama = [], 0
+    for bl, rows in lama_bulan.items():
+        if not rows:
+            continue
+        b = (isi.get("bulan") or {}).get(bl)
+        if not b:
+            masalah.append(f"bulan {bl}: ada di arsip ({len(rows)} baris), tidak ada di file baru")
+            continue
+        ta = sum(float(r[5] or 0) for r in rows)
+        tb = sum(float(r[5] or 0) for r in b)
+        selisih = abs(tb / ta - 1) if ta else (0.0 if not tb else 1.0)
+        if len(rows) != len(b) or selisih > TOLERANSI_NAB:
+            masalah.append(f"bulan {bl}: baris {len(rows)} -> {len(b)}, total NAB selisih {selisih * 100:.3f}%")
+        else:
+            sama += 1
+    return masalah, sama
+
+
+def catat_peringatan(pesan):
+    db = d.koneksi()
+    if pesan:
+        db.rd_info.update_one({"_id": "ringkas"}, {"$set": {"ojk_peringatan": {"waktu": datetime.now(), "pesan": pesan}}}, upsert=True)
+    else:
+        db.rd_info.update_one({"_id": "ringkas"}, {"$unset": {"ojk_peringatan": ""}})
+
+
 def salin(cari):
-    baru = []
+    baru, tolak = [], []
     terbaru = {}
     for f in cari("ojk_nab_*.json"):
         nama = re.sub(r" \(\d+\)(?=\.json$)", "", f.name)
@@ -116,11 +150,25 @@ def salin(cari):
         if not isinstance(isi, dict) or "bulan" not in isi:
             print(f"LEWATI {f.name}: format tidak dikenal")
             continue
-        dt.simpan_arsip(nama, f.read_bytes(), "ojk_nab")
-        baru.append(f"{nama} ({sum(len(v) for v in isi['bulan'].values())} baris)")
+        masalah, sama = banding_arsip(nama, isi)
+        if masalah:
+            tolak.append(f"{nama}: " + "; ".join(masalah))
+            continue
+        baru.append((nama, f.read_bytes(), f"{nama} ({sum(len(v) for v in isi['bulan'].values())} baris, {sama} bulan tumpang tindih cocok)"))
+    if tolak:
+        print(f"PERINGATAN impor NAB OJK DIBATALKAN: bulan tumpang tindih tidak cocok dengan arsip (jumlah baris harus sama, total NAB selisih <= {TOLERANSI_NAB * 100:.1f}%). "
+              "Data lama tidak diubah.")
+        for x in tolak:
+            print("  " + x)
+        catat_peringatan(tolak)
+        return False
+    for nama, isi_byte, _ in baru:
+        dt.simpan_arsip(nama, isi_byte, "ojk_nab")
+    catat_peringatan(None)
     print("File baru disimpan ke arsip MongoDB:" if baru else "Tidak ada file ojk_nab_*.json baru di Downloads / folder proyek.")
     for x in baru:
-        print("  " + x)
+        print("  " + x[2])
+    return True
 
 
 def baca_semua():
@@ -196,7 +244,8 @@ def bangun():
 
 def impor():
     from backend.ingest.impor_browser import cari
-    salin(cari)
+    if not salin(cari):
+        raise SystemExit(1)
     bangun()
 
 

@@ -50,7 +50,7 @@ def hasil():
                    "riwayat": riwayat})
 
 
-KUNCI_SIDIK = ("rd_ojk", "inflasi", "bi_rate", "sbsn_csv")
+KUNCI_SIDIK = ("rd_ojk", "inflasi", "bi_rate", "sbsn_csv", "keranjang")
 JEDA_ST_BULAN = 5
 
 
@@ -80,47 +80,15 @@ def pengingat_sbn():
     batas = terakhir["tutup"] + pd.DateOffset(months=JEDA_ST_BULAN)
     if pd.Timestamp(date.today()) > batas:
         pesan.append({"seri": f"ST{nomor + 1:03d}", "alasan": f"lebih dari {JEDA_ST_BULAN} bulan sejak {terakhir['seri'][:5]} ditutup ({terakhir['tutup']:%d %b %Y}); perkiraan seri berikutnya"})
-    return {"pengingat": pesan, "st_terakhir": terakhir["seri"][:5], "st_tutup": f"{terakhir['tutup']:%Y-%m-%d}", "cek_st_setelah": f"{batas:%Y-%m-%d}",
+    ri = d.koneksi().rd_info.find_one({"_id": "ringkas"}) or {}
+    oj, tolak = ri.get("ojk") or {}, ri.get("ojk_peringatan")
+    ojk = {"sampai": oj.get("sampai"), "diimpor": oj["diimpor"].isoformat(timespec="minutes") if oj.get("diimpor") else None,
+           "peringatan": {"waktu": tolak["waktu"].isoformat(timespec="minutes"), "pesan": tolak["pesan"]} if tolak else None}
+    return {"ojk": ojk, "pengingat": pesan, "st_terakhir": terakhir["seri"][:5], "st_tutup": f"{terakhir['tutup']:%Y-%m-%d}", "cek_st_setelah": f"{batas:%Y-%m-%d}",
             "jumlah_seri": len(c)}
 
 
-WADAH = {"pendapatan_tetap": "RD pendapatan tetap syariah", "pasar_uang": "RD pasar uang syariah"}
-MIN_TAHUN_PRODUK = 3
-MAKS_PRODUK = 5
-NAV_DATAR = 0.01
-NAV_AKTIF_HARI = 14
 POLA_TAHUN = 3
-
-
-def contoh_produk():
-    from backend.app.services import reksadana as rdn
-    from backend.db import koneksi as d
-    bagi = {int(x["_id"]) for x in d.koneksi().rd_produk.find({"Dividend": True}, {"_id": 1})}
-    batas_aktif = pd.Timestamp(date.today()) - pd.Timedelta(days=NAV_AKTIF_HARI)
-    hasil = {}
-    for kat, label in WADAH.items():
-        calon = []
-        for x in rdn.daftar()["data"]:
-            if x.get("kategori") != kat or x.get("mata_uang") != "IDR":
-                continue
-            alasan = []
-            if not x.get("nav_tgl") or pd.Timestamp(x["nav_tgl"]) < batas_aktif or x.get("nav_beku"):
-                alasan.append("tidak aktif")
-            if (x.get("tahun_data") or 0) < MIN_TAHUN_PRODUK:
-                alasan.append("riwayat < 3 th")
-            if int(x["id"]) in bagi or (x.get("cagr_semua") is not None and x["cagr_semua"] < NAV_DATAR * 100):
-                alasan.append("bagi hasil tunai")
-            if x.get("biaya") is None or x["biaya"] <= 0:
-                alasan.append("biaya tidak diketahui")
-            if alasan:
-                continue
-            calon.append({"id": x["id"], "nama": x["nama"], "mi": x.get("mi"), "biaya": x["biaya"], "aum": x.get("aum"), "tahun_data": x.get("tahun_data"),
-                          "terbit": x.get("terbit"), "platform": [p["kode"] for p in x.get("platform") or []]})
-        batas_aum = float(pd.Series([c["aum"] or 0 for c in calon]).median()) if calon else 0.0
-        besar = [c for c in calon if (c["aum"] or 0) >= batas_aum]
-        besar.sort(key=lambda c: (c["biaya"], -(c["aum"] or 0)))
-        hasil[kat] = {"label": label, "jumlah_lolos": len(calon), "jumlah_aum_besar": len(besar), "batas_aum": batas_aum, "produk": besar[:MAKS_PRODUK]}
-    return hasil
 
 
 def _csv_sbn():
@@ -171,5 +139,164 @@ def sr_beredar():
 
 def konservatif():
     h = hasil()
-    return bersih({**h, "penawaran": penawaran_berikut(), "sr": sr_beredar(), "produk": contoh_produk(),
-                   "kriteria_produk": {"min_tahun": MIN_TAHUN_PRODUK, "maks": MAKS_PRODUK, "nav_datar": NAV_DATAR, "aktif_hari": NAV_AKTIF_HARI}})
+    return bersih({**h, "penawaran": penawaran_berikut(), "sr": sr_beredar()})
+
+
+OPSI = ("tanpa_sbn", "sbn30", "sbn50", "sbn70")
+PAJAK_KUPON = 0.10
+
+
+def _nilai_aman(p):
+    return -1.0 if p is None or p.get("aman_5") is None else p["aman_5"]
+
+
+def _dok_rencana(aplikasi):
+    h = hasil()
+    if not h.get("ada"):
+        return None, None
+    for kunci in ("patokan", "terbaru"):
+        x = h[kunci]
+        if (x.get("keranjang") or {}).get(aplikasi):
+            return h, x
+    return h, h["terbaru"]
+
+
+def skenario(dok, kode, aplikasi):
+    kat = next((p for p in dok["portofolio"] if p["kode"] == kode), None)
+    kr = (dok.get("keranjang") or {}).get(aplikasi)
+    krp = next((p for p in kr["portofolio"] if p["kode"] == kode), None) if kr else None
+    if krp is not None and _nilai_aman(krp) < _nilai_aman(kat):
+        return "keranjang", krp, kr.get("rata_rata")
+    return "kategori", kat, dok.get("rata_rata")
+
+
+def _varian_sbn(pen):
+    c = _csv_sbn()
+    if pen.get("dibuka"):
+        x = pen["dibuka"]
+        return {"status": "dibuka", "seri": x["seri"], "jenis": x["jenis"], "mulai": x["mulai"], "tutup": x["tutup"], "terbit": x["terbit"], "sumber": x["sumber"],
+                "varian": [{"seri": v["seri"], "tenor": v["tenor"], "jatuh_tempo": v["jatuh_tempo"], "kupon": v["kupon"], "kupon_perkiraan": False,
+                            "jenis_kupon": v["jenis_kupon"]} for v in x["varian"]]}
+    calon = sorted([x for x in pen.get("perkiraan") or [] if x.get("bulan")], key=lambda x: x["bulan"])
+    if not calon:
+        return None
+    x = calon[0]
+    lalu = c[c["jenis"] == x["jenis"]].sort_values("mulai")
+    akhir = lalu[lalu["dasar"] == lalu["dasar"].iloc[-1]] if len(lalu) else lalu
+    kupon = {int(r.tenor_th): float(r.kupon_awal) / 100 for r in akhir.itertuples()}
+    bulan = pd.Period(x["bulan"], "M")
+    return {"status": "perkiraan", "seri": x["seri"], "jenis": x["jenis"], "bulan": x["bulan"], "terbit": None,
+            "varian": [{"seri": f"{x['seri']}T{t}", "tenor": t, "jatuh_tempo": str(bulan + 12 * t), "kupon": kupon.get(t), "kupon_perkiraan": True,
+                        "jenis_kupon": None} for t in x["tenor"]]}
+
+
+def _bulan_terbit(sbn):
+    if sbn is None:
+        return None
+    if sbn.get("terbit"):
+        return pd.Period(sbn["terbit"], "M")
+    if sbn.get("tutup"):
+        return (pd.Timestamp(sbn["tutup"]) + pd.Timedelta(days=7)).to_period("M")
+    return pd.Period(sbn["bulan"], "M")
+
+
+def _kartu(c, wadah, nilai, total):
+    return {"id": c["id"], "nama": c["nama"], "mi": c.get("mi"), "wadah": wadah, "biaya": c.get("biaya"), "aum": c.get("aum"), "tahun_data": c.get("tahun_data"),
+            "platform": c.get("platform") or [], "nilai": nilai, "porsi": nilai / total if total else None}
+
+
+def rencana(modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50", aplikasi="semua"):
+    from backend.research import keranjang as kr
+    aplikasi = aplikasi if aplikasi in kr.APLIKASI else "semua"
+    opsi = opsi if opsi in OPSI else "sbn50"
+    h, dok = _dok_rencana(aplikasi)
+    if dok is None:
+        return {"ada": False}
+    kini = kr.terbaru(aplikasi)
+    if kini is None:
+        kr.perbarui(cetak=False)
+        kini = kr.terbaru(aplikasi)
+    isi = kini["isi"]
+    pakai, port, rata = skenario(dok, opsi, aplikasi)
+    hari = pd.Timestamp(date.today())
+    bulan_ini = hari.to_period("M")
+
+    modal, pengeluaran, darurat = max(float(modal), 0.0), max(float(pengeluaran), 0.0), max(int(darurat), 0)
+    nilai_darurat = min(pengeluaran * darurat, modal)
+    sisa = modal - nilai_darurat
+    w = port["porsi_sbn"]
+    nilai_sbn = sisa * w
+    nilai_rd = sisa - nilai_sbn
+    aman = port.get("aman_5")
+    penghasilan = sisa * aman / 12 if aman is not None else None
+
+    pu, pt = isi.get("PU", []), isi.get("PT", [])
+    darurat_produk = []
+    if pu and nilai_darurat > 0:
+        murah = pu[0]
+        besar = max([c for c in pu if c["id"] != murah["id"]] or [murah], key=lambda c: c.get("aum") or 0)
+        pilih = [murah] if besar["id"] == murah["id"] else [murah, besar]
+        darurat_produk = [_kartu(c, "darurat", nilai_darurat / len(pilih), modal) for c in pilih]
+    belanja_pt = [_kartu(c, "pt", nilai_rd / 2 / len(pt), modal) for c in pt] if pt else []
+    belanja_pu = [_kartu(c, "pu", nilai_rd / 2 / len(pu), modal) for c in pu] if pu else []
+
+    sbn = _varian_sbn(penawaran_berikut()) if w > 0 else None
+    kupon_bulan = 0.0
+    if sbn:
+        for v in sbn["varian"]:
+            v["nilai"] = nilai_sbn / len(sbn["varian"])
+            v["kupon_bersih_bulan"] = v["nilai"] * v["kupon"] * (1 - PAJAK_KUPON) / 12 if v["kupon"] is not None else None
+        kupon_bulan = sum(v["kupon_bersih_bulan"] or 0 for v in sbn["varian"])
+        terbit = _bulan_terbit(sbn)
+        sbn["kupon_mulai"] = str(terbit + 1) if terbit is not None else None
+        sbn["kupon_bersih_bulan"] = kupon_bulan
+        sbn["parkir_di"] = {"id": pu[0]["id"], "nama": pu[0]["nama"]} if pu else None
+        sbn["cair_paling_awal"] = min(v["jatuh_tempo"] for v in sbn["varian"])
+
+    def jual(t):
+        if penghasilan is None or not pu:
+            return None
+        terbit = _bulan_terbit(sbn)
+        kupon = kupon_bulan if sbn and terbit is not None and t > terbit else 0.0
+        kurang = penghasilan - kupon
+        c = pu[(t.year * 12 + t.month - 1) % len(pu)]
+        return {"bulan": str(t), "produk": {"id": c["id"], "nama": c["nama"], "mi": c.get("mi")}, "kupon": kupon,
+                "jual": max(kurang, 0.0), "lebih": max(-kurang, 0.0)}
+
+    desember = None
+    if rata and penghasilan is not None and nilai_rd > 0:
+        jual_th = max(penghasilan - kupon_bulan, 0.0) * 12
+        lebih_th = max(kupon_bulan - penghasilan, 0.0) * 12
+        a = nilai_rd / 2 * (1 + rata["PT"]) + lebih_th / 2
+        b = nilai_rd / 2 * (1 + rata["PU"]) - jual_th + lebih_th / 2
+        geser = (a - b) / 2
+        desember = {"pt_sebelum": a, "pu_sebelum": b, "pindah": abs(geser), "dari": "pt" if geser > 0 else "pu", "ke": "pu" if geser > 0 else "pt",
+                    "rata_pt": rata["PT"], "rata_pu": rata["PU"], "tahun": int(hari.year)}
+
+    ringkas_opsi = []
+    for k in OPSI:
+        s, p, _ = skenario(dok, k, aplikasi)
+        ringkas_opsi.append({"kode": k, "skenario": s, "aman_5": p.get("aman_5"), "porsi_sbn": p["porsi_sbn"],
+                             "penghasilan": sisa * p["aman_5"] / 12 if p.get("aman_5") is not None else None})
+
+    kr_dok = (dok.get("keranjang") or {}).get(aplikasi) or {}
+    banding = []
+    for p in dok["portofolio"]:
+        kp = next((x for x in kr_dok.get("portofolio", []) if x["kode"] == p["kode"]), None)
+        banding.append({"kode": p["kode"], "nama": p["nama"], "kategori": {k: p.get(k) for k in ("aman_3", "aman_5", "cagr_riil", "cagr_nominal")},
+                        "keranjang": {k: kp.get(k) for k in ("aman_3", "aman_5", "cagr_riil", "cagr_nominal")} if kp else None,
+                        "dipakai": skenario(dok, p["kode"], aplikasi)[0] if p["kode"] in OPSI else None})
+
+    tanpa_platform = {k: sum(1 for c in v if not c.get("platform")) for k, v in isi.items()}
+    return bersih({
+        "ada": True, "dihitung": dok["dihitung"], "periode": dok["periode"], "n_mulai_5": dok.get("n_mulai_5"), "patokan": dok is h["patokan"],
+        "masukan": {"modal": modal, "pengeluaran": pengeluaran, "darurat": darurat, "opsi": opsi, "aplikasi": aplikasi},
+        "skenario": pakai, "portofolio": port, "aman": aman, "penghasilan": penghasilan, "sisa": sisa,
+        "dana_darurat": nilai_darurat, "darurat_kurang": pengeluaran * darurat > modal, "terkunci": nilai_sbn, "terkunci_porsi": nilai_sbn / modal if modal else 0.0,
+        "belanja": {"darurat": darurat_produk, "pt": belanja_pt, "pu": belanja_pu}, "sbn": sbn,
+        "bulanan": [jual(bulan_ini), jual(bulan_ini + 1)], "desember": desember, "opsi": ringkas_opsi,
+        "keranjang": {"id": kini["_id"], "dibentuk": kini["dibentuk"], "alasan": kini["alasan"], "info": kini["info"], "kriteria": kini["kriteria"],
+                      "sama_dengan_hitungan": kr_dok.get("id_keranjang") == kini["_id"], "isian": {k: v.get("isian") for k, v in (kr_dok.get("info") or {}).items()},
+                      "id_hitungan": kr_dok.get("id_keranjang"), "tanpa_platform": tanpa_platform},
+        "banding": banding,
+    })

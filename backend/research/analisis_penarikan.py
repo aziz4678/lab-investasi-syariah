@@ -22,6 +22,7 @@ KODE = {"Opsi 1 RD PT/PU 50/50": "tanpa_sbn", "Opsi 2a SBN 30%": "sbn30", "Opsi 
         "Pembanding 54% JII/46% PU": "jii_pu"}
 TABEL_SIMPAN = [0.01, 0.015, 0.02, 0.025, 0.03]
 _CACHE = {}
+_PER_BULAN = {}
 
 
 def bi_rate():
@@ -55,15 +56,25 @@ def kupon_st(lot, t, bi):
         acuan = pd.Timestamp(year=t.year, month=reset, day=10)
     if acuan < lot["terbit"]:
         return lot["kupon"]
-    r = bi[bi.index <= acuan]
-    return max(lot["floor"], r.iloc[-1] / 100 + lot["spread"]) if len(r) else lot["kupon"]
+    i = bi.index.searchsorted(acuan, side="right")
+    return max(lot["floor"], bi.iloc[i - 1] / 100 + lot["spread"]) if i else lot["kupon"]
 
 
 def return_bulanan(L):
     return (L / L.shift(1) - 1).dropna()
 
 
+def _per_bulan(sbn):
+    kunci = id(sbn)
+    if _PER_BULAN.get("id") != kunci:
+        _PER_BULAN.clear()
+        _PER_BULAN["id"] = kunci
+        _PER_BULAN["isi"] = {b: [s for _, s in g.iterrows()] for b, g in sbn.groupby("bulan")}
+    return _PER_BULAN["isi"]
+
+
 def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
+    per_bulan = _per_bulan(sbn)
     bulan = pd.period_range(t0, t_akhir, freq="M")
     rd_pt = rd_pu = jii = parkir = 0.0
     if jenis == "rd":
@@ -100,7 +111,7 @@ def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
             f = 1 - sisa / cair
             rd_pt, rd_pu, parkir, jii = rd_pt * f, rd_pu * f, parkir * f, jii * f
         if jenis == "rd" and w_sbn > 0:
-            baru = sbn[sbn["bulan"] == t]
+            baru = per_bulan.get(t, [])
             if len(baru):
                 nilai_sbn = sum(x["nominal"] for x in lot)
                 total = rd_pt + rd_pu + parkir + nilai_sbn
@@ -112,7 +123,7 @@ def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
                     f = 1 - dari_rd / (rd_pt + rd_pu)
                     rd_pt, rd_pu = rd_pt * f, rd_pu * f
                 beli = dari_parkir + dari_rd
-                for _, s in baru.iterrows():
+                for s in baru:
                     lot.append({"nominal": beli / len(baru), "bulan": t, "jt": s["jt"], "kupon": s["kupon"], "spread": s["spread"],
                                 "floor": s["floor"], "terbit": s["terbit"]})
         if t.month == 12:
@@ -129,14 +140,15 @@ def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
     return np.array(riil), np.array(terkunci), gagal
 
 
-def siapkan():
-    h = al.semua_indeks()
+def siapkan(h=None, L=None):
+    h = al.semua_indeks() if h is None else h
+    L = h["L"] if L is None else L
     cpi = al.cpi()
     j = hg.indeks("indeks/JKII")["close"].dropna().sort_index()
     j.index = pd.to_datetime(j.index)
     jb = j.resample("ME").last()
     jb.index = jb.index.to_period("M")
-    r = {"PT": return_bulanan(h["L"]["PT"]), "PU": return_bulanan(h["L"]["PU"]), "JII": jb.pct_change().dropna()}
+    r = {"PT": return_bulanan(L["PT"]), "PU": return_bulanan(L["PU"]), "JII": jb.pct_change().dropna()}
     akhir = min(r["PT"].index[-1], r["PU"].index[-1], r["JII"].index[-1], cpi.index[-1])
     mulai = max(MULAI_PALING_CEPAT, r["PT"].index[0], r["PU"].index[0])
     return r, cpi, akhir, mulai
@@ -225,7 +237,8 @@ def sidik_input(akhir):
     inf = dt.baca("makro/inflasi")
     bi = dt.baca("makro/bi_rate")
     csv = (ROOT / "data" / "sbsn_ritel.csv").read_bytes()
-    return {"rd_ojk": f"{oj['tgl']:%Y-%m}" if oj else None, "inflasi": f"{pd.Timestamp(inf.index.max()):%Y-%m}",
+    from backend.research import keranjang as kr
+    return {"keranjang": kr.sidik(), "rd_ojk": f"{oj['tgl']:%Y-%m}" if oj else None, "inflasi": f"{pd.Timestamp(inf.index.max()):%Y-%m}",
             "bi_rate": f"{pd.Timestamp(bi.index.max()):%Y-%m-%d}", "sbsn_csv": hashlib.sha256(csv).hexdigest()[:16], "akhir": str(akhir) if akhir is not None else None}
 
 
@@ -242,13 +255,28 @@ def jalur_tahunan(m, tr):
     return {"tarik": tr, "tahun": tahun, "dd_terdalam": float(m["dd"]), "dd_median": float(np.median(m["dd_semua"]))}
 
 
-def simpan(ctx, mulai, akhir, hasil_cari):
-    sbn = ctx[4]
-    dok = {"dihitung": datetime.now(), "periode": {"awal": str(mulai), "akhir": str(akhir)}, "sidik": sidik_input(akhir),
-           "syarat": "modal riil >= 100% di >= 80% tanggal mulai, tanpa gagal likuiditas; langkah 0,1% antara 0-3%",
-           "dividen_jii": DIVIDEN_JII, "pajak_kupon": PAJAK, "n_penawaran_sbn": int(sbn["dasar"].nunique()),
-           "n_mulai_3": len([x for x in ctx[3] if x + 35 <= akhir]), "n_mulai_5": len([x for x in ctx[3] if x + 59 <= akhir]), "portofolio": []}
-    for nama, jenis, w in PORTOFOLIO:
+def rata_rata(ctx):
+    r, _, akhir, awal = ctx[:4]
+    hasil = {}
+    for k in ("PT", "PU"):
+        x = r[k].loc[awal[0]:akhir]
+        hasil[k] = float((1 + x).prod() ** (12 / len(x)) - 1)
+    return hasil
+
+
+def cari_semua(ctx, portofolio, cetak=False):
+    hasil_cari = {}
+    for nama, jenis, w in portofolio:
+        hasil_cari[nama] = (cari_maks(jenis, w, 3, ctx), cari_maks(jenis, w, 5, ctx))
+        if cetak:
+            f = lambda x: "tidak ada" if x is None else f"{x * 100:.1f}%"
+            print(f"{nama:27s}{f(hasil_cari[nama][0]):>11s}{f(hasil_cari[nama][1]):>11s}", flush=True)
+    return hasil_cari
+
+
+def isi_portofolio(ctx, hasil_cari, portofolio):
+    keluar = []
+    for nama, jenis, w in portofolio:
         c_nom, c_riil = cagr_tanpa_tarik(jenis, w, ctx)
         a3, a5 = hasil_cari[nama]
         tabel = []
@@ -258,16 +286,58 @@ def simpan(ctx, mulai, akhir, hasil_cari):
         di5 = evaluasi(jenis, w, a5, ctx) if a5 is not None else None
         tingkat = sorted(set(TABEL_SIMPAN) | ({round(a5, 4)} if a5 is not None else set()))
         jalur = [jalur_tahunan(evaluasi(jenis, w, tr, ctx), tr) for tr in tingkat]
-        dok["portofolio"].append({"kode": KODE[nama], "nama": nama, "jenis": jenis, "porsi_sbn": w, "cagr_nominal": c_nom, "cagr_riil": c_riil,
+        keluar.append({"kode": KODE[nama], "nama": nama, "jenis": jenis, "porsi_sbn": w, "cagr_nominal": c_nom, "cagr_riil": c_riil,
                                   "aman_3": a3, "aman_5": a5, "kunci_rata": evaluasi(jenis, w, TABEL_SIMPAN[0], ctx)["kunci_rata"],
                                   "di_aman_5": ringkas_angka(di5["r5"]) if di5 else None, "tabel": tabel, "jalur": jalur})
+    return keluar
+
+
+def skenario_keranjang(h):
+    from backend.research import keranjang as kr
+    kr.perbarui(cetak=False)
+    kol = dt.db()[kr.KOLEKSI]
+    hasil, sudah = {}, {}
+    rd = [x for x in PORTOFOLIO if x[1] == "rd"]
+    print()
+    print("Skenario keranjang (5 RD PT + 5 RD PU bobot sama, bulan tanpa data diisi return kategori); tingkat aman maks 3 th / 5 th:")
+    for app in kr.APLIKASI:
+        dok = kr.terbaru(app, kol)
+        kunci = tuple(sorted((k, c["id"]) for k, v in dok["isi"].items() for c in v))
+        if kunci in sudah:
+            hasil[app] = {**hasil[sudah[kunci]], "id_keranjang": dok["_id"], "sama_dengan": sudah[kunci]}
+            print(f"  [{app}] isi sama dengan [{sudah[kunci]}]")
+            continue
+        r, cpi, akhir, mulai = siapkan(h)
+        L, info = kr.indeks(dok["isi"], h["L"], mulai)
+        r, cpi, akhir, mulai = siapkan(h, L)
+        ctx = (r, cpi, akhir, pd.period_range(mulai, akhir, freq="M"), penawaran(), bi_rate())
+        _CACHE.clear()
+        print(f"  [{app}] isian kategori PT {info['PT']['isian'] * 100:.1f}% / PU {info['PU']['isian'] * 100:.1f}%")
+        hasil_cari = cari_semua(ctx, rd, cetak=True)
+        hasil[app] = {"id_keranjang": dok["_id"], "isi": {k: [{"id": c["id"], "nama": c["nama"]} for c in v] for k, v in dok["isi"].items()},
+                      "info": info, "rata_rata": rata_rata(ctx), "portofolio": isi_portofolio(ctx, hasil_cari, rd)}
+        sudah[kunci] = app
+    _CACHE.clear()
+    return hasil
+
+
+def simpan(ctx, mulai, akhir, hasil_cari, h=None):
+    sbn = ctx[4]
+    dok = {"dihitung": datetime.now(), "periode": {"awal": str(mulai), "akhir": str(akhir)}, "sidik": sidik_input(akhir),
+           "syarat": "modal riil >= 100% di >= 80% tanggal mulai, tanpa gagal likuiditas; langkah 0,1% antara 0-3%",
+           "dividen_jii": DIVIDEN_JII, "pajak_kupon": PAJAK, "n_penawaran_sbn": int(sbn["dasar"].nunique()),
+           "n_mulai_3": len([x for x in ctx[3] if x + 35 <= akhir]), "n_mulai_5": len([x for x in ctx[3] if x + 59 <= akhir]),
+           "rata_rata": rata_rata(ctx), "portofolio": isi_portofolio(ctx, hasil_cari, PORTOFOLIO)}
+    dok["keranjang"] = skenario_keranjang(h if h is not None else al.semua_indeks())
+    dok["sidik"] = sidik_input(akhir)
     dt.db()["hasil_penarikan"].insert_one(dok)
     print()
     print(f"Disimpan ke {dt.NAMA_DB}.hasil_penarikan ({dok['dihitung']:%Y-%m-%d %H:%M}, data {mulai} s/d {akhir})")
 
 
 def utama(tarik=TARIK, cari=False, simpan_hasil=False):
-    r, cpi, akhir, mulai = siapkan()
+    h = al.semua_indeks()
+    r, cpi, akhir, mulai = siapkan(h)
     sbn = penawaran()
     bi = bi_rate()
     awal = pd.period_range(mulai, akhir, freq="M")
@@ -296,11 +366,7 @@ def utama(tarik=TARIK, cari=False, simpan_hasil=False):
         print()
         print("Tingkat penarikan maksimum yang lolos (langkah 0,1%, 0-3%; syarat sama, horizon 3 th dan 5 th):")
         print(f"{'portofolio':27s}{'3 th':>11s}{'5 th':>11s}")
-        for nama, jenis, w in PORTOFOLIO:
-            m3, m5 = cari_maks(jenis, w, 3, ctx), cari_maks(jenis, w, 5, ctx)
-            hasil_cari[nama] = (m3, m5)
-            f = lambda x: "tidak ada" if x is None else f"{x * 100:.1f}%"
-            print(f"{nama:27s}{f(m3):>11s}{f(m5):>11s}", flush=True)
+        hasil_cari = cari_semua(ctx, PORTOFOLIO, cetak=True)
     print()
     print("CAGR tanpa penarikan (seluruh periode " + f"{mulai} s/d {akhir}" + "), nominal / riil:")
     for nama, jenis, w in PORTOFOLIO:
@@ -315,7 +381,7 @@ def utama(tarik=TARIK, cari=False, simpan_hasil=False):
     print("  - Kupon ST direkonstruksi dari BI-Rate tiap 11 Feb/Mei/Agu/Nov + spread (ST010-ST015 spread turunan), kupon dihitung penuh mulai bulan setelah terbit.")
     print(f"  - JII = indeks harga + dividen asumsi {DIVIDEN_JII * 100:.1f}%/th; inflasi BPS YoY dibagi rata per bulan; tanpa pajak selain kupon SBN 10%.")
     if simpan_hasil:
-        simpan(ctx, mulai, akhir, hasil_cari)
+        simpan(ctx, mulai, akhir, hasil_cari, h)
 
 
 if __name__ == "__main__":

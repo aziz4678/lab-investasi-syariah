@@ -320,12 +320,14 @@ def status():
                           "perlu": ri is None or umur_rd > 0,
                           "alasan": "Belum pernah diambil" if ri is None else f"Tertinggal {umur_rd} hari bursa" if umur_rd > 0 else None,
                           "berikutnya": "hari bursa berikutnya 17:30"}
-    oj = ((db.rd_info.find_one({"_id": "ringkas"}) or {}).get("ojk"))
+    ri_ojk = db.rd_info.find_one({"_id": "ringkas"}) or {}
+    oj, oj_tolak = ri_ojk.get("ojk"), ri_ojk.get("ojk_peringatan")
     harap_ojk = (pd.Timestamp(hari) - pd.DateOffset(days=8)).to_period("M") - 1
     kurang_ojk = oj is None or pd.Period(oj["sampai"], "M") < harap_ojk
     hasil["ojk_nab"] = {"terakhir": f"{oj['dari']} s/d {oj['sampai']} · {oj['produk']} produk ({oj['syariah']} syariah)" if oj else None,
                         "diimpor": oj["diimpor"].isoformat(timespec="minutes") if oj else None, "perlu": kurang_ojk,
-                        "alasan": "Belum pernah diimpor" if oj is None else f"Data {harap_ojk} seharusnya sudah terbit" if kurang_ojk else None,
+                        "alasan": ("Impor terakhir dibatalkan: bulan lama di file baru tidak cocok dengan arsip; data lama tidak diubah" if oj_tolak else
+                                   "Belum pernah diimpor" if oj is None else f"Data {harap_ojk} seharusnya sudah terbit" if kurang_ojk else None),
                         "berikutnya": f"tanggal 8 bulan depan"}
     for sid, kunci, jeda, awalan in (("bibit_rd", "bibit", JEDA_PLATFORM_BROWSER, "bibit_rd_"), ("ojk_pto", None, JEDA_PTO, "ojk_pto_")):
         arsip = sorted(dt.daftar_arsip(folder="rd_platform", awalan=awalan))
