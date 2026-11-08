@@ -422,7 +422,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
 
       <section class="panel">
         <div>
-          <header class="px-6 pt-5 pb-4"><h2 class="m-0 text-[17px] font-medium">6 · Detail untuk yang penasaran</h2><p class="m-0 mt-0.5 text-xs text-muted">Grafik, perbandingan, dan istilah teknis</p></header>
+          <header class="px-6 pt-5 pb-4"><h2 class="m-0 text-[17px] font-medium">6 · Dasar perhitungan</h2><p class="m-0 mt-0.5 text-xs text-muted">Dari mana angka di atas berasal</p></header>
           <div class="space-y-6 px-6 pb-6">
             <div v-if="jalurPilih">
               <div class="text-[14px] font-medium">Perjalanan modal riil · {{ NAMA_OPSI[opsi] }}</div>
