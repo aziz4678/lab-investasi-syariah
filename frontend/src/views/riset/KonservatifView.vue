@@ -269,6 +269,8 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <div class="text-[11px] text-muted">turun terdalam <span class="tabular-nums text-turun">{{ prTanda(p.dd, 1) }}</span> · pulih {{ lamaPulih(p) }}</div>
               <div class="text-[11px] text-muted">aman ditarik <b class="font-medium text-ink">{{ p.aman_5 != null ? `${pr(p.aman_5)}/th` : "tidak ada" }}</b></div>
               <div v-if="p.jendela_n" class="text-[11px] text-muted">{{ p.jendela_menang }} dari {{ p.jendela_n }} periode 5 th lebih baik</div>
+              <div v-if="p.kode === 'agresif'" class="mt-1.5 text-[11px] text-muted">Versi saham Indonesia saja: belum disarankan.</div>
+              <a v-if="p.kode === 'agresif'" href="#pertumbuhan" class="mt-1 inline-flex items-center gap-0.5 rounded-full bg-aksen-lembut px-2 py-0.5 text-[11px] font-medium text-aksen" @click.prevent="pindahTab('pertumbuhan')">Pertumbuhan (campur lokal + global)<ChevronRight class="h-3 w-3" /></a>
             </div>
           </div>
           <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">
