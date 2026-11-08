@@ -6,7 +6,7 @@ import Segmen from "@/components/common/Segmen.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 import TersediaDi from "@/components/produk/TersediaDi.vue";
-import { pr, prAngka, kelasTanda, dariSeratus, bulanTeks, bulanPendek, KELAS_RISIKO, NAMA_SUMBER } from "@/views/riset/pertumbuhan/bantu";
+import { pr, prAngka, kelasTanda, dariSeratus, bulanPendek, KELAS_RISIKO, NAMA_SUMBER } from "@/views/riset/pertumbuhan/bantu";
 
 const props = defineProps({ r: Object, d: Object, memuat: Boolean });
 const emit = defineEmits(["sub"]);
@@ -51,32 +51,47 @@ const minBeliTeks = (p) => {
   return p.min_beli_uang === "USD" ? `US$${p.min_beli_nilai.toLocaleString("id-ID")}` : rupiahRingkas(p.min_beli_nilai);
 };
 
-const jadwal = computed(() => {
+const jadwalBulan = computed(() => {
   const r = props.r;
-  const daftar = [];
-  const lk = isiLokal.value.length;
   if (r.cara_setor === "rata") {
-    daftar.push({ ikon: Repeat, kapan: "Tiap bulan", judul: `Setor ${rupiahRingkas(r.masukan.setoran)}, dibagi rata`, isi: [
-      `${rupiahRingkas(r.bagian.lokal)} dibagi rata ke ${lk} RD saham Indonesia (${rupiahRingkas(lk ? r.bagian.lokal / lk : 0)} per produk).`,
-      isiGlobal.value.length ? `${rupiahRingkas(r.bagian.global)} ke ${isiGlobal.value[0].nama}.` : `${rupiahRingkas(r.bagian.global)} untuk porsi global: belum ada produknya di aplikasi ini (lihat peringatan).`,
-      "Paling praktis: pasang beli rutin otomatis (auto-debit) di aplikasinya, tanggal yang sama tiap bulan."] });
-  } else {
-    daftar.push({ ikon: Repeat, kapan: "Tiap bulan", judul: `Setor ${rupiahRingkas(r.masukan.setoran)} ke satu produk, bergiliran`, isi: [
-      `Kalau dibagi rata, tiap produk dapat kurang dari ${rupiahRingkas(r.setor_rata_min)}, jadi lebih praktis bergiliran. Produk global kebagian tiap 2 bulan supaya tetap separuh.`,
-      ...(r.jadwal_setor ?? []).map((x) => `${bulanTeks(x.bulan)}: ${x.nama}`)] });
+    const baris = [...isiLokal.value.map((p) => ({ nama: p.nama, nilai: nilaiBulanIni(p), wadah: "lokal" })), ...isiGlobal.value.map((p) => ({ nama: p.nama, nilai: nilaiBulanIni(p), wadah: "global" }))];
+    if (!isiGlobal.value.length) baris.push({ nama: "Porsi global (belum ada produk di aplikasi ini)", nilai: r.bagian.global, wadah: "kosong" });
+    return { jenis: "rata", baris };
   }
-  const s = r.desember;
-  if (s) {
-    daftar.push({ ikon: Scale, kapan: "Tiap Desember", judul: "Kembalikan ke separuh-separuh", isi: [
-      `Contoh dengan hasil ${s.tahun} (${s.sumber}): setelah setor ${rupiahRingkas(s.setoran_total)} setahun, bagian Indonesia ±${rupiahRingkas(s.lokal)} dan global ±${rupiahRingkas(s.global)}.`,
-      `Jual ±${rupiahRingkas(s.pindah)} dari bagian ${s.dari === "lokal" ? "Indonesia" : "global"}, belikan ke bagian ${s.ke === "lokal" ? "Indonesia" : "global"}, supaya masing-masing ±${rupiahRingkas(s.target)}.`,
-      "Cara lain tanpa menjual: setoran bulan-bulan berikutnya diarahkan ke bagian yang tertinggal sampai seimbang lagi."] });
-  }
-  daftar.push({ ikon: CalendarClock, kapan: "Tiap Januari", judul: "Cek isi keranjang", isi: ["Daftar produk dibentuk ulang otomatis di halaman ini (biaya, dana kelolaan, ketersediaan di aplikasi).", "Kalau ada yang berubah, setoran baru ikuti daftar belanja yang baru; produk lama tidak perlu dijual kecuali bubar."] });
-  return daftar;
+  return { jenis: "giliran", baris: (r.jadwal_setor ?? []).map((x) => ({ nama: x.nama, nilai: x.nilai, bulan: x.bulan, wadah: isiGlobal.value.some((g) => g.id === x.id) ? "global" : "lokal" })) };
 });
-const ddCampuran = computed(() => props.d?.indeks?.["50/50"]?.dd);
-const ddLokal = computed(() => props.d?.indeks?.["100% IDX"]?.dd);
+const totalBulan = computed(() => jadwalBulan.value.baris.reduce((a, x) => a + x.nilai, 0) || 1);
+const WARNA_WADAH = { lokal: "bg-s2", global: "bg-s4", kosong: "bg-garis" };
+const des = computed(() => {
+  const s = props.r.desember;
+  if (!s) return null;
+  const maks = Math.max(s.lokal, s.global, s.target) || 1;
+  return { ...s, lebar: { lokal: (s.lokal / maks) * 100, global: (s.global / maks) * 100, target: (s.target / maks) * 100 } };
+});
+const persenAngka = (v) => (v == null ? "–" : `${v.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`);
+const tandaSingkat = (v) => (v == null ? "–" : `${v >= 0 ? "+" : ""}${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`);
+const risiko = computed(() => {
+  const i = props.d?.indeks ?? {};
+  const c = i["50/50"] ?? {};
+  const l = i["100% IDX"] ?? {};
+  const pk = props.d?.pecah?.Penuh;
+  const gl = isiGlobal.value[0];
+  const lima = props.r?.rentang?.["5"];
+  return [
+    { judul: "Bisa turun dalam", angka: c.dd != null ? tandaSingkat(-Math.abs(c.dd)) : "–", kelas: "text-turun",
+      teks: `Di data indeks, campuran 50/50 pernah turun ${pr(Math.abs(c.dd ?? 0), 0)} dari puncak dan butuh ${c.pulih ?? "–"} bulan untuk pulih. 100% Indonesia pernah ${pr(Math.abs(l.dd ?? 0), 0)}. Semua produknya berisiko tinggi.` },
+    { judul: "Jangka pendek bisa rugi", angka: lima ? `${dariSeratus(lima.untung)} dari 100` : "–", kelas: "text-ink",
+      teks: lima ? `Ditahan 5 tahun, ${dariSeratus(lima.untung)} dari 100 periode masa lalu untung (paling sial ${rupiahRingkas(lima.terburuk)} dari setor ${rupiahRingkas(lima.total)}). Di bawah 5 tahun, peluang rugi jauh lebih besar.` : "" },
+    { judul: "Kurs dua arah", angka: pk ? `${tandaSingkat(pk.kurs)}/th` : "–", kelas: "text-kuning",
+      teks: pk ? `Dari ${pr(pk.rupiah)}/th hasil global dalam rupiah (2001–2026), sekitar ${pr(pk.kurs)} per tahun datang dari rupiah yang melemah. Kalau rupiah menguat, bagian ini bisa berbalik jadi pengurang.` : "" },
+    { judul: "Banyak saham teknologi AS", angka: "AS", kelas: "text-ink",
+      teks: "Indeks saham syariah global didominasi perusahaan besar Amerika, banyak di sektor teknologi. Kalau sektor itu jatuh, bagian global ikut terseret." },
+    { judul: "Biaya RD global lebih mahal", angka: gl?.biaya != null ? `${persenAngka(gl.biaya)}/th` : "±2%/th", kelas: "text-ink",
+      teks: `${gl ? gl.nama : "RD global"} memakan biaya ±${gl?.biaya != null ? persenAngka(gl.biaya) : "2%"} per tahun (sudah termasuk di hasil masa lalunya), ditambah selisih kurs bank saat beli dan jual dolar.` },
+    { judul: "Bukan jaminan", angka: "uji maju 2027", kelas: "text-kuning",
+      teks: "Cara ini lolos uji yang disusun setelah gambaran sejarah sudah diketahui. Mulai Januari 2027 dipantau maju sebelum dianggap terbukti." },
+  ];
+});
 </script>
 
 <template>
@@ -183,30 +198,82 @@ const ddLokal = computed(() => props.d?.indeks?.["100% IDX"]?.dd);
       <p class="m-0 mt-3 text-[11px] text-muted">Angka kinerja = hasil masa lalu tiap produk dalam rupiah (sumber data reksa dana), hanya untuk gambaran, bukan alasan memilih.</p>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
-      <div class="text-[14px] font-medium">4 · Jadwal rutin</div>
-      <ol class="m-0 mt-3 list-none space-y-3 p-0">
-        <li v-for="j in jadwal" :key="j.kapan" class="flex items-start gap-3 rounded-2xl bg-surface-2 px-4 py-3">
-          <span class="hidden h-9 w-9 shrink-0 place-items-center rounded-full bg-aksen-lembut text-aksen sm:grid"><component :is="j.ikon" class="h-4 w-4" /></span>
-          <div class="min-w-0">
-            <div class="text-[11px] text-muted">{{ j.kapan }}</div>
-            <div class="text-[14px] font-medium">{{ j.judul }}</div>
-            <ul class="m-0 mt-1 space-y-0.5 pl-4 text-[12px] leading-relaxed text-ink-2"><li v-for="(x, i) in j.isi" :key="i">{{ x }}</li></ul>
-          </div>
-        </li>
-      </ol>
-    </section>
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <section class="panel min-w-0 px-4 py-5 sm:px-6">
+        <div class="flex items-center gap-2 text-[14px] font-medium"><CalendarClock class="h-4 w-4 text-aksen" />4 · Jadwal rutin</div>
+        <p class="m-0 mt-1 text-[12px] text-muted">Tiga hal yang perlu diingat sepanjang tahun. Selebihnya biarkan saja.</p>
+        <ol class="m-0 mt-4 ml-2.5 list-none space-y-5 border-l-2 border-garis p-0 pl-5">
+          <li class="relative">
+            <span class="absolute top-0 -left-[31px] grid h-5 w-5 place-items-center rounded-full bg-aksen text-white"><Repeat class="h-3 w-3" /></span>
+            <div class="text-[11px] text-muted">Tiap bulan · tanggal yang sama</div>
+            <div class="text-[14px] font-medium">{{ jadwalBulan.jenis === "rata" ? `Setor ${rupiahRingkas(r.masukan.setoran)}, dibagi rata` : `Setor ${rupiahRingkas(r.masukan.setoran)} ke satu produk, bergiliran` }}</div>
+            <template v-if="jadwalBulan.jenis === 'rata'">
+              <div class="mt-2 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
+                <div v-for="(b, i) in jadwalBulan.baris" :key="i" :class="WARNA_WADAH[b.wadah]" :style="{ width: `${(b.nilai / totalBulan) * 100}%` }" :title="b.nama" />
+              </div>
+              <ul class="m-0 mt-2 list-none space-y-1 p-0 text-[12px]">
+                <li v-for="(b, i) in jadwalBulan.baris" :key="i" class="flex items-center justify-between gap-3">
+                  <span class="flex min-w-0 items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full" :class="WARNA_WADAH[b.wadah]" /><span class="truncate" :class="b.wadah === 'kosong' ? 'text-kuning' : 'text-ink-2'">{{ b.nama }}</span></span>
+                  <span class="shrink-0 font-medium tabular-nums">{{ rupiahRingkas(b.nilai) }}</span>
+                </li>
+              </ul>
+              <p class="m-0 mt-2 text-[11px] text-muted">Paling praktis: pasang beli rutin otomatis (auto-debit) di aplikasinya.</p>
+            </template>
+            <template v-else>
+              <p class="m-0 mt-1 text-[12px] text-ink-2">Kalau dibagi rata, tiap produk dapat kurang dari {{ rupiahRingkas(r.setor_rata_min) }}. Lebih praktis bergiliran; produk global kebagian tiap 2 bulan supaya tetap separuh.</p>
+              <ul class="m-0 mt-2 list-none space-y-1 p-0 text-[12px]">
+                <li v-for="(b, i) in jadwalBulan.baris" :key="i" class="flex items-center justify-between gap-3">
+                  <span class="flex min-w-0 items-center gap-2"><span class="w-16 shrink-0 text-muted">{{ bulanPendek(b.bulan) }}</span><span class="h-2 w-2 shrink-0 rounded-full" :class="WARNA_WADAH[b.wadah]" /><span class="truncate text-ink-2">{{ b.nama }}</span></span>
+                  <span class="shrink-0 font-medium tabular-nums">{{ rupiahRingkas(b.nilai) }}</span>
+                </li>
+              </ul>
+            </template>
+          </li>
+          <li v-if="des" class="relative">
+            <span class="absolute top-0 -left-[31px] grid h-5 w-5 place-items-center rounded-full bg-aksen text-white"><Scale class="h-3 w-3" /></span>
+            <div class="text-[11px] text-muted">Tiap Desember · sekali setahun</div>
+            <div class="text-[14px] font-medium">Kembalikan ke separuh-separuh</div>
+            <p class="m-0 mt-1 text-[12px] text-ink-2">Contoh dengan hasil {{ des.tahun }} ({{ des.sumber }}): setor {{ rupiahRingkas(des.setoran_total) }} setahun jadi {{ rupiahRingkas(des.total) }}.</p>
+            <div class="mt-2 grid grid-cols-[72px_1fr_auto] items-center gap-x-2 gap-y-1.5 text-[12px]">
+              <span class="text-muted">Indonesia</span>
+              <div class="relative h-3 rounded-full bg-surface-2"><div class="h-3 rounded-full bg-s2" :style="{ width: `${des.lebar.lokal}%` }" /><div class="absolute -top-0.5 h-4 w-0.5 bg-ink" :style="{ left: `${des.lebar.target}%` }" /></div>
+              <span class="tabular-nums">{{ rupiahRingkas(des.lokal) }}</span>
+              <span class="text-muted">Global</span>
+              <div class="relative h-3 rounded-full bg-surface-2"><div class="h-3 rounded-full bg-s4" :style="{ width: `${des.lebar.global}%` }" /><div class="absolute -top-0.5 h-4 w-0.5 bg-ink" :style="{ left: `${des.lebar.target}%` }" /></div>
+              <span class="tabular-nums">{{ rupiahRingkas(des.global) }}</span>
+            </div>
+            <p class="m-0 mt-2 text-[12px] text-ink-2">Garis hitam = target {{ rupiahRingkas(des.target) }} per bagian. <b class="font-medium text-ink">Jual ±{{ rupiahRingkas(des.pindah) }} dari bagian {{ des.dari === "lokal" ? "Indonesia" : "global" }}, belikan ke bagian {{ des.ke === "lokal" ? "Indonesia" : "global" }}.</b></p>
+            <p class="m-0 mt-1 text-[11px] text-muted">Tanpa menjual juga boleh: arahkan setoran Januari dst. ke bagian yang tertinggal sampai seimbang.</p>
+          </li>
+          <li class="relative">
+            <span class="absolute top-0 -left-[31px] grid h-5 w-5 place-items-center rounded-full bg-aksen text-white"><CalendarClock class="h-3 w-3" /></span>
+            <div class="text-[11px] text-muted">Tiap Januari</div>
+            <div class="text-[14px] font-medium">Cek isi keranjang di halaman ini</div>
+            <ul class="m-0 mt-1 space-y-0.5 pl-4 text-[12px] leading-relaxed text-ink-2">
+              <li>Daftar dibentuk ulang otomatis: biaya, dana kelolaan, dan ketersediaan di aplikasi.</li>
+              <li>Ada yang berganti? Setoran baru ikuti daftar baru; produk lama tidak perlu dijual kecuali bubar.</li>
+              <li>Uang yang dibutuhkan dalam 5 tahun ke depan pindahkan bertahap ke Portofolio Konservatif.</li>
+            </ul>
+          </li>
+        </ol>
+      </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
-      <div class="flex items-center gap-2 text-[14px] font-medium"><ShieldAlert class="h-4 w-4 text-turun" />5 · Risiko yang perlu diterima</div>
-      <ul class="m-0 mt-2 space-y-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
-        <li><b class="font-medium text-ink">Bisa turun dalam.</b> Di data indeks, campuran 50/50 pernah turun {{ pr(Math.abs(ddCampuran ?? 0), 0) }} dari puncak (100% Indonesia {{ pr(Math.abs(ddLokal ?? 0), 0) }}). Semua produknya berisiko tinggi.</li>
-        <li><b class="font-medium text-ink">Banyak saham teknologi AS.</b> Bagian global didominasi segelintir perusahaan teknologi besar Amerika.</li>
-        <li><b class="font-medium text-ink">Kurs bisa naik atau turun.</b> Rupiah yang melemah selama ini ikut menambah hasil global; kalau rupiah menguat, hasilnya berkurang.</li>
-        <li><b class="font-medium text-ink">Biaya RD global lebih mahal</b>, sekitar 2% per tahun, ditambah selisih kurs saat beli dan jual.</li>
-        <li><b class="font-medium text-ink">Bukan jaminan.</b> Cara ini lolos uji yang disusun setelah gambaran data masa lalu sudah diketahui, jadi masih harus dibuktikan ke depan (pemantauan mulai Januari 2027).</li>
-        <li><b class="font-medium text-ink">Uang yang dipakai kurang dari 5 tahun lagi jangan di sini.</b> Taruh di <a href="#konservatif" class="text-aksen" @click.prevent="pindahTab('konservatif')">Portofolio Konservatif</a>.</li>
-      </ul>
-    </section>
+      <section class="panel min-w-0 px-4 py-5 sm:px-6">
+        <div class="flex items-center gap-2 text-[14px] font-medium"><ShieldAlert class="h-4 w-4 text-turun" />5 · Risiko yang perlu diterima</div>
+        <p class="m-0 mt-1 text-[12px] text-muted">Angka dari data masa lalu di halaman ini.</p>
+        <ul class="m-0 mt-4 grid list-none grid-cols-1 gap-2.5 p-0 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <li v-for="x in risiko" :key="x.judul" class="rounded-2xl bg-surface-2 px-4 py-3">
+            <div class="flex items-start justify-between gap-2">
+              <span class="text-[13px] font-medium">{{ x.judul }}</span>
+              <span class="shrink-0 text-[13px] font-semibold tabular-nums" :class="x.kelas">{{ x.angka }}</span>
+            </div>
+            <p class="m-0 mt-1 text-[12px] leading-relaxed text-ink-2">{{ x.teks }}</p>
+          </li>
+        </ul>
+        <div class="mt-3 rounded-2xl border border-garis px-4 py-3 text-[12px] leading-relaxed text-ink-2">
+          <b class="font-medium text-ink">Uang yang dipakai kurang dari 5 tahun lagi jangan di sini.</b> Taruh di <a href="#konservatif" class="text-aksen" @click.prevent="pindahTab('konservatif')">Portofolio Konservatif</a>.
+        </div>
+      </section>
+    </div>
   </div>
 </template>
