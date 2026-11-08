@@ -30,7 +30,10 @@ const tarikGrafik = ref("");
 
 const PILIHAN_APLIKASI = [["semua", "Semua"], ["bibit", "Bibit"], ["makmur", "Makmur"], ["ajaib", "Ajaib"]];
 const PILIHAN_SBN = [["sbn30", "30% di SBN"], ["sbn50", "50% di SBN"], ["sbn70", "70% di SBN"]];
-const NAMA_OPSI = { tanpa_sbn: "Fleksibel (tanpa SBN)", sbn30: "Terkunci sebagian, SBN 30%", sbn50: "Terkunci sebagian, SBN 50%", sbn70: "Terkunci sebagian, SBN 70%", jii_pu: "Pembanding: 54% JII / 46% RD pasar uang" };
+const NAMA_OPSI = { tanpa_sbn: "Reksa Dana Saja", sbn30: "Reksa Dana + Sukuk Negara 30%", sbn50: "Reksa Dana + Sukuk Negara 50%", sbn70: "Reksa Dana + Sukuk Negara 70%", jii_pu: "Pembanding: 54% JII / 46% RD pasar uang" };
+const RISIKO_WADAH = { pu: "rendah", pt: "sedang", sbn: "rendah" };
+const AMBANG_RENDAH = 0.7;
+const KELAS_RISIKO = { Rendah: "bg-naik-bg text-naik", Sedang: "bg-kuning-bg text-kuning", Tinggi: "bg-turun-bg text-turun", "Rendah–Sedang": "bg-kuning-bg text-kuning" };
 const NAMA_WADAH = { darurat: "Dana darurat · RD pasar uang", pt: "RD pendapatan tetap syariah", pu: "RD pasar uang syariah" };
 const NAMA_SKENARIO = { kategori: "rata-rata semua RD sejenis", keranjang: "keranjang produk di bawah" };
 
@@ -93,8 +96,22 @@ const tutupPengeluaran = computed(() => (r.value?.penghasilan && pengeluaran.val
 
 const kapanCair = computed(() => {
   if (!terkunci.value || !sbn.value) return { utama: "Kapan saja", ket: "dana masuk rekening ±1–7 hari kerja setelah dijual" };
-  return { utama: `Mulai ${bulanTeks(sbn.value.cair_paling_awal)}`, ket: `bagian SBN cair saat jatuh tempo; bagian reksa dana tetap bisa dijual kapan saja` };
+  const tahap = [...sbn.value.varian].sort((a, b) => String(a.jatuh_tempo).localeCompare(String(b.jatuh_tempo)))
+    .map((v) => `${bulanTeks(v.jatuh_tempo).replace(/^(\w{3})\w*/, "$1")} (${v.seri})`);
+  return { utama: "Bertahap", ket: `Bagian reksa dana: kapan saja · Bagian SBN: bertahap mulai ${tahap.join(" dan ")}` };
 });
+
+const komposisiRisiko = (kode) => {
+  const p = r.value?.opsi?.find((x) => x.kode === kode);
+  if (!r.value || !p) return null;
+  const modalTotal = r.value.masukan.modal || 1;
+  const sisa = r.value.sisa;
+  const bagian = { pu: (sisa * (1 - p.porsi_sbn)) / 2 + r.value.dana_darurat, pt: (sisa * (1 - p.porsi_sbn)) / 2, sbn: sisa * p.porsi_sbn };
+  const rendah = Object.entries(bagian).filter(([k]) => RISIKO_WADAH[k] === "rendah").reduce((a, [, v]) => a + v, 0) / modalTotal;
+  const sedang = Object.entries(bagian).filter(([k]) => RISIKO_WADAH[k] === "sedang").reduce((a, [, v]) => a + v, 0) / modalTotal;
+  return { rendah: Math.round(rendah * 100) / 100, sedang: Math.round(rendah * 100) / 100 + Math.round(sedang * 100) / 100 > 1 ? 1 - Math.round(rendah * 100) / 100 : sedang, label: rendah >= AMBANG_RENDAH ? "Rendah" : "Rendah–Sedang" };
+};
+const risikoGaya = computed(() => ({ fleksibel: komposisiRisiko("tanpa_sbn"), terkunci: komposisiRisiko(porsiSbn.value) }));
 
 const segmenRd = computed(() => {
   if (!r.value) return [];
@@ -207,15 +224,19 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           <button class="flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition" :class="!terkunci ? 'border-aksen bg-aksen-lembut' : 'border-garis hover:bg-surface-2'" @click="gaya = 'fleksibel'">
             <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full" :class="!terkunci ? 'bg-aksen text-white' : 'bg-surface-2 text-muted'"><Unlock class="h-5 w-5" /></span>
             <span class="min-w-0">
-              <span class="block text-[16px] font-semibold" :class="!terkunci ? 'text-aksen' : ''">Fleksibel</span>
-              <span class="block text-[12px] text-ink-2">Semua di reksa dana. Bisa dicairkan kapan saja, penghasilan lebih kecil.</span>
+              <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="!terkunci ? 'text-aksen' : ''">Reksa Dana Saja</span>
+                <span v-if="risikoGaya.fleksibel" class="chip" :class="KELAS_RISIKO[risikoGaya.fleksibel.label]">Risiko {{ risikoGaya.fleksibel.label.toLowerCase() }}</span></span>
+              <span class="block text-[12px] text-ink-2">Semua di reksa dana syariah. Bisa dicairkan kapan saja (1–7 hari kerja).</span>
+              <span v-if="risikoGaya.fleksibel" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ pr(risikoGaya.fleksibel.rendah, 0) }} rendah · {{ pr(risikoGaya.fleksibel.sedang, 0) }} sedang</span>
             </span>
           </button>
           <button class="flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition" :class="terkunci ? 'border-s2 bg-s2/10' : 'border-garis hover:bg-surface-2'" @click="gaya = 'terkunci'">
             <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full" :class="terkunci ? 'bg-s2 text-white' : 'bg-surface-2 text-muted'"><Lock class="h-5 w-5" /></span>
             <span class="min-w-0">
-              <span class="block text-[16px] font-semibold" :class="terkunci ? 'text-s2' : ''">Terkunci sebagian</span>
-              <span class="block text-[12px] text-ink-2">Sebagian di sukuk negara ritel (SBN) sampai jatuh tempo. Penghasilan lebih besar, uangnya tertahan.</span>
+              <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="terkunci ? 'text-s2' : ''">Reksa Dana + Sukuk Negara</span>
+                <span v-if="risikoGaya.terkunci" class="chip" :class="KELAS_RISIKO[risikoGaya.terkunci.label]">Risiko {{ risikoGaya.terkunci.label.toLowerCase() }}</span></span>
+              <span class="block text-[12px] text-ink-2">Sebagian di sukuk negara ritel (SR/ST) yang ditahan sampai jatuh tempo. Penghasilan lebih besar.</span>
+              <span v-if="risikoGaya.terkunci" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ pr(risikoGaya.terkunci.rendah, 0) }} rendah · {{ pr(risikoGaya.terkunci.sedang, 0) }} sedang</span>
             </span>
           </button>
         </div>
@@ -283,6 +304,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
                   <div class="text-[13px] leading-snug font-medium">{{ p.nama }}</div>
                   <div class="truncate text-[11px] text-muted">{{ NAMA_WADAH[p.wadah] }} · {{ p.mi }}</div>
                 </div>
+                <span class="chip shrink-0" :class="KELAS_RISIKO[p.risiko]" :title="p.risiko_sumber === 'resmi' ? `Tingkat risiko ${p.risiko_skala} dari skala 1–9 (detail produk / fund fact sheet)` : 'Diturunkan dari jenis RD, data resmi tidak ada'">{{ p.risiko }}<template v-if="p.risiko_sumber === 'jenis'"> · dari jenis RD</template></span>
               </div>
               <div class="flex items-baseline justify-between gap-2">
                 <span class="text-[18px] font-semibold tabular-nums">{{ rupiahRingkas(p.nilai) }}</span>
@@ -421,6 +443,8 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <div>• Data {{ bulanTeks(r.periode.awal) }} – {{ bulanTeks(r.periode.akhir) }} (±10 tahun); jendela 5 tahun saling tumpang tindih, hanya ±6 yang benar-benar terpisah. Indikatif, bukan bukti.</div>
               <div>• NAV bulanan OJK, tanpa biaya beli/jual; RD yang membagi hasil tunai tidak dipakai. Rata-rata kategori termasuk RD yang sudah bubar, keranjang tidak.</div>
               <div>• "Aman" = daya beli modal tidak turun (sudah memperhitungkan inflasi). SBN dinilai 100 karena dipegang sampai jatuh tempo; kupon SBN masa lalu lebih tinggi dari sekarang, jadi gaya terkunci bisa terlalu optimis.</div>
+              <div>• Simulasi mengambil penarikan proporsional dari RD pendapatan tetap & pasar uang lalu menyamakan 50/50 tiap Desember; cara di jadwal (jual 1 RD pasar uang bergiliran) diuji terpisah dan memberi tingkat aman yang sama persis.</div>
+              <div>• Label risiko produk dari skala resmi 1–9 (1–3 rendah, 4–6 sedang, 7–9 tinggi). Komposisi risiko gaya memakai jenisnya: RD pasar uang & SBN rendah, RD pendapatan tetap sedang; ≥ 70% rendah = "Rendah".</div>
               <div>• Contoh Desember memakai rata-rata hasil per tahun masa lalu (pendapatan tetap {{ pr(r.desember?.rata_pt) }}, pasar uang {{ pr(r.desember?.rata_pu) }}); angka sebenarnya akan berbeda.</div>
             </div>
           </div>

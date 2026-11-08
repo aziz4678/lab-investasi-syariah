@@ -200,9 +200,23 @@ def _bulan_terbit(sbn):
     return pd.Period(sbn["bulan"], "M")
 
 
-def _kartu(c, wadah, nilai, total):
+RISIKO_JENIS = {"pt": "Sedang", "pu": "Rendah", "darurat": "Rendah"}
+
+
+def label_risiko(skala):
+    return "Rendah" if skala <= 3 else "Sedang" if skala <= 6 else "Tinggi"
+
+
+def _risiko(c, wadah, skala):
+    nilai = skala.get(c["id"])
+    if nilai is not None:
+        return {"risiko": label_risiko(nilai), "risiko_skala": nilai, "risiko_sumber": "resmi"}
+    return {"risiko": RISIKO_JENIS[wadah], "risiko_skala": None, "risiko_sumber": "jenis"}
+
+
+def _kartu(c, wadah, nilai, total, skala):
     return {"id": c["id"], "nama": c["nama"], "mi": c.get("mi"), "wadah": wadah, "biaya": c.get("biaya"), "aum": c.get("aum"), "tahun_data": c.get("tahun_data"),
-            "platform": c.get("platform") or [], "nilai": nilai, "porsi": nilai / total if total else None}
+            "platform": c.get("platform") or [], "nilai": nilai, "porsi": nilai / total if total else None, **_risiko(c, wadah, skala)}
 
 
 def rencana(modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50", aplikasi="semua"):
@@ -231,14 +245,16 @@ def rencana(modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50"
     penghasilan = sisa * aman / 12 if aman is not None else None
 
     pu, pt = isi.get("PU", []), isi.get("PT", [])
+    from backend.app.services import reksadana as rdn
+    skala = {int(x["id"]): float(x["risiko"]) for x in rdn.daftar()["data"] if x.get("risiko") is not None}
     darurat_produk = []
     if pu and nilai_darurat > 0:
         murah = pu[0]
         besar = max([c for c in pu if c["id"] != murah["id"]] or [murah], key=lambda c: c.get("aum") or 0)
         pilih = [murah] if besar["id"] == murah["id"] else [murah, besar]
-        darurat_produk = [_kartu(c, "darurat", nilai_darurat / len(pilih), modal) for c in pilih]
-    belanja_pt = [_kartu(c, "pt", nilai_rd / 2 / len(pt), modal) for c in pt] if pt else []
-    belanja_pu = [_kartu(c, "pu", nilai_rd / 2 / len(pu), modal) for c in pu] if pu else []
+        darurat_produk = [_kartu(c, "darurat", nilai_darurat / len(pilih), modal, skala) for c in pilih]
+    belanja_pt = [_kartu(c, "pt", nilai_rd / 2 / len(pt), modal, skala) for c in pt] if pt else []
+    belanja_pu = [_kartu(c, "pu", nilai_rd / 2 / len(pu), modal, skala) for c in pu] if pu else []
 
     sbn = _varian_sbn(penawaran_berikut()) if w > 0 else None
     kupon_bulan = 0.0

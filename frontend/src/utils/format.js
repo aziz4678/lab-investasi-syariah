@@ -44,6 +44,7 @@ export function kelasPersen(v) {
 export const rupiahRingkas = (v) => {
   if (v === null || v === undefined || Number.isNaN(v)) return "–";
   const a = Math.abs(v);
+  if (a < 500) return "Rp0";
   const tanda = v < 0 ? "-" : "";
   const f = (x, s, d = 1) => `${tanda}Rp${x.toLocaleString("id-ID", { minimumFractionDigits: d, maximumFractionDigits: d })} ${s}`;
   if (a >= 1e12) return f(a / 1e12, "T");
