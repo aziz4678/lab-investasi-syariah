@@ -40,3 +40,14 @@ export function kelasPersen(v) {
   if (v === null || v === undefined || Number.isNaN(v) || Math.abs(v) < 0.005) return "";
   return v > 0 ? "text-naik" : "text-turun";
 }
+
+export const rupiahRingkas = (v) => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  const a = Math.abs(v);
+  const tanda = v < 0 ? "-" : "";
+  const f = (x, s, d = 1) => `${tanda}Rp${x.toLocaleString("id-ID", { minimumFractionDigits: d, maximumFractionDigits: d })} ${s}`;
+  if (a >= 1e12) return f(a / 1e12, "T");
+  if (a >= 1e9) return f(a / 1e9, "M");
+  if (a >= 1e6) return f(a / 1e6, "jt");
+  return f(a / 1e3, "rb", 0);
+};
