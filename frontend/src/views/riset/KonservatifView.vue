@@ -31,9 +31,11 @@ const tarikGrafik = ref("");
 const PILIHAN_APLIKASI = [["semua", "Semua"], ["bibit", "Bibit"], ["makmur", "Makmur"], ["ajaib", "Ajaib"]];
 const PILIHAN_SBN = [["sbn30", "30% di SBN"], ["sbn50", "50% di SBN"], ["sbn70", "70% di SBN"]];
 const NAMA_OPSI = { tanpa_sbn: "Reksa Dana Saja", sbn30: "Reksa Dana + Sukuk Negara 30%", sbn50: "Reksa Dana + Sukuk Negara 50%", sbn70: "Reksa Dana + Sukuk Negara 70%", jii_pu: "Pembanding: 54% JII / 46% RD pasar uang" };
-const RISIKO_WADAH = { pu: "rendah", pt: "sedang", sbn: "rendah" };
+const RISIKO_SBN = "Rendah";
 const AMBANG_RENDAH = 0.7;
-const KELAS_RISIKO = { Rendah: "bg-naik-bg text-naik", Sedang: "bg-kuning-bg text-kuning", Tinggi: "bg-turun-bg text-turun", "Rendah–Sedang": "bg-kuning-bg text-kuning" };
+const KELAS_RISIKO = { Rendah: "bg-naik-bg text-naik", Sedang: "bg-kuning-bg text-kuning", Tinggi: "bg-turun-bg text-turun", "Rendah–Sedang": "bg-kuning-bg text-kuning", "Rendah–Tinggi": "bg-turun-bg text-turun" };
+const teksKomposisi = (k) => [`${pr(k.rendah, 0)} rendah`, `${pr(k.sedang, 0)} sedang`, k.tinggi > 0 ? `${pr(k.tinggi, 0)} tinggi` : null].filter(Boolean).join(" · ")
+  + (k.dariJenis ? ` · ${k.dariJenis} produk dari jenis RD` : "");
 const NAMA_WADAH = { darurat: "Dana darurat · RD pasar uang", pt: "RD pendapatan tetap syariah", pu: "RD pasar uang syariah" };
 const NAMA_SKENARIO = { kategori: "rata-rata semua RD sejenis", keranjang: "keranjang produk di bawah" };
 
@@ -105,11 +107,21 @@ const komposisiRisiko = (kode) => {
   const p = r.value?.opsi?.find((x) => x.kode === kode);
   if (!r.value || !p) return null;
   const modalTotal = r.value.masukan.modal || 1;
-  const sisa = r.value.sisa;
-  const bagian = { pu: (sisa * (1 - p.porsi_sbn)) / 2 + r.value.dana_darurat, pt: (sisa * (1 - p.porsi_sbn)) / 2, sbn: sisa * p.porsi_sbn };
-  const rendah = Object.entries(bagian).filter(([k]) => RISIKO_WADAH[k] === "rendah").reduce((a, [, v]) => a + v, 0) / modalTotal;
-  const sedang = Object.entries(bagian).filter(([k]) => RISIKO_WADAH[k] === "sedang").reduce((a, [, v]) => a + v, 0) / modalTotal;
-  return { rendah: Math.round(rendah * 100) / 100, sedang: Math.round(rendah * 100) / 100 + Math.round(sedang * 100) / 100 > 1 ? 1 - Math.round(rendah * 100) / 100 : sedang, label: rendah >= AMBANG_RENDAH ? "Rendah" : "Rendah–Sedang" };
+  const rd = r.value.sisa * (1 - p.porsi_sbn);
+  const { darurat, pt, pu } = belanja.value;
+  const bagian = [
+    ...darurat.map((x) => [x.risiko, x.nilai, x.risiko_sumber]),
+    ...pt.map((x) => [x.risiko, rd / 2 / pt.length, x.risiko_sumber]),
+    ...pu.map((x) => [x.risiko, rd / 2 / pu.length, x.risiko_sumber]),
+    [RISIKO_SBN, r.value.sisa * p.porsi_sbn, "resmi"],
+  ];
+  const jumlah = (label) => bagian.filter(([l]) => l === label).reduce((a, [, v]) => a + v, 0) / modalTotal;
+  const bulat = (v) => Math.round(v * 100) / 100;
+  const rendah = bulat(jumlah("Rendah"));
+  const tinggi = bulat(jumlah("Tinggi"));
+  const sedang = Math.max(Math.min(bulat(jumlah("Sedang")), 1 - rendah - tinggi), 0);
+  const label = rendah >= AMBANG_RENDAH ? "Rendah" : tinggi > 0 ? "Rendah–Tinggi" : "Rendah–Sedang";
+  return { rendah, sedang, tinggi, label, dariJenis: bagian.filter(([, v, s]) => s === "jenis" && v > 0).length };
 };
 const risikoGaya = computed(() => ({ fleksibel: komposisiRisiko("tanpa_sbn"), terkunci: komposisiRisiko(porsiSbn.value) }));
 
@@ -267,7 +279,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="!terkunci ? 'text-aksen' : ''">Reksa Dana Saja</span>
                 <span v-if="risikoGaya.fleksibel" class="chip" :class="KELAS_RISIKO[risikoGaya.fleksibel.label]">Risiko {{ risikoGaya.fleksibel.label.toLowerCase() }}</span></span>
               <span class="block text-[12px] text-ink-2">Semua di reksa dana syariah. Bisa dicairkan kapan saja (1–7 hari kerja).</span>
-              <span v-if="risikoGaya.fleksibel" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ pr(risikoGaya.fleksibel.rendah, 0) }} rendah · {{ pr(risikoGaya.fleksibel.sedang, 0) }} sedang</span>
+              <span v-if="risikoGaya.fleksibel" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ teksKomposisi(risikoGaya.fleksibel) }}</span>
             </span>
           </button>
           <button class="flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition" :class="terkunci ? 'border-s2 bg-s2/10' : 'border-garis hover:bg-surface-2'" @click="gaya = 'terkunci'">
@@ -276,7 +288,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="terkunci ? 'text-s2' : ''">Reksa Dana + Sukuk Negara</span>
                 <span v-if="risikoGaya.terkunci" class="chip" :class="KELAS_RISIKO[risikoGaya.terkunci.label]">Risiko {{ risikoGaya.terkunci.label.toLowerCase() }}</span></span>
               <span class="block text-[12px] text-ink-2">Sebagian di sukuk negara ritel (SR/ST) yang ditahan sampai jatuh tempo. Penghasilan lebih besar.</span>
-              <span v-if="risikoGaya.terkunci" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ pr(risikoGaya.terkunci.rendah, 0) }} rendah · {{ pr(risikoGaya.terkunci.sedang, 0) }} sedang</span>
+              <span v-if="risikoGaya.terkunci" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ teksKomposisi(risikoGaya.terkunci) }}</span>
             </span>
           </button>
         </div>
@@ -484,7 +496,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <div>• NAV bulanan OJK, tanpa biaya beli/jual; RD yang membagi hasil tunai tidak dipakai. Rata-rata kategori termasuk RD yang sudah bubar, keranjang tidak.</div>
               <div>• "Aman" = daya beli modal tidak turun (sudah memperhitungkan inflasi). SBN dinilai 100 karena dipegang sampai jatuh tempo; kupon SBN masa lalu lebih tinggi dari sekarang, jadi gaya Reksa Dana + Sukuk Negara bisa terlalu optimis.</div>
               <div>• Simulasi mengambil penarikan proporsional dari RD pendapatan tetap & pasar uang lalu menyamakan 50/50 tiap Desember; cara di jadwal (jual 1 RD pasar uang bergiliran) diuji terpisah dan memberi tingkat aman yang sama persis.</div>
-              <div>• Label risiko produk dari skala resmi 1–9 (1–3 rendah, 4–6 sedang, 7–9 tinggi). Komposisi risiko gaya memakai jenisnya: RD pasar uang & SBN rendah, RD pendapatan tetap sedang; ≥ 70% rendah = "Rendah".</div>
+              <div>• Label risiko produk dari skala resmi 1–9 (1–3 rendah, 4–6 sedang, 7–9 tinggi). Komposisi risiko gaya = jumlah porsi produk menurut label resminya, SBN dihitung rendah (dijamin negara); label dari jenis RD hanya bila data resmi kosong; ≥ 70% rendah = "Rendah".</div>
               <div>• Contoh Desember memakai rata-rata hasil per tahun masa lalu (pendapatan tetap {{ pr(r.desember?.rata_pt) }}, pasar uang {{ pr(r.desember?.rata_pu) }}); angka sebenarnya akan berbeda.</div>
             </div>
           </div>
