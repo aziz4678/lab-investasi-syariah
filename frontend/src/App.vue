@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
-import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, ShieldCheck, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw, PiggyBank } from "lucide-vue-next";
+import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, ShieldCheck, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw, PiggyBank, Sprout } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { modeTema, setTema, temaGelap } from "@/composables/tema";
 import logoTerang from "@/assets/logo/logo.svg";
@@ -13,6 +13,7 @@ import EtfView from "@/views/produk/EtfView.vue";
 import RencanaView from "@/views/lainnya/RencanaView.vue";
 import HipotesisView from "@/views/riset/HipotesisView.vue";
 import KonservatifView from "@/views/riset/KonservatifView.vue";
+import PertumbuhanView from "@/views/riset/PertumbuhanView.vue";
 import EmitenView from "@/views/produk/EmitenView.vue";
 import PanduanView from "@/views/lainnya/PanduanView.vue";
 import KualitasDataView from "@/views/lainnya/KualitasDataView.vue";
@@ -21,7 +22,7 @@ const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H34" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "pertumbuhan", l: "Portofolio Pertumbuhan", ikon: Sprout, ket: "RD saham syariah lokal + global", sub: "Setor rutin, ≥ 5 tahun" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H35" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "kualitas", l: "Kualitas data", ikon: ShieldCheck, ket: "Cek & koreksi harga", sub: "Cek & koreksi harga" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -214,6 +215,7 @@ onMounted(() => {
       <EmitenView v-else-if="tab === 'emiten'" />
       <HipotesisView v-else-if="tab === 'hipotesis'" />
       <KonservatifView v-else-if="tab === 'konservatif'" />
+      <PertumbuhanView v-else-if="tab === 'pertumbuhan'" />
       <RencanaView v-else-if="tab === 'rencana'" />
       <KualitasDataView v-else-if="tab === 'kualitas'" />
       <PanduanView v-else />
