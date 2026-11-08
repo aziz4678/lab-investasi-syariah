@@ -1965,3 +1965,24 @@ Kas maks 80-100% = Jan-Apr 2020 sebelum keranjang ada. Setor Rp240 jt, nilai akh
 - **Jalur 2 (produk nyata, deskriptif, bukan kriteria)**: indeks RD saham syariah IDR (`analisis_profil.indeks_baru`, aturan sama) vs indeks RD Global Fund saham syariah USD dari NAB bulanan OJK: satu RD satu seri (kelas dobel dikeluarkan), termasuk yang bubar, min 5 produk/bulan (mulai Jul 2016), RD bagi hasil tunai Pasardana dikeluarkan, RD sukuk/campuran/pendapatan/emas dikeluarkan (dari nama), lompatan > ±30%/bulan dikeluarkan dan didaftar. Rupiah = NAB ÷ unit (kurs OJK sendiri); NAV USD di `rd_ojk` dihitung dari kurs Yahoo jadi selisih kurs OJK tidak bisa diukur dari sini (pengukuran lama Pasardana: median 18 bp, p95 ±3%). Biaya sudah di NAV. Isi kategori campuran: ±22 global, 12 Asia/China/ASEAN/India, 3 US. Periode Jul 2016 - Okt 2026 menguntungkan global (IDX buruk), jadi hanya gambaran.
 - **Risiko wajib**: (1) indeks global syariah ±40-60% teknologi AS (mega-cap sedikit); (2) kurs dua arah: pelemahan rupiah 2001-2026 menambah hasil global, kalau rupiah menguat hasil tergerus; (3) saringan syariah beda: DES OJK (utang berbasis bunga ≤ 45% aset, pendapatan non-halal ≤ 10%) vs AAOIFI/DJIM/MSCI (utang ≤ 33% kapitalisasi pasar/aset, non-halal ≤ 5%); (4) biaya RD global ±2%/th + selisih kurs beli/jual bank; (5) minimal beli RD USD (sering US$10-100) dan tidak semua ada di Bibit/Ajaib/Makmur; (6) RD Global Fund campuran wilayah, bukan indeks dunia; (7) jalur 1 indeks tanpa biaya nyata RD dan dividen sebelum 2008 diasumsikan; (8) bebas survivorship hanya di jalur 2.
 - Script `backend/research/uji_h35.py`, hasil `hasil_riset/h35_hasil`. Dijalankan sekali.
+
+### Hasil H35 (2026-11-08, dijalankan sekali, `backend/research/uji_h35.py`, hasil `hasil_riset/h35_hasil`): K1-K4 LOLOS → **lolos pasca hasil**, wajib uji maju Jan 2027
+- Perbaikan kode sebelum ada angka tercetak: jalur 2 crash di hitungan per dekade (tidak berlaku untuk 2016+) dan encoding terminal; tidak ada angka yang terlihat sebelum perbaikan. JKII diperbarui s/d 6 Nov 2026, riwayat lama identik (0 beda).
+- Jalur 1, return bulanan Jun 2001 - Okt 2026 (305 bulan), rupiah:
+
+| Portofolio | CAGR | Turun terdalam | Lama pulih | MAR | J10 th terburuk | J10 th terbaik | % J10 > IDX |
+|---|---|---|---|---|---|---|---|
+| 100% IDX | +8,3% | -61,4% (Feb-Okt 2008) | 31 bln | 0,14 | -7,2% (s/d Okt 2026) | +29,2% | - |
+| 70/30 | +9,4% | -49,6% | 33 bln | 0,19 | +0,1% | +23,4% | 60% |
+| **50/50** | **+9,5%** | **-42,6%** | 33 bln | **0,22** | **+2,8%** (s/d Mar 2025) | +19,3% | 56% |
+| 100% global | +7,8% | -46,5% (2001-2003) | 73 bln | 0,17 | -0,5% | +14,5% | 55% |
+
+- Korelasi bulanan IDX vs global (rupiah) 0,08. Terlama di bawah puncak: 100% IDX 105 bulan (masih berjalan), 50/50 32 bulan.
+- Per dekade (laporan): Jun 2001-2009 IDX +27,2%, 50/50 +14,2%, global -1,3%; 2010-2019 IDX +7,4%, 50/50 +9,4%, global +10,6%; 2020 - Okt 2026 IDX -10,4%, 50/50 +3,9%, global +15,9%.
+- Pemecahan global (USD lokal / kurs / rupiah): penuh +5,7 / +2,0 / +7,8%; 2001-2009 +0,5 / -1,9 / -1,3%; 2010-2019 +6,3 / +4,0 / +10,6%; 2020+ +11,5 / +3,9 / +15,9%.
+- Kriteria: K1 +2,8% vs -7,2% ✔; K2 MAR 0,222 vs 0,135 ✔; K3 +9,5% vs +8,3% (batas +6,3%) ✔; K4 pesimis gabungan: K1 +1,6% vs -9,4%, K2 0,191 vs 0,087, K3 +8,1% vs +5,7% ✔. Varian satu-per-satu (dividen JII 0%, global 1,0%, ^IMUS pra-2008) semuanya ✔.
+- Kurs: FRED vs `kurs/USD` akhir bulan di 260 bulan lengkap: median 0,26%, p95 1,47%, maks 4,78%, > 3% hanya 1 bulan; 10 bulan tidak lengkap. 2024+: 1 pencilan (26 Des 2024, bukan akhir bulan, tidak terpakai).
+- Cek dividen JII: XIJI TR vs JKII harga Mei 2013 - Okt 2026 selisih +2,29%/th (asumsi dividen 2,5% − biaya 0,5% = +2,0%), asumsi wajar.
+- Jalur 2 (deskriptif, Jul 2016 - Okt 2026; lokal 69 seri, global 34 seri (7 bubar), 5-27 produk/bulan; 1 lompatan dikeluarkan: Panin Global Sharia Equity Apr 2026 +35,8%): 100% RD saham lokal -5,8%/th, DD -52,8% (belum pulih); 70/30 -1,6% / -35,1%; 50/50 +1,0% / -25,3%; 100% RD global +7,1% / -29,0%. Korelasi 0,07. Semua jendela 5 th: campuran & global > lokal.
+- Catatan penting: jendela 10 th terburuk 100% IDX berakhir Okt 2026, jadi K1 sangat dipengaruhi kejatuhan JII 2026 (±-45% s/d Okt). Data 2001-2009 menguntungkan IDX, 2020+ menguntungkan global; campuran menang karena keduanya bergantian, bukan karena satu dekade.
+- Kesimpulan: lolos pasca hasil (bukan bukti). Aturan uji maju Jan 2027 (produk RD/ETF mana, kriteria) belum dikunci, perlu keputusan user. Status registry `uji_maju` + lencana pasca hasil.
