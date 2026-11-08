@@ -34,7 +34,7 @@ const turun = (r) => (usd(r) ? r.turun_terburuk_rp ?? r.turun_terburuk : r.turun
     <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-3 self-start rounded-2xl bg-surface-2 px-4 py-3">
       <div>
         <div class="text-[11px] text-muted" :title="usd(r) ? 'Rata-rata hasil per tahun 3 tahun terakhir, dalam rupiah (termasuk kurs), setelah biaya' : 'Rata-rata hasil per tahun selama 3 tahun terakhir, setelah biaya'">Rata-rata/th (3 th){{ usd(r) ? " · Rp" : "" }}</div>
-        <div v-if="hasil3(r) != null" class="mt-0.5 text-[15px] font-medium tabular-nums" :class="kelasPersen(hasil3(r))">{{ persen(hasil3(r), 1) }}</div>
+        <div v-if="hasil3(r) != null" class="mt-0.5 text-[15px] font-medium tabular-nums" :class="kelasPersen(hasil3(r))">{{ persen(hasil3(r), 2) }}</div>
         <div v-else class="mt-0.5 text-[13px] text-muted" :title="r.ret_1th != null ? `Hasil 12 bulan terakhir ${persen(r.ret_1th, 1)}` : ''">data &lt; 3 th</div>
       </div>
       <div>

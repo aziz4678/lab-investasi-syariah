@@ -11,6 +11,12 @@ def rd_daftar():
     return rdn.daftar()
 
 
+@router.get("/rd/cek_platform")
+def rd_cek_platform():
+    from backend.db import koneksi as d
+    return rdn.bersih(d.koneksi().rd_cek_platform.find_one({"_id": "hasil"}) or {})
+
+
 @router.get("/rd/kategori")
 def rd_kategori():
     return rdn.ringkas_kategori()

@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { Award, TriangleAlert, ShieldCheck, ExternalLink, Search, ChevronRight, UserRound, Smartphone, Briefcase, Landmark, LineChart, Wallet } from "lucide-vue-next";
 import { persen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
+import CekPlatformRD from "@/components/produk/CekPlatformRD.vue";
 import { pakaiPlatform } from "@/composables/platformRD";
 
 const props = defineProps({ daftar: Object, m: Object });
@@ -260,12 +261,15 @@ const SUMBER = [
       <Panel judul="Keterbatasan data">
         <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
           <li>Hasil dihitung dari NAV saja. RD yang membagi dividen tunai terlihat lebih kecil dari hasil sebenarnya.</li>
-          <li>Riwayat jangka panjang memakai NAV akhir bulan dari laporan OJK (sejak 2013), disambung NAV harian Pasardana 12 bulan terakhir.</li>
+          <li>Riwayat jangka panjang memakai NAV akhir bulan dari laporan OJK (sejak 2013), disambung NAV harian Pasardana (dikumpulkan sejak 22 Okt 2025). Hasil periode yang lebih panjang dari data harian diberi tanda ≈: dihitung dari NAV akhir bulan yang paling dekat, jadi bisa beda dari aplikasi.</li>
+          <li>NAV hari bursa terbit setelah pukul 17:30, jadi NAV terbaru diambil pagi berikutnya (jadwal Sel–Sab 07:30). Tanggal NAV selalu tertulis di halaman produk.</li>
+          <li>Dana kelolaan (AUM) = laporan bulanan, per kelas produk; total semua kelas ditampilkan terpisah bila berbeda. Aplikasi bisa memakai bulan atau cakupan kelas yang lain.</li>
           <li>RD yang sudah bubar tidak tercakup, sehingga nilai tengah kategori cenderung sedikit lebih bagus dari kenyataan.</li>
           <li>Deposito di pembanding = perkiraan dari bunga antarbank dipotong pajak 20%; bunga bank tertentu bisa berbeda.</li>
           <li>Lencana dan peringatan dihitung otomatis dengan aturan tetap di atas; bukan rekomendasi dan bukan nasihat keuangan.</li>
         </ul>
       </Panel>
     </div>
+    <CekPlatformRD />
   </div>
 </template>

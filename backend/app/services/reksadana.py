@@ -77,6 +77,69 @@ def ret_sejak(s, hari):
     return (s.iloc[-1] / awal.iloc[-1] - 1) * 100
 
 
+JENDELA = [("1b", "1 bln", {"months": 1}), ("3b", "3 bln", {"months": 3}), ("6b", "6 bln", {"months": 6}), ("ytd", "Sejak Jan", None),
+           ("1t", "1 th", {"years": 1}), ("3t", "3 th", {"years": 3}), ("5t", "5 th", {"years": 5}), ("10t", "10 th", {"years": 10})]
+TAHUN_JENDELA = {"1t": 1, "3t": 3, "5t": 5, "10t": 10}
+JEDA_HARIAN = 7
+JEDA_BULANAN = 16
+
+
+def titik_awal(harian, bulanan, target):
+    h = harian[harian.index <= target]
+    if len(h) and (target - h.index[-1]).days <= JEDA_HARIAN:
+        return h.index[-1], float(h.iloc[-1]), "harian"
+    if bulanan is not None and len(bulanan):
+        jarak = np.abs((bulanan.index - target).days)
+        i = int(np.argmin(jarak))
+        if jarak[i] <= JEDA_BULANAN:
+            return bulanan.index[i], float(bulanan.iloc[i]), "bulanan"
+    return None
+
+
+def kinerja(harian, bulanan=None, usd=False):
+    harian = harian.dropna()
+    harian = harian[harian > 0].sort_index()
+    if bulanan is not None:
+        bulanan = bulanan.dropna()
+        bulanan = bulanan[bulanan > 0].sort_index()
+    if len(harian):
+        akhir_t, akhir_v = harian.index[-1], float(harian.iloc[-1])
+    elif bulanan is not None and len(bulanan):
+        akhir_t, akhir_v = bulanan.index[-1], float(bulanan.iloc[-1])
+    else:
+        return {}
+    hasil = {}
+    for k, _, geser in JENDELA:
+        target = pd.Timestamp(akhir_t.year - 1, 12, 31) if geser is None else akhir_t - pd.DateOffset(**geser)
+        awal = titik_awal(harian, bulanan, target)
+        if awal is None:
+            hasil[k] = None
+            continue
+        t, v, sumber = awal
+        total = (akhir_v / v - 1) * 100
+        n = TAHUN_JENDELA.get(k)
+        hasil[k] = {"total": total, "per_tahun": ((1 + total / 100) ** (1 / n) - 1) * 100 if n else None,
+                    "awal": t.strftime("%Y-%m-%d"), "akhir": akhir_t.strftime("%Y-%m-%d"), "target": target.strftime("%Y-%m-%d"),
+                    "sumber": sumber, "kira": sumber != "harian", "kurs": bool(usd and sumber != "harian")}
+    return hasil
+
+
+def dari_kinerja(k):
+    g = lambda j, f: (k.get(j) or {}).get(f)
+    return {"ret_1bln": g("1b", "total"), "ret_3bln": g("3b", "total"), "ret_6bln": g("6b", "total"), "ret_ytd": g("ytd", "total"),
+            "ret_1th": g("1t", "total"), "cagr_3": g("3t", "per_tahun"), "cagr_5": g("5t", "per_tahun"), "cagr_10": g("10t", "per_tahun"),
+            "ret_3t": g("3t", "total"), "ret_5t": g("5t", "total"), "ret_10t": g("10t", "total"),
+            "cagr_3_kira": bool(g("3t", "kira")), "cagr_5_kira": bool(g("5t", "kira"))}
+
+
+def aum_total(det, p):
+    t = (p.get("AumLastUpdate") or "")[:10]
+    a = [x for x in det.get("aum") or [] if x.get("tgl") and x.get("total")]
+    if not t or not a or a[-1]["tgl"].strftime("%Y-%m-%d") != t:
+        return None
+    return float(a[-1]["total"])
+
+
 def metrik(s):
     s = s.dropna()
     s = s[s > 0]
@@ -309,6 +372,7 @@ def _daftar(kunci):
         s = n[p["_id"]] if p["_id"] in n.columns else pd.Series(dtype=float)
         m = metrik(s)
         m.update(jangka_panjang(oj.get(p["_id"]), s.dropna()))
+        m.update(dari_kinerja(kinerja(s, oj.get(p["_id"]), p["mata_uang"] == "USD")))
         det = detail.get(p["_id"], {})
         vol_bulan, bulan_turun = gerak_bulanan(oj.get(p["_id"]), s.dropna())
         efek_nama, efek_bobot = efek_terbesar(det)
@@ -316,7 +380,8 @@ def _daftar(kunci):
         baris.append({
             "id": p["_id"], "nama": p["nama"], "mi": p.get("InvestmentManagerName"), "kategori": p["kategori"], "kategori_label": LABEL.get(p["kategori"], p["kategori"]),
             "mata_uang": p["mata_uang"], "nav": p.get("NetAssetValue"), "nav_tgl": p["nav_tgl"].strftime("%Y-%m-%d") if p.get("nav_tgl") else None,
-            "aum": p.get("AssetUnderManagement"), "biaya": biaya_terakhir(det), "biaya_mi": p.get("InvestmentManagerFee"), "min_beli": p.get("MinimumSubscription"),
+            "aum": p.get("AssetUnderManagement"), "aum_total": aum_total(det, p), "aum_tgl": (p.get("AumPublishedDate") or "")[:10] or None,
+            "biaya": biaya_terakhir(det), "biaya_mi": p.get("InvestmentManagerFee"), "min_beli": p.get("MinimumSubscription"),
             "risiko": det.get("risiko") or p.get("RiskClassificationValue"), "pembanding": det.get("pembanding"),
             "terbit": det["tgl_terbit"].strftime("%Y-%m-%d") if det.get("tgl_terbit") else None, "etf": bool(p.get("ExchangeTradedFund")),
             "sumber_ret_1th": (p.get("YearlyReturn") * 100) if p.get("YearlyReturn") is not None else None,
@@ -425,6 +490,7 @@ def detail(fid):
     bm = pd.DataFrame(det.get("pembanding_deret") or [])
     oj = pd.DataFrame(list(db.rd_ojk.find({"fund": fid}, {"_id": 0, "tgl": 1, "nav": 1, "nab": 1})))
     grafik_aum = riwayat_aum(oj, det.get("aum") or [], p.get("mata_uang"))
+    kin = kinerja(s, oj.assign(tgl=pd.to_datetime(oj["tgl"])).set_index("tgl")["nav"].sort_index() if not oj.empty else None, p.get("mata_uang") == "USD")
     panjang = None
     if not oj.empty:
         oj = oj.assign(tgl=pd.to_datetime(oj["tgl"])).set_index("tgl")["nav"].sort_index()
@@ -432,14 +498,9 @@ def detail(fid):
         s = pd.concat([awal, s]).sort_index()
         bulanan = s.resample("ME").last().dropna()
         tahun = (s.index[-1] - s.index[0]).days / 365.25
-        def cagr(th):
-            if tahun < th - 0.05:
-                return None
-            x = s[s.index <= s.index[-1] - pd.DateOffset(years=th)]
-            return None if x.empty else ((s.iloc[-1] / x.iloc[-1]) ** (1 / th) - 1) * 100
         th_ret = bulanan.groupby(bulanan.index.year).last()
         per_tahun = (th_ret / th_ret.shift(1) - 1).dropna() * 100
-        panjang = {"mulai": s.index[0].strftime("%Y-%m-%d"), "tahun": round(tahun, 1), "cagr_3": cagr(3), "cagr_5": cagr(5),
+        panjang = {"mulai": s.index[0].strftime("%Y-%m-%d"), "tahun": round(tahun, 1), "cagr_3": (kin.get("3t") or {}).get("per_tahun"), "cagr_5": (kin.get("5t") or {}).get("per_tahun"),
                    "cagr_semua": ((s.iloc[-1] / s.iloc[0]) ** (1 / tahun) - 1) * 100 if tahun >= 1 else None,
                    "dd": float((bulanan / bulanan.cummax() - 1).min() * 100),
                    "tahun_naik": int((per_tahun > 0).sum()), "tahun_dihitung": int(len(per_tahun)),
@@ -474,8 +535,8 @@ def detail(fid):
         "aum_tgl": (p.get("AumPublishedDate") or "")[:10] or None, "aum_ubah": aum_ubah,
         "aum_mi": aum_mi or None, "aum_mi_produk": len(sekelola), "aum_mi_kurs": kurs,
         "risiko_label": None if tingkat is None else ("Rendah" if tingkat <= 3 else "Sedang" if tingkat <= 6 else "Tinggi"), "dividen": det.get("dividen") or [],
-        "kinerja_sumber": det.get("kinerja_1th"), "grafik": grafik, "panjang": panjang, "detail_diambil": det.get("diambil"),
-        "median_kategori": {k: med(k) for k in ("ret_1bln", "ret_3bln", "ret_6bln", "ret_ytd", "ret_1th", "dd", "vol", "biaya")},
+        "kinerja_sumber": det.get("kinerja_1th"), "kinerja": kin, "jendela": [[k, l] for k, l, _ in JENDELA], "grafik": grafik, "panjang": panjang, "detail_diambil": det.get("diambil"),
+        "median_kategori": {k: med(k) for k in ("ret_1bln", "ret_3bln", "ret_6bln", "ret_ytd", "ret_1th", "ret_3t", "ret_5t", "dd", "vol", "biaya")},
         "jumlah_kategori_semua": len(sekategori),
     }
     etf = None

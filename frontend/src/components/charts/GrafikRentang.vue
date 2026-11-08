@@ -9,6 +9,7 @@ import { persen } from "@/utils/format";
 const props = defineProps({
   tgl: Array, harga: Array, total: Array, pembanding: Array, namaPembanding: String, nama: String,
   format: { type: Function, default: (v) => v.toLocaleString("id-ID", { maximumFractionDigits: 2 }) },
+  formatSumbu: { type: Function, default: null },
   awal: { type: String, default: "1Y" }, tinggi: { type: Number, default: 300 }, intraday: Object, polos: Boolean, bulanan: Boolean,
 });
 const emit = defineEmits(["arah", "rentang"]);
@@ -163,7 +164,7 @@ const opsi = computed(() => {
     const d = new Date(v);
     return hari > 900 ? String(d.getFullYear()) : d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: hari > 300 ? "2-digit" : undefined });
   };
-  o.scales.y.ticks.callback = (v) => props.format(v);
+  o.scales.y.ticks.callback = (v) => (props.formatSumbu || props.format)(v);
   o.onHover = (_, el) => {
     const e = el.find((x) => x.datasetIndex === 0);
     arah.value = e ? potong.value.i + e.index : null;

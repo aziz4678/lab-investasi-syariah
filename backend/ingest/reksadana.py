@@ -19,7 +19,7 @@ KATEGORI = {
 KOLOM_PRODUK = ["Name", "InvestmentManagerName", "InvestmentManagerFee", "MinimumSubscription", "IsinCode", "CustodianBankName",
                 "Currency", "ExchangeTradedFund", "Index", "Dividend", "NetAssetValue", "DailyReturn", "WeeklyReturn", "MtdReturn",
                 "MonthlyReturn", "QuarterlyReturn", "SemiAnnualReturn", "YtdReturn", "YearlyReturn", "ThreeYearReturn", "FiveYearReturn",
-                "AssetUnderManagement", "TotalUnit", "AumPublishedDate", "LastUpdate", "ConservativeCategory", "LastFundFactSheet",
+                "AssetUnderManagement", "TotalUnit", "AumPublishedDate", "AumLastUpdate", "ClassTotalAum", "LastUpdate", "ConservativeCategory", "LastFundFactSheet",
                 "RiskClassificationValue", "ExpenseRatio", "OneYearStdev", "OneYearSharpeRatio"]
 
 
@@ -87,14 +87,19 @@ def ringkas_aset(port):
 
 
 def deret(xs):
-    return [{"tgl": tgl(x["Date"]), "nilai": x["Value"]} for x in xs or [] if x.get("Date") and x.get("Value") is not None]
+    return [{"tgl": tgl(x["Date"]), "nilai": x["Value"], "total": x.get("ClassTotalValue")} for x in xs or [] if x.get("Date") and x.get("Value") is not None]
 
 
 def perbarui_detail(s, db, produk, paksa=False):
     batas = datetime.now() - timedelta(days=UMUR_DETAIL)
-    sudah = {x["_id"]: x.get("diambil") for x in db.rd_detail.find({}, {"diambil": 1})}
-    antre = [r for r in produk if paksa or not sudah.get(r["Id"]) or sudah[r["Id"]] < batas]
-    print(f"Mengambil detail + riwayat NAV {len(antre)} produk (detail lebih dari {UMUR_DETAIL} hari)...")
+    sudah = {x["_id"]: x for x in db.rd_detail.find({}, {"diambil": 1, "aum": {"$slice": -1}})}
+
+    def aum_baru(r):
+        t = tgl(r.get("AumLastUpdate"))
+        a = (sudah.get(r["Id"]) or {}).get("aum") or []
+        return bool(t and (not a or a[-1]["tgl"] < t))
+    antre = [r for r in produk if paksa or not sudah.get(r["Id"]) or not sudah[r["Id"]].get("diambil") or sudah[r["Id"]]["diambil"] < batas or aum_baru(r)]
+    print(f"Mengambil detail + riwayat NAV {len(antre)} produk (detail lebih dari {UMUR_DETAIL} hari atau AUM bulan baru terbit)...")
     n_nav = 0
     for i, r in enumerate(antre):
         try:

@@ -13,6 +13,10 @@ NAMA_LAMA = ["SwingSyariahPaper"]
 JAM = "17:30"
 PYTHONW = ROOT / "venv" / "Scripts" / "pythonw.exe"
 ARGUMEN = "-m backend.app.jobs.jadwal jalan"
+NAMA_PAGI = "LabInvestasiSyariahNAV"
+JAM_PAGI = "07:30"
+HARI_PAGI = "Tuesday,Wednesday,Thursday,Friday,Saturday"
+ARGUMEN_PAGI = "-m backend.app.jobs.jadwal pagi"
 
 
 def ps(skrip):
@@ -35,6 +39,7 @@ hasil = $i.LastTaskResult; berikut = if ($i.NextRunTime) {{ $i.NextRunTime.ToStr
         hasil = {"ada": False, "galat": keluar[-300:]}
     hasil["jam"] = JAM
     hasil["nama"] = nama
+    hasil["pagi"] = {"ada": ada(NAMA_PAGI), "jam": JAM_PAGI, "hari": "Sel–Sab", "isi": "ambil NAV & AUM reksa dana (NAV hari bursa terbit setelah 17:30)"}
     return hasil
 
 
@@ -60,14 +65,18 @@ def pasang(nama=NAMA_TUGAS):
     kode, keluar, galat = ps(f"""$a = New-ScheduledTaskAction -Execute '{python}' -Argument '{ARGUMEN}' -WorkingDirectory '{ROOT}'
 $t = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At {JAM}
 $s = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2)
-Register-ScheduledTask -TaskName '{nama}' -Action $a -Trigger $t -Settings $s -Description 'Lab Investasi Syariah: perbarui paper trade, cek ulang, backup' -Force | Out-Null""")
+Register-ScheduledTask -TaskName '{nama}' -Action $a -Trigger $t -Settings $s -Description 'Lab Investasi Syariah: perbarui paper trade, cek ulang, backup' -Force | Out-Null
+$a2 = New-ScheduledTaskAction -Execute '{python}' -Argument '{ARGUMEN_PAGI}' -WorkingDirectory '{ROOT}'
+$t2 = New-ScheduledTaskTrigger -Weekly -DaysOfWeek {HARI_PAGI} -At {JAM_PAGI}
+$s2 = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+Register-ScheduledTask -TaskName '{NAMA_PAGI}' -Action $a2 -Trigger $t2 -Settings $s2 -Description 'Lab Investasi Syariah: ambil NAV reksa dana hari bursa sebelumnya' -Force | Out-Null""")
     if kode != 0:
         raise RuntimeError(galat[-500:] or keluar[-500:])
     return status(nama)
 
 
 def lepas():
-    for nama in [NAMA_TUGAS, *NAMA_LAMA]:
+    for nama in [NAMA_TUGAS, NAMA_PAGI, *NAMA_LAMA]:
         ps(f"Unregister-ScheduledTask -TaskName '{nama}' -Confirm:$false -ErrorAction SilentlyContinue")
     return status(NAMA_TUGAS)
 
@@ -77,7 +86,7 @@ def perbaiki():
     if not terpasang:
         print("Perbarui otomatis: mati")
         return
-    if terpasang == [NAMA_TUGAS] and Path(folder_tugas(NAMA_TUGAS) or ".").resolve() == ROOT and argumen_tugas(NAMA_TUGAS) == ARGUMEN:
+    if terpasang == [NAMA_TUGAS] and Path(folder_tugas(NAMA_TUGAS) or ".").resolve() == ROOT and argumen_tugas(NAMA_TUGAS) == ARGUMEN and ada(NAMA_PAGI):
         print(f"Perbarui otomatis: aktif ({NAMA_TUGAS})")
         return
     pasang()
@@ -171,9 +180,9 @@ def jalan():
     jalan_browser(db, kecuali={"idx_harian"})
 
     def tulis():
-        db.jadwal_harian.replace_one({"_id": str(date.today())}, {"_id": str(date.today()), "mulai": mulai, "selesai": datetime.now(), "langkah": log,
+        db.jadwal_harian.update_one({"_id": str(date.today())}, {"$set": {"mulai": mulai, "selesai": datetime.now(), "langkah": log,
                                                                   "idx_status": st_idx, "idx_lengkap": idx_ok, "idx_terakhir": str(idx_terakhir) if idx_terakhir else None,
-                                                                  "urutan": URUTAN_HARIAN}, upsert=True)
+                                                                  "urutan": URUTAN_HARIAN}}, upsert=True)
 
     tulis()
     langkah(db, "cadangan", ["jadwal"], catatan=log)
@@ -184,10 +193,19 @@ def jalan():
     tulis()
 
 
+def pagi():
+    db = d.koneksi()
+    log = []
+    langkah(db, "rd_perbarui", catatan=log)
+    db.jadwal_harian.update_one({"_id": str(date.today())}, {"$set": {"pagi": log}}, upsert=True)
+
+
 if __name__ == "__main__":
     perintah = sys.argv[1] if len(sys.argv) > 1 else "status"
     if perintah == "jalan":
         jalan()
+    elif perintah == "pagi":
+        pagi()
     elif perintah == "pasang":
         print(json.dumps(pasang(*sys.argv[2:3])))
     elif perintah == "lepas":

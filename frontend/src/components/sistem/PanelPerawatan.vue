@@ -42,11 +42,13 @@ async function pulihkan() {
   bukaPulih.value = false;
 }
 
-async function alihJadwal() {
+const pasangUlang = () => alihJadwal(true);
+
+async function alihJadwal(aktif) {
   sibukJadwal.value = true;
   galatJadwal.value = "";
   try {
-    jadwal.value = await kirim("aksi_jadwal", { aktif: !jadwal.value?.ada });
+    jadwal.value = await kirim("aksi_jadwal", { aktif: aktif === true ? true : !jadwal.value?.ada });
   } catch (e) {
     galatJadwal.value = e.message;
   } finally {
@@ -87,6 +89,13 @@ function waktu(s) {
           </button>
         </div>
         <p v-if="jadwal?.ada" class="m-0 mt-2 pl-[30px] text-[11px] leading-snug text-muted">Urutan: unduh Yahoo (harga paper & riset, pasar, reksa dana, ETF, makro) → data harian IDX lewat Chrome Lab → cek kualitas data + koreksi aksi korporasi otomatis → paper Follow Tren & Momentum Blend (sumber IDX, cadangan Yahoo) → cek ulang paper → data IDX/OJK lain → backup. Komputer harus menyala; kalau mati, jalan saat komputer hidup lagi.<span v-if="jadwal.terakhir"> Terakhir {{ waktu(jadwal.terakhir) }}.</span></p>
+        <div v-if="jadwal?.ada && jadwal.pagi" class="m-0 mt-1.5 flex flex-wrap items-center gap-2 pl-[30px] text-[11px] leading-snug" :class="jadwal.pagi.ada ? 'text-muted' : 'text-kuning'">
+          <span v-if="jadwal.pagi.ada">Tambahan {{ jadwal.pagi.hari }} {{ jadwal.pagi.jam }}: {{ jadwal.pagi.isi }}.</span>
+          <template v-else>
+            <span>Jadwal pagi NAV reksa dana ({{ jadwal.pagi.hari }} {{ jadwal.pagi.jam }}) belum terpasang, jadi NAV di aplikasi tertinggal 1 hari bursa.</span>
+            <button class="tombol !px-2.5 !py-0.5 text-[11px]" :disabled="sibukJadwal" @click="pasangUlang">Pasang ulang jadwal</button>
+          </template>
+        </div>
         <p v-if="galatJadwal" class="m-0 mt-2 pl-[30px] text-xs text-turun">{{ galatJadwal }}</p>
       </div>
 

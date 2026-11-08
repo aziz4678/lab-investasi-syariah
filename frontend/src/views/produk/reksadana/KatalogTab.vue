@@ -129,13 +129,13 @@ const waktuData = computed(() => (props.daftar?.info?.diperbarui ? new Date(prop
                   </div>
                 </td>
                 <td class="text-right">
-                  <span v-if="r.cagr_3 != null" class="font-medium" :class="kelasPersen(r.cagr_3)">{{ persen(r.cagr_3, 1) }}</span>
+                  <span v-if="r.cagr_3 != null" class="font-medium" :class="kelasPersen(r.cagr_3)" :title="r.cagr_3_kira ? 'Perkiraan dari NAV akhir bulan OJK (data harian belum 3 tahun)' : ''">{{ r.cagr_3_kira ? "≈ " : "" }}{{ persen(r.cagr_3, 2) }}</span>
                   <span v-else class="text-xs text-muted" :title="r.ret_1th != null ? `Hasil 12 bulan terakhir ${persen(r.ret_1th, 1)}` : ''">data &lt; 3 th</span>
                 </td>
                 <td class="text-right tabular-nums" :class="r.turun_terburuk < -0.05 ? 'text-turun' : 'text-ink-2'">{{ r.turun_terburuk == null ? "–" : Math.abs(r.turun_terburuk) < 0.05 ? "0,0%" : persen(r.turun_terburuk, 1) }}</td>
                 <td class="text-right text-ink-2">{{ r.biaya == null ? "–" : persen(r.biaya, 2, false) }}</td>
                 <template v-if="lengkap">
-                  <td class="text-right" :class="kelasPersen(r.ret_1th)">{{ r.ret_1th == null ? "–" : persen(r.ret_1th, 1) }}</td>
+                  <td class="text-right" :class="kelasPersen(r.ret_1th)">{{ r.ret_1th == null ? "–" : persen(r.ret_1th, 2) }}</td>
                   <td class="text-right tabular-nums">{{ uangRD(r) }}</td>
                   <td class="text-right text-ink-2">{{ r.risiko == null ? "–" : `${Math.round(r.risiko)}/9` }}</td>
                   <td class="text-right text-ink-2">{{ r.tahun_data == null ? "–" : `${String(r.tahun_data).replace(".", ",")} th` }}</td>
