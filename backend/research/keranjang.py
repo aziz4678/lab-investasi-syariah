@@ -16,8 +16,16 @@ NAV_DATAR = 0.01
 AKTIF_HARI = 14
 APLIKASI = ("semua", "bibit", "ajaib", "makmur")
 KOLEKSI = "keranjang_konservatif"
+KOLEKSI_PANTAU = "keranjang_pantau"
+BENTUK_ULANG_BULAN = 1
+AUM_KELUAR_PERSENTIL = 25
+AUM_KELUAR_BULAN = 2
 KRITERIA = {"jumlah": JUMLAH, "min_tahun": MIN_TAHUN, "nav_datar": NAV_DATAR, "aktif_hari": AKTIF_HARI,
-            "urut": "biaya termurah, lalu dana kelolaan terbesar", "aum": "dana kelolaan >= median produk yang lolos (dicek saat dibentuk)"}
+            "urut": "biaya termurah, lalu dana kelolaan terbesar", "aum": "dana kelolaan >= median produk yang lolos (dicek saat dibentuk)",
+            "bentuk_ulang": "seluruh keranjang tiap Januari",
+            "keluar": [f"NAV tidak terbit > {AKTIF_HARI} hari / bubar", "mulai membagi hasil tunai", f"biaya naik di atas biaya produk ke-{JUMLAH} calon pengganti",
+                       f"dana kelolaan < persentil {AUM_KELUAR_PERSENTIL} produk yang lolos {AUM_KELUAR_BULAN} bulan berturut-turut"],
+            "ganti": "tengah tahun hanya produk yang keluar, diganti calon termurah berikutnya"}
 
 
 def _daftar():
@@ -56,14 +64,19 @@ def calon(data=None):
     return hasil, gagal
 
 
+def urutan(daftar, aplikasi="semua"):
+    batas = float(np.median([c["aum"] or 0 for c in daftar])) if daftar else 0.0
+    besar = [c for c in daftar if (c["aum"] or 0) >= batas]
+    if aplikasi != "semua":
+        besar = [c for c in besar if any(p["kode"] == aplikasi for p in c["platform"])]
+    besar.sort(key=lambda c: (c["biaya"], -(c["aum"] or 0)))
+    return besar, batas
+
+
 def bentuk(cl, aplikasi="semua"):
     isi, info = {}, {}
     for k, daftar in cl.items():
-        batas = float(np.median([c["aum"] or 0 for c in daftar])) if daftar else 0.0
-        besar = [c for c in daftar if (c["aum"] or 0) >= batas]
-        if aplikasi != "semua":
-            besar = [c for c in besar if any(p["kode"] == aplikasi for p in c["platform"])]
-        besar.sort(key=lambda c: (c["biaya"], -(c["aum"] or 0)))
+        besar, batas = urutan(daftar, aplikasi)
         isi[k] = besar[:JUMLAH]
         info[k] = {"lolos": len(daftar), "aum_besar": len([c for c in daftar if (c["aum"] or 0) >= batas]), "batas_aum": batas,
                    "di_aplikasi": len(besar), "tanpa_platform": sum(1 for c in daftar if not c["platform"])}
@@ -75,51 +88,99 @@ def terbaru(aplikasi="semua", koleksi=None):
     return kol.find_one({"aplikasi": aplikasi}, sort=[("dibentuk", -1)])
 
 
-def periksa(lama, cl, gagal, hari):
-    if lama is None:
-        return "awal", []
-    if hari.month == 1 and lama["dibentuk"].year < hari.year:
-        return "januari", []
-    lolos = {c["id"] for v in cl.values() for c in v}
-    catatan = []
-    for k, v in lama["isi"].items():
-        for c in v:
-            if c["id"] in lolos:
-                continue
-            sebab = gagal.get(c["id"])
-            if sebab is None or "tidak aktif" in sebab:
-                catatan.append({"id": c["id"], "nama": c["nama"], "alasan": "bubar / tidak aktif"})
-            else:
-                catatan.append({"id": c["id"], "nama": c["nama"], "alasan": "gagal saringan: " + ", ".join(sebab)})
-    if not catatan:
-        return None, []
-    return ("bubar" if all(x["alasan"].startswith("bubar") for x in catatan) else "gagal saringan"), catatan
+def _penuh(dok):
+    return dok.get("penuh") or dok["dibentuk"]
+
+
+def _aum_rendah(pantau, id_, rendah, bulan):
+    kunci = str(id_)
+    if not rendah:
+        pantau.pop(kunci, None)
+        return False
+    pantau[kunci] = ([b for b in pantau.get(kunci, []) if b != bulan] + [bulan])[-AUM_KELUAR_BULAN:]
+    b = pd.Period(bulan, "M")
+    return all(str(b - i) in pantau[kunci] for i in range(AUM_KELUAR_BULAN))
+
+
+def produk_keluar(lama, cl, gagal, pantau, bulan):
+    kini = {c["id"]: c for v in cl.values() for c in v}
+    keluar = []
+    for k, isi in lama["isi"].items():
+        segar, _ = urutan(cl.get(k, []), lama["aplikasi"])
+        batas_biaya = segar[JUMLAH - 1]["biaya"] if len(segar) >= JUMLAH else float("inf")
+        p_aum = float(np.percentile([c["aum"] or 0 for c in cl[k]], AUM_KELUAR_PERSENTIL)) if cl.get(k) else 0.0
+        for c in isi:
+            sebab = gagal.get(c["id"]) or []
+            x = kini.get(c["id"])
+            alasan = None
+            if x is None and (not sebab or "tidak aktif" in sebab):
+                alasan = f"NAV tidak terbit > {AKTIF_HARI} hari / bubar"
+            elif "bagi hasil tunai" in sebab:
+                alasan = "mulai membagi hasil tunai"
+            elif x is not None and x["biaya"] > batas_biaya:
+                alasan = f"biaya {x['biaya']:.2f}% di atas produk ke-{JUMLAH} calon ({batas_biaya:.2f}%)"
+            elif x is not None and _aum_rendah(pantau, c["id"], (x["aum"] or 0) < p_aum, bulan):
+                alasan = f"dana kelolaan < persentil {AUM_KELUAR_PERSENTIL} produk yang lolos {AUM_KELUAR_BULAN} bulan berturut-turut"
+            if alasan:
+                keluar.append({"wadah": k, "id": c["id"], "nama": c["nama"], "alasan": alasan})
+    return keluar
+
+
+def ganti_produk(lama, cl, keluar):
+    buang = {x["id"] for x in keluar}
+    isi = {k: [c for c in v if c["id"] not in buang] for k, v in lama["isi"].items()}
+    masuk = []
+    for x in keluar:
+        k = x["wadah"]
+        ada = {c["id"] for c in isi[k]} | buang
+        segar, _ = urutan(cl.get(k, []), lama["aplikasi"])
+        baru = next((c for c in segar if c["id"] not in ada), None)
+        if baru is not None:
+            isi[k].append(baru)
+            masuk.append({"wadah": k, "id": baru["id"], "nama": baru["nama"], "ganti": x["id"]})
+    for k in isi:
+        isi[k].sort(key=lambda c: (c["biaya"], -(c["aum"] or 0)))
+    return isi, masuk
 
 
 def perbarui(cetak=True, hari=None):
     hari = hari or date.today()
+    bulan = str(pd.Period(hari, "M"))
     kol = dt.db()[KOLEKSI]
+    kol_pantau = dt.db()[KOLEKSI_PANTAU]
     cl, gagal = calon()
     hasil = {}
     for app in APLIKASI:
         lama = terbaru(app, kol)
-        alasan, catatan = periksa(lama, cl, gagal, hari)
-        if alasan is None:
+        waktu = datetime.now()
+        ubah = None
+        if lama is None or (hari.month == BENTUK_ULANG_BULAN and _penuh(lama).year < hari.year):
+            isi, info = bentuk(cl, app)
+            ubah = {"alasan": "awal" if lama is None else "januari", "catatan": [], "masuk": [], "isi": isi, "info": info, "penuh": datetime.combine(hari, waktu.time())}
+        else:
+            pantau = (kol_pantau.find_one({"_id": app}) or {}).get("aum_rendah", {})
+            keluar = produk_keluar(lama, cl, gagal, pantau, bulan)
+            kol_pantau.replace_one({"_id": app}, {"_id": app, "aum_rendah": pantau, "diperbarui": waktu}, upsert=True)
+            if keluar:
+                isi, masuk = ganti_produk(lama, cl, keluar)
+                _, info = bentuk(cl, app)
+                ubah = {"alasan": "ganti produk", "catatan": keluar, "masuk": masuk, "isi": isi, "info": info, "penuh": _penuh(lama)}
+        if ubah is None:
             hasil[app] = {"berubah": False, "dok": lama}
             continue
-        isi, info = bentuk(cl, app)
-        waktu = datetime.now()
-        dok = {"_id": f"{app}_{waktu:%Y%m%d%H%M%S}", "aplikasi": app, "dibentuk": waktu, "alasan": alasan, "catatan": catatan,
-               "isi": isi, "info": info, "kriteria": KRITERIA, "sebelumnya": lama["_id"] if lama else None}
+        dok = {"_id": f"{app}_{waktu:%Y%m%d%H%M%S}", "aplikasi": app, "dibentuk": waktu, **ubah, "kriteria": KRITERIA, "sebelumnya": lama["_id"] if lama else None}
         kol.insert_one(dok)
         hasil[app] = {"berubah": True, "dok": dok}
     if cetak:
         for app, h in hasil.items():
             x = h["dok"]
-            print(f"[{app}] {'DIBENTUK ULANG (' + x['alasan'] + ')' if h['berubah'] else 'tetap'} · dibentuk {x['dibentuk']:%Y-%m-%d} · "
+            print(f"[{app}] {'BERUBAH (' + x['alasan'] + ')' if h['berubah'] else 'tetap'} · dibentuk {x['dibentuk']:%Y-%m-%d} · "
                   + " · ".join(f"{k} {len(x['isi'][k])} produk" for k in WADAH))
-            for c in x.get("catatan") or []:
-                print(f"    {c['nama']}: {c['alasan']}")
+            if h["berubah"]:
+                for c in x.get("catatan") or []:
+                    print(f"    keluar {c['nama']}: {c['alasan']}")
+                for c in x.get("masuk") or []:
+                    print(f"    masuk {c['nama']}")
         semua = hasil["semua"]["dok"]
         for k in WADAH:
             print(f"  {LABEL[k]}: {semua['info'][k]['lolos']} lolos, {semua['info'][k]['aum_besar']} AUM >= median, "

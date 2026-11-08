@@ -7,8 +7,18 @@ from backend.research import analisis_penarikan as ap
 
 TIPE = {"SH": ["Equity Fund"], "CA": ["Mixed Asset Fund"]}
 LOMPAT = 0.30
-PROFIL = [("Konservatif PT/PU 50/50", {"PT": 0.5, "PU": 0.5}), ("Moderat 30% saham", {"SH": 0.30, "PT": 0.35, "PU": 0.35}),
-          ("Agresif 60% saham", {"SH": 0.60, "PT": 0.20, "PU": 0.20}), ("RD campuran 100%", {"CA": 1.0})]
+SISA_KONSERVATIF = {"PT": 0.5, "PU": 0.5}
+PORSI_SAHAM = {"Moderat": 0.30, "Agresif": 0.60}
+REBALANCE_BULAN = 12
+PENARIKAN = "proporsional dari semua bagian (profil = satu aset di jalur RD tanpa SBN analisis_penarikan)"
+ASUMSI = {"sisa": "RD PT/PU 50/50 tanpa SBN", "rebalance": "tiap akhir Desember ke bobot awal, tanpa ambang", "penarikan": PENARIKAN}
+
+
+def _bobot(saham):
+    return {"SH": saham, **{k: (1 - saham) * w for k, w in SISA_KONSERVATIF.items()}}
+
+
+PROFIL = [("Konservatif PT/PU 50/50", dict(SISA_KONSERVATIF))] +          [(f"{nama} {saham * 100:.0f}% saham", _bobot(saham)) for nama, saham in PORSI_SAHAM.items()] +          [("RD campuran 100%", {"CA": 1.0})]
 JENDELA = 60
 
 
@@ -63,7 +73,7 @@ def gabung(L, bobot):
         for k in w:
             w[k] *= 1 + r[k][t]
         nilai.append(sum(w.values()))
-        if t.month == 12:
+        if t.month == REBALANCE_BULAN:
             tot = sum(w.values())
             w = {k: tot * bobot[k] for k in bobot}
     return pd.Series(nilai, index=[mulai] + list(idx))
@@ -92,7 +102,9 @@ def utama():
     c = al.cpi()
     _, _, akhir, mulai0 = ap.siapkan(h)
     mulai = max([mulai0] + [L[k].index[0] + 1 for k in ("SH", "CA")])
-    print(f"\nPeriode portofolio: {mulai} s/d {akhir}, rebalance tiap Desember; penarikan = analisis_penarikan (logika sama; profil dipakai sebagai satu aset di jalur RD tanpa SBN)")
+    print(f"\nPeriode portofolio: {mulai} s/d {akhir}. Asumsi: sisa porsi {ASUMSI['sisa']}; rebalance {ASUMSI['rebalance']}; penarikan {ASUMSI['penarikan']}")
+    for nama, bobot in PROFIL:
+        print(f"  {nama}: " + ", ".join(f"{k} {v * 100:.0f}%" for k, v in bobot.items()))
     Lp, baris = {}, []
     for nama, bobot in PROFIL:
         x = gabung(L, bobot)
