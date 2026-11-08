@@ -36,6 +36,12 @@ def rd_penarikan():
     return penarikan.hasil()
 
 
+@router.get("/rd/pengingat_sbn")
+def rd_pengingat_sbn():
+    from backend.app.services import penarikan
+    return penarikan.pengingat_sbn()
+
+
 @router.get("/rd/sukuk")
 def rd_sukuk():
     return rdn.sukuk()

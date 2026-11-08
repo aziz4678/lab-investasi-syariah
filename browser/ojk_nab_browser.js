@@ -1,5 +1,5 @@
 (async () => {
-  const TAHUN_MULAI = 2014;
+  const TAHUN_MULAI = __DARI__;
   const TAHUN_AKHIR = new Date().getFullYear();
   const BATAS_TUNGGU = 90000;
   const tunggu = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -48,3 +48,37 @@ def hasil():
     return bersih({"ada": True, "terbaru": siap(terbaru), "patokan": siap(patokan), "patokan_tahun": hari.year,
                    "patokan_data_desember": tahun_data, "umur_bulan": umur, "basi": umur > BASI_BULAN, "geser": geser, "ambang_geser": GESER,
                    "riwayat": riwayat})
+
+
+KUNCI_SIDIK = ("rd_ojk", "inflasi", "bi_rate", "sbsn_csv")
+JEDA_ST_BULAN = 5
+
+
+def perlu_hitung():
+    from backend.research.analisis_penarikan import sidik_input
+    akhir = dt.db()["hasil_penarikan"].find_one({}, {"sidik": 1}, sort=[("dihitung", -1)])
+    if akhir is None:
+        return True, "belum pernah dihitung"
+    kini = sidik_input(None)
+    beda = [k for k in KUNCI_SIDIK if kini.get(k) != akhir["sidik"].get(k)]
+    return bool(beda), ", ".join(f"{k}: {akhir['sidik'].get(k)} -> {kini.get(k)}" for k in beda) or "data sama"
+
+
+def pengingat_sbn():
+    from backend.core.config import ROOT
+    from backend.db import koneksi as d
+    c = pd.read_csv(ROOT / "data" / "sbsn_ritel.csv", dtype=str).fillna("")
+    ada = set(c["seri"])
+    pesan = []
+    for x in d.koneksi().rd_sukuk.find({"jenis": "SR"}, {"_id": 1}).sort("_id", 1):
+        if x["_id"] not in ada:
+            pesan.append({"seri": x["_id"], "alasan": "sudah tercatat di Pasardana"})
+    st = c[c["jenis"] == "ST"].copy()
+    st["tutup"] = pd.to_datetime(st["tgl_penawaran_akhir"])
+    terakhir = st.sort_values("tutup").iloc[-1]
+    nomor = int(terakhir["seri"][2:5])
+    batas = terakhir["tutup"] + pd.DateOffset(months=JEDA_ST_BULAN)
+    if pd.Timestamp(date.today()) > batas:
+        pesan.append({"seri": f"ST{nomor + 1:03d}", "alasan": f"lebih dari {JEDA_ST_BULAN} bulan sejak {terakhir['seri'][:5]} ditutup ({terakhir['tutup']:%d %b %Y}); perkiraan seri berikutnya"})
+    return {"pengingat": pesan, "st_terakhir": terakhir["seri"][:5], "st_tutup": f"{terakhir['tutup']:%Y-%m-%d}", "cek_st_setelah": f"{batas:%Y-%m-%d}",
+            "jumlah_seri": len(c)}

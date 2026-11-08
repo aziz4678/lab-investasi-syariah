@@ -108,7 +108,7 @@ URUTAN_HARIAN = [
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
     "5. Cek ulang paper (paper_cek, paper_h22_cek), lalu pantau_paper (jejak posisi H11a, banding dengan mesin backtest, insiden, catatan zona harian)",
-    "6. Sumber data browser lain, tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
+    "6. Sumber data browser lain (termasuk NAB bulanan OJK bila sudah terbit), lalu penarikan_hitung (portofolio konservatif) bila NAB OJK/inflasi/BI-Rate/sbsn_ritel.csv berubah; tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
 ]
 
 
@@ -178,6 +178,12 @@ def jalan():
     if ada_h11a or ada_h22:
         langkah(db, "pantau_paper", catatan=log)
     jalan_browser(db, kecuali={"idx_harian"})
+    from backend.app.services import penarikan
+    perlu, alasan = penarikan.perlu_hitung()
+    if perlu:
+        langkah(db, "penarikan_hitung", catatan=log)
+    else:
+        log.append({"jenis": "penarikan_hitung", "argumen": None, "status": "dilewati", "alasan": alasan, "waktu": datetime.now()})
 
     def tulis():
         db.jadwal_harian.update_one({"_id": str(date.today())}, {"$set": {"mulai": mulai, "selesai": datetime.now(), "langkah": log,

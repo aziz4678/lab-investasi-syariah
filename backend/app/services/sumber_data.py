@@ -88,7 +88,7 @@ SUMBER = [
      "langkah": ["Tekan 'Buka halaman OJK' dan tunggu halamannya selesai dimuat.",
                  "F12 → Console → tekan 'Salin script' → tempel → Enter. Kalau Chrome bertanya 'download multiple files', pilih Allow.",
                  "Tunggu sampai muncul '[ojk] SELESAI' (±15-30 menit untuk 2013 s/d sekarang). Satu file ojk_nab_<tahun>.json per tahun masuk Downloads.",
-                 "Tekan 'Impor NAB OJK'. Untuk pembaruan bulanan, ubah TAHUN_MULAI di baris pertama script ke tahun berjalan."],
+                 "Tekan 'Impor NAB OJK'. Script hanya mengambil tahun setelah data terakhir di database (tahun berjalan); file tahun lama tetap dari arsip."],
      "tombol": "impor_ojk_nab", "label_tombol": "Impor NAB OJK"},
     {"id": "bibit_rd", "nama": "Daftar reksa dana syariah yang dijual di Bibit", "dipakai": ["Reksa Dana (Tersedia di)"], "strategi": False,
      "sumber": "Halaman publik bibit.id/reksadana (tanpa login), filter Syariah, dibaca lewat Chrome Lab", "cara": "browser",
@@ -430,6 +430,11 @@ def platform_perlu(db):
     return pf is None or (datetime.now() - pf["diambil"]).days > JEDA_PLATFORM
 
 
+def ojk_tahun_dari():
+    x = d.koneksi().rd_ojk.find_one({}, {"tgl": 1}, sort=[("tgl", -1)])
+    return (pd.Period(x["tgl"], "M") + 1).year if x else 2013
+
+
 def skrip(nama):
     if nama not in SKRIP:
         return None
@@ -443,6 +448,8 @@ def skrip(nama):
     if "__DARI__" in isi and nama == "idx_harian_browser.js":
         akhir = idx_harian_terakhir()
         isi = isi.replace("__DARI__", json.dumps(tgl(akhir + timedelta(days=1)) if akhir else "2020-01-02"))
+    if "__DARI__" in isi and nama == "ojk_nab_browser.js":
+        isi = isi.replace("__DARI__", json.dumps(ojk_tahun_dari()))
     if "__DARI__" in isi and nama == "idx_rasio_browser.js":
         from backend.ingest import keuangan_idx
         isi = isi.replace("__DARI__", json.dumps(keuangan_idx.bulan_berikut_api()))

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud, ScanSearch } from "lucide-vue-next";
+import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud, ScanSearch, Landmark } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import Panel from "@/components/common/Panel.vue";
@@ -20,10 +20,11 @@ const konfirmasi = ref("");
 const { kerja, galat, sibuk, mulai, lanjutkan } = pakaiPekerjaan();
 const idxCek = computed(() => status.value?.paper_cek?.idx || null);
 const kualitas = ref(null);
+const sbn = ref(null);
 const pindahTab = inject("pindahTab");
 
 async function muat() {
-  [jadwal.value, cadangan.value, kualitas.value] = await Promise.all([ambil("jadwal").catch(() => null), ambil("cadangan").catch(() => []), ambil("kualitas/paper").catch(() => null)]);
+  [jadwal.value, cadangan.value, kualitas.value, sbn.value] = await Promise.all([ambil("jadwal").catch(() => null), ambil("cadangan").catch(() => []), ambil("kualitas/paper").catch(() => null), ambil("rd/pengingat_sbn").catch(() => null)]);
   siap.value = true;
   if (!pilihan.value && cadangan.value.length) pilihan.value = cadangan.value[0].nama;
 }
@@ -88,7 +89,7 @@ function waktu(s) {
             <span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="jadwal?.ada ? 'translate-x-5' : ''"></span>
           </button>
         </div>
-        <p v-if="jadwal?.ada" class="m-0 mt-2 pl-[30px] text-[11px] leading-snug text-muted">Urutan: unduh Yahoo (harga paper & riset, pasar, reksa dana, ETF, makro) → data harian IDX lewat Chrome Lab → cek kualitas data + koreksi aksi korporasi otomatis → paper Follow Tren & Momentum Blend (sumber IDX, cadangan Yahoo) → cek ulang paper → data IDX/OJK lain → backup. Komputer harus menyala; kalau mati, jalan saat komputer hidup lagi.<span v-if="jadwal.terakhir"> Terakhir {{ waktu(jadwal.terakhir) }}.</span></p>
+        <p v-if="jadwal?.ada" class="m-0 mt-2 pl-[30px] text-[11px] leading-snug text-muted">Urutan: unduh Yahoo (harga paper & riset, pasar, reksa dana, ETF, makro) → data harian IDX lewat Chrome Lab → cek kualitas data + koreksi aksi korporasi otomatis → paper Follow Tren & Momentum Blend (sumber IDX, cadangan Yahoo) → cek ulang paper → data IDX/OJK lain → hitung ulang portofolio konservatif bila data bulanan baru → backup. Komputer harus menyala; kalau mati, jalan saat komputer hidup lagi.<span v-if="jadwal.terakhir"> Terakhir {{ waktu(jadwal.terakhir) }}.</span></p>
         <div v-if="jadwal?.ada && jadwal.pagi" class="m-0 mt-1.5 flex flex-wrap items-center gap-2 pl-[30px] text-[11px] leading-snug" :class="jadwal.pagi.ada ? 'text-muted' : 'text-kuning'">
           <span v-if="jadwal.pagi.ada">Tambahan {{ jadwal.pagi.hari }} {{ jadwal.pagi.jam }}: {{ jadwal.pagi.isi }}.</span>
           <template v-else>
@@ -121,6 +122,17 @@ function waktu(s) {
         </div>
         <button class="tombol shrink-0" @click="pindahTab('kualitas')">Lihat</button>
         <button class="tombol shrink-0" :disabled="sibuk" @click="jalankan('kualitas_data')">Cek</button>
+      </div>
+
+      <div v-if="sbn" class="flex items-start gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
+        <Landmark class="mt-0.5 h-4.5 w-4.5 shrink-0 text-muted" />
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 text-[13px] font-medium">Data SBN ritel (sbsn_ritel.csv)
+            <span class="chip" :class="sbn.pengingat.length ? 'bg-kuning-bg text-kuning' : 'bg-naik-bg text-naik'">{{ sbn.pengingat.length ? `${sbn.pengingat.length} seri belum ada` : "lengkap" }}</span>
+          </div>
+          <div v-for="x in sbn.pengingat" :key="x.seri" class="text-xs text-kuning">Seri {{ x.seri }} belum ada di sbsn_ritel.csv · {{ x.alasan }}</div>
+          <div class="text-xs text-muted">{{ sbn.jumlah_seri }} seri · ST terakhir {{ sbn.st_terakhir }} (tutup {{ sbn.st_tutup }}) · dipakai portofolio konservatif · diisi lewat Claude Code + Chrome Lab (DJPPR, baca saja)</div>
+        </div>
       </div>
 
       <div class="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
