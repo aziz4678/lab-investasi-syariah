@@ -331,6 +331,8 @@ def simpan(ctx, mulai, akhir, hasil_cari, h=None):
     dok["keranjang"] = skenario_keranjang(h if h is not None else al.semua_indeks())
     dok["sidik"] = sidik_input(akhir)
     dt.db()["hasil_penarikan"].insert_one(dok)
+    from backend.research import analisis_profil
+    analisis_profil.utama(simpan=True)
     print()
     print(f"Disimpan ke {dt.NAMA_DB}.hasil_penarikan ({dok['dihitung']:%Y-%m-%d %H:%M}, data {mulai} s/d {akhir})")
 

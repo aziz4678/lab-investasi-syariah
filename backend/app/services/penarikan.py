@@ -139,7 +139,8 @@ def sr_beredar():
 
 def konservatif():
     h = hasil()
-    return bersih({**h, "penawaran": penawaran_berikut(), "sr": sr_beredar()})
+    from backend.research.analisis_profil import NAMA_HASIL
+    return bersih({**h, "penawaran": penawaran_berikut(), "sr": sr_beredar(), "profil": dt.baca_hasil(NAMA_HASIL)})
 
 
 OPSI = ("tanpa_sbn", "sbn30", "sbn50", "sbn70")

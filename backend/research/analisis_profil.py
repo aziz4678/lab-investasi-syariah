@@ -1,6 +1,10 @@
+import argparse
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
+from backend.db import data as dt
 from backend.db import koneksi as d
 from backend.research import analisis_likuiditas as al
 from backend.research import analisis_penarikan as ap
@@ -20,6 +24,8 @@ def _bobot(saham):
 
 PROFIL = [("Konservatif PT/PU 50/50", dict(SISA_KONSERVATIF))] +          [(f"{nama} {saham * 100:.0f}% saham", _bobot(saham)) for nama, saham in PORSI_SAHAM.items()] +          [("RD campuran 100%", {"CA": 1.0})]
 JENDELA = 60
+NAMA_HASIL = "profil_konservatif"
+KODE = {"Konservatif": "konservatif", "Moderat": "moderat", "Agresif": "agresif", "RD": "campuran"}
 
 
 def muat():
@@ -91,7 +97,7 @@ def tahun_terburuk(L, c, mulai):
     return T[y]
 
 
-def utama():
+def utama(simpan=False):
     h = al.semua_indeks()
     baru, periksa = indeks_baru()
     L = {"PT": h["L"]["PT"], "PU": h["L"]["PU"], "SH": baru["SH"][0], "CA": baru["CA"][0]}
@@ -105,7 +111,7 @@ def utama():
     print(f"\nPeriode portofolio: {mulai} s/d {akhir}. Asumsi: sisa porsi {ASUMSI['sisa']}; rebalance {ASUMSI['rebalance']}; penarikan {ASUMSI['penarikan']}")
     for nama, bobot in PROFIL:
         print(f"  {nama}: " + ", ".join(f"{k} {v * 100:.0f}%" for k, v in bobot.items()))
-    Lp, baris = {}, []
+    Lp, baris, dok_profil = {}, [], []
     for nama, bobot in PROFIL:
         x = gabung(L, bobot)
         x = x.loc[mulai - 1:akhir] / x.loc[mulai - 1]
@@ -118,6 +124,10 @@ def utama():
         lab, yn, yr = tahun_terburuk(x, c, mulai)
         nol = ap.evaluasi("rd", 0.0, 0.0, ctx)
         baris.append((nama, nom, riil, m["dd"], m["lembah"], lab, yn, yr, m["pulih"], a3, a5, np.median(nol["r5"]), min(nol["r5"])))
+        dok_profil.append({"kode": KODE[nama.split()[0]], "nama": nama, "bobot": bobot, "cagr_nominal": nom, "cagr_riil": riil, "dd": float(m["dd"]),
+                           "lembah": str(m["lembah"]), "pulih_bulan": int(m["pulih"].split()[0]) if m["pulih"] != "belum" else None,
+                           "tahun_terburuk": {"label": lab, "nominal": float(yn), "riil": float(yr)}, "aman_3": a3, "aman_5": a5,
+                           "modal_riil_5": {"median": float(np.median(nol["r5"])), "terburuk": float(min(nol["r5"]))}})
     ap._CACHE.clear()
 
     f = lambda v: "tidak ada" if v is None else f"{v * 100:.1f}%"
@@ -131,13 +141,27 @@ def utama():
         X = Lp[nama]
         menang = [X[t + JENDELA] / X[t] > K[t + JENDELA] / K[t] for t in X.index if t + JENDELA in X.index]
         print(f"  {nama:25s}{np.mean(menang) * 100:5.0f}%  (n={len(menang)} jendela tumpang tindih, mulai {X.index[0]} s/d {X.index[-1] - JENDELA})")
+        p = next(x for x in dok_profil if x["nama"] == nama)
+        p["jendela_menang"], p["jendela_n"] = int(sum(menang)), len(menang)
 
     print("\nKeterbatasan")
     print("  - Periode 2016-2026 buruk untuk saham Indonesia; hasil sangat bergantung periode (jendela 5 th tumpang tindih, hanya ±2 yang terpisah).")
     print("  - NAV saja (bukan return total), NAV akhir bulan; RD bagi hasil tunai (tanda Pasardana) dikeluarkan; tanpa biaya beli/jual.")
     print("  - RD saham & campuran syariah dikelola aktif oleh MI, bukan indeks; indeks = rata-rata bobot sama semua produk, termasuk yang sudah bubar.")
-    print("  - Lompatan > 30% dikeluarkan dari indeks; 13 di antaranya penurunan RD saham Nov 2019 (±31-47%) yang kemungkinan rugi asli, jadi indeks saham cenderung terlalu bagus. Deskriptif, bukan hipotesis.")
+    nov = [x for x in periksa if x[0] == "SH" and x[2] == "2019-11" and x[3] < 0]
+    print(f"  - Lompatan > {LOMPAT * 100:.0f}% dikeluarkan dari indeks; {len(nov)} di antaranya penurunan RD saham Nov 2019 yang kemungkinan rugi asli, "
+          "jadi indeks saham cenderung terlalu bagus. Deskriptif, bukan hipotesis.")
+    hasil = {"dihitung": datetime.now(), "periode": {"awal": str(mulai), "akhir": str(akhir)}, "asumsi": ASUMSI, "jendela_bulan": JENDELA,
+             "lompatan": {"ambang": LOMPAT, "jumlah": len(periksa), "saham": sum(1 for x in periksa if x[0] == "SH"),
+                          "campuran": sum(1 for x in periksa if x[0] == "CA"), "saham_nov2019_turun": len(nov)},
+             "jumlah_seri": {k: int(len(baru[k][2])) for k in TIPE}, "profil": dok_profil}
+    if simpan:
+        dt.simpan_hasil(NAMA_HASIL, hasil)
+        print(f"\nDisimpan ke {dt.NAMA_DB}.hasil_riset/{NAMA_HASIL}")
+    return hasil
 
 
 if __name__ == "__main__":
-    utama()
+    ap_ = argparse.ArgumentParser()
+    ap_.add_argument("--simpan", action="store_true")
+    utama(ap_.parse_args().simpan)
