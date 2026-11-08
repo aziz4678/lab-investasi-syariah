@@ -1926,3 +1926,22 @@ Laporan saja: (c), sensitivitas delisting di harga beku, beku dinilai 0, setoran
 - Kekuatan statistik rendah: dev 4 tahun, 10 saham, keranjang pertama baru ±Mar-Mei 2020, kejadian tambahan kemungkinan sedikit. Dev tidak buta: harga 2020-2023 sudah dipakai di H11a holdout dan eksplorasi 2020+.
 - Risiko utama: averaging down ke saham yang terus turun atau dibekukan; laporan keuangan terlambat ±1-3 bulan sehingga "masih lolos kualitas" bisa basi.
 - Keterbatasan data: fundamental baru sejak 2019, sektor snapshot hari ini, open IDX 2020-2024 sebagian besar dari Yahoo, 19 kode DES tidak tercatat di IDX.
+
+### Hasil H34 dev (2026-11-08, dijalankan sekali, `backend/research/uji_h34.py dev`, hasil `hasil_riset/h34_dev`): GAGAL, holdout tidak dibuka
+`versi_data`: `harga_bersih_2020` 914 kode 2020-01-02 s/d 2023-12-29 (sidik di hasil), cek kualitas 2026-11-07 0 temuan aktif. Sebelum run resmi: bug mekanik diperbaiki dari uji mekanik yang hanya mencetak keranjang/kejadian/kas (dasar batas 15% terhitung ganda, dividen ke saham yang dibeli di hari ex, pembelian terpotong batas 15% terhitung "tidak terbeli", rumus TWR pembanding); tidak ada angka return yang terlihat sebelum perbaikan.
+- Universe baru terisi Apr 2020 (syarat 60 hari data dari 2 Jan 2020); keranjang pertama 4 Mei 2020 (15 lolos). Keranjang: Mei 2020 BTPS, SIDO, PTBA, ACES, ICBP, MYOR, MNCN, CPIN, UNTR, KLBF; Jun 2020 BTPS, SIDO, ACES, ICBP, PTBA, SCMA, PWON, MNCN, TLKM, CPIN; Jun 2021 SIDO, SCMA, MYOR, LINK, MIKA, CPIN, KLBF, DMAS, ACES, BTPS; Jun 2022 MARK, SIDO, TLKM, SCMA, MIKA, KLBF, BSSR, LINK, TAPG, DMAS; Jun 2023 BYAN, ADMR, SIDO, BTPS, MIKA, MARK, PTBA, KLBF, TLKM, PRDA.
+- Tambah saat turun: 27 kali (2020: 2, 2021: 2, 2022: 11, 2023: 12).
+
+| | XIRR | Turun terdalam | Kas menganggur rata / maks | Tidak terbeli |
+|---|---|---|---|---|
+| H34 | -8,27% | -42,7% | 8,7% / 80% (cadangan rata 6,1%) | 39 |
+| (a) tanpa cadangan & tambahan | -7,69% | -42,2% | 10,3% / 100% | 23 |
+| (b) JII + dividen 2,5% | -0,60% | -37,4% | – | – |
+| (c) indeks RD saham syariah | -3,63% | -17,6% (bulanan) | – | – |
+| Bobot sama universe | -0,56% | -42,6% | – | – |
+Kas maks 80-100% = Jan-Apr 2020 sebelum keranjang ada. Setor Rp240 jt, nilai akhir H34 Rp202,4 jt. TWR per tahun H34 38,7 / -8,8 / -11,6 / -14,7% (2020-2023), bobot sama 72,5 / 9,8 / -13,4 / -8,5%.
+- Plasebo 500: H34 di persentil 11 (p5 -8,47%, p50 -7,61%, p95 -6,82%): menambah di waktu acak lebih baik dari aturan.
+- Standar seragam: dasar 0/5, S1 0/5, S2 1/5 (hanya tanpa 10 saham -12,38% vs -12,48%), S3 0/5. Khusus: 9 ✘, 10 ✘, 11 ✔ (-42,7% vs -42,2%).
+- Laporan: delisting di harga beku dan beku dinilai 0 sama persis dengan utama (tidak ada saham delisting/beku yang dipegang); setoran Rp1 jt -6,88% ((a) -6,68%), 176 kali tidak terbeli.
+- Penyumbang: laba dari ADMR, BSSR, MIKA, BYAN, DMAS, PTBA, UNTR, TLKM, PWON; rugi terbesar SCMA (-Rp15,5 jt, harga 458 → 170), LINK, BTPS, SIDO, ACES. Pembanding bobot sama penyumbang terbesar: CUAN, MSIN, FILM, BEBS, ISAT.
+- Kesimpulan: GAGAL. ROE tinggi yang konsisten di 2019-2020 tidak memprediksi harga 2021-2023; averaging down tanpa jual karena harga menambah uang ke saham yang terus turun.
