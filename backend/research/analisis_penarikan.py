@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import pandas as pd
 
@@ -65,7 +67,7 @@ def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
     lot = []
     nominal_tarik = tarik / 12
     acuan_cpi = cpi[t0 - 1]
-    riil, terkunci, gagal = [], [], 0
+    riil, terkunci, gagal = [], [], []
     for i, t in enumerate(bulan):
         if i > 0 and i % 12 == 0:
             nominal_tarik *= cpi[t - 1] / cpi[t - 13]
@@ -85,7 +87,7 @@ def simulasi(t0, t_akhir, jenis, w_sbn, tarik, r, cpi, sbn, bi):
             sisa = 0.0
         cair = rd_pt + rd_pu + parkir + jii
         if sisa > cair + 1e-12:
-            gagal += 1
+            gagal.append(i)
             rd_pt = rd_pu = parkir = jii = 0.0
         elif sisa > 0:
             f = 1 - sisa / cair
@@ -140,45 +142,94 @@ def ringkas(nilai):
     return f"{np.median(v) * 100:5.1f} {v.min() * 100:5.1f} {np.mean(v >= 1) * 100:4.0f}%"
 
 
-def utama():
+def evaluasi(jenis, w, tr, ctx):
+    r, cpi, akhir, awal, sbn, bi = ctx
+    r3, r5, dd, kunci_rata, kunci_maks = [], [], [], [], []
+    gagal3 = gagal5 = gagal_bln = 0
+    for t0 in awal:
+        if t0 + 35 > akhir:
+            break
+        t_akhir = min(akhir, t0 + HORIZON - 1)
+        riil, kunci, g = simulasi(t0, t_akhir, jenis, w, tr, r, cpi, sbn, bi)
+        r3.append(riil[35])
+        if len(riil) >= HORIZON:
+            r5.append(riil[HORIZON - 1])
+            gagal5 += len(g) > 0
+        gagal3 += any(i < 36 for i in g)
+        gagal_bln += len(g)
+        jalur = np.concatenate([[1.0], riil])
+        dd.append((jalur / np.maximum.accumulate(jalur) - 1).min())
+        kunci_rata.append(kunci.mean())
+        kunci_maks.append(kunci.max())
+    return {"r3": r3, "r5": r5, "dd": min(dd), "gagal3": gagal3, "gagal5": gagal5, "gagal_bln": gagal_bln,
+            "kunci_rata": float(np.mean(kunci_rata)), "kunci_maks": max(kunci_maks)}
+
+
+def lolos(m, h):
+    v = np.array(m["r3"] if h == 3 else m["r5"])
+    return len(v) > 0 and np.mean(v >= 1) >= 0.8 and m["gagal3" if h == 3 else "gagal5"] == 0
+
+
+def cari_maks(jenis, w, h, ctx, langkah=0.001, batas=0.03):
+    grid = [round(i * langkah, 4) for i in range(int(round(batas / langkah)) + 1)]
+    cache = {}
+
+    def ok(i):
+        if i not in cache:
+            cache[i] = lolos(evaluasi(jenis, w, grid[i], ctx), h)
+        return cache[i]
+
+    if not ok(0):
+        return None
+    if ok(len(grid) - 1):
+        return grid[-1]
+    lo, hi = 0, len(grid) - 1
+    while hi - lo > 1:
+        m = (lo + hi) // 2
+        if ok(m):
+            lo = m
+        else:
+            hi = m
+    return grid[lo]
+
+
+def utama(tarik=TARIK, cari=False):
     r, cpi, akhir, mulai = siapkan()
     sbn = penawaran()
     bi = bi_rate()
     awal = pd.period_range(mulai, akhir, freq="M")
+    ctx = (r, cpi, akhir, awal, sbn, bi)
+    n5 = len([t for t in awal if t + 59 <= akhir])
+    n3 = len([t for t in awal if t + 35 <= akhir])
     print(f"Data: indeks RD PT & PU tanpa bagi hasil (analisis_likuiditas), JII Yahoo + dividen asumsi {DIVIDEN_JII * 100:.1f}%/th, "
-          f"inflasi BPS, BI-Rate, {sbn['dasar'].nunique()} penawaran SBN ritel ({len(sbn)} seri). Tanggal mulai {mulai} s/d {akhir - 36} (3 th) / {akhir - 60} (5 th).")
+          f"inflasi BPS, BI-Rate, {sbn['dasar'].nunique()} penawaran SBN ritel ({len(sbn)} seri). Tanggal mulai {mulai} s/d {akhir - 36} (3 th, {n3}) / {akhir - 60} (5 th, {n5}).")
     print("Kolom: riil 3th & 5th = median / terburuk / % tanggal mulai >= 100% modal awal; DD = turun riil terdalam dalam 5 th (termasuk efek penarikan, SBN di 100);"
           " gagal = tanggal mulai dengan gagal likuiditas (bulan); kunci = porsi SBN rata-rata / maks.")
     print(f"{'portofolio':27s}{'tarik':>6s} | {'riil 3th med  min  >=100':>24s} | {'riil 5th med  min  >=100':>24s} | {'DD':>6s} | {'gagal':>10s} | {'kunci rata/maks':>15s}")
-    lulus = {}
+    hasil = {}
     for nama, jenis, w in PORTOFOLIO:
-        for tr in TARIK:
-            r3, r5, dd, gagal_mulai, gagal_bln, kunci_rata, kunci_maks = [], [], [], 0, 0, [], []
-            for t0 in awal:
-                if t0 + 35 > akhir:
-                    break
-                t_akhir = min(akhir, t0 + HORIZON - 1)
-                riil, kunci, g = simulasi(t0, t_akhir, jenis, w, tr, r, cpi, sbn, bi)
-                r3.append(riil[35])
-                if len(riil) >= HORIZON:
-                    r5.append(riil[HORIZON - 1])
-                jalur = np.concatenate([[1.0], riil])
-                dd.append((jalur / np.maximum.accumulate(jalur) - 1).min())
-                gagal_mulai += g > 0
-                gagal_bln += g
-                kunci_rata.append(kunci.mean())
-                kunci_maks.append(kunci.max())
-            ddmin = min(dd) * 100
-            print(f"{nama:27s}{tr * 100:5.0f}% | {ringkas(r3):>24s} | {ringkas(r5):>24s} | {ddmin:6.1f} | {gagal_mulai:3d} ({gagal_bln:3d})"
-                  f" | {np.mean(kunci_rata) * 100:6.0f}% {max(kunci_maks) * 100:5.0f}%")
-            if len(r5) and np.mean(np.array(r5) >= 1) >= 0.8 and gagal_mulai == 0:
-                lulus[nama] = tr
+        for tr in tarik:
+            m = evaluasi(jenis, w, tr, ctx)
+            hasil[(nama, tr)] = m
+            print(f"{nama:27s}{tr * 100:5.1f}% | {ringkas(m['r3']):>24s} | {ringkas(m['r5']):>24s} | {m['dd'] * 100:6.1f} | {m['gagal5']:3d} ({m['gagal_bln']:3d})"
+                  f" | {m['kunci_rata'] * 100:6.0f}% {m['kunci_maks'] * 100:5.0f}%")
         print()
-    print(f"Tingkat penarikan tertinggi dengan modal riil >= 100% di >= 80% tanggal mulai (5 th) dan tanpa gagal likuiditas "
-          f"({len([t for t in awal if t + 59 <= akhir])} tanggal mulai):")
+    print(f"Tingkat penarikan tertinggi dari daftar yang lolos (modal riil >= 100% di >= 80% tanggal mulai 5 th, tanpa gagal likuiditas):")
     for nama, _, _ in PORTOFOLIO:
-        print(f"  {nama}: {f'{lulus[nama] * 100:.0f}%' if nama in lulus else 'tidak ada (bahkan 3%)'}")
-    print("\nKeterbatasan")
+        ok = [tr for tr in tarik if lolos(hasil[(nama, tr)], 5)]
+        print(f"  {nama}: {f'{max(ok) * 100:.1f}%' if ok else 'tidak ada'}")
+    if cari:
+        print()
+        print("Tingkat penarikan maksimum yang lolos (langkah 0,1%, 0-3%; syarat sama, horizon 3 th dan 5 th):")
+        print(f"{'portofolio':27s}{'3 th':>11s}{'5 th':>11s}")
+        for nama, jenis, w in PORTOFOLIO:
+            m3, m5 = cari_maks(jenis, w, 3, ctx), cari_maks(jenis, w, 5, ctx)
+            f = lambda x: "tidak ada" if x is None else f"{x * 100:.1f}%"
+            print(f"{nama:27s}{f(m3):>11s}{f(m5):>11s}", flush=True)
+    print()
+    print("Porsi terkunci rata-rata: " + "; ".join(f"{n} {hasil[(n, tarik[0])]['kunci_rata'] * 100:.0f}%" for n, j, w in PORTOFOLIO if j == "rd"))
+    print()
+    print("Keterbatasan")
     print("  - Data ±10 tahun (mulai Apr 2016), jendela 5 th tumpang tindih: hanya ±6 jendela yang benar-benar terpisah; indikatif, bukan bukti.")
     print("  - Indeks RD = NAV bulanan bobot sama tanpa biaya beli/jual & tanpa survivorship RD terpilih; SBN dinilai di 100 (tidak mark-to-market), early redemption ST & batas pembelian per orang diabaikan.")
     print("  - Kupon ST direkonstruksi dari BI-Rate tiap 11 Feb/Mei/Agu/Nov + spread (ST010-ST015 spread turunan), kupon dihitung penuh mulai bulan setelah terbit.")
@@ -186,4 +237,8 @@ def utama():
 
 
 if __name__ == "__main__":
-    utama()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tarik", default=",".join(str(x * 100) for x in TARIK))
+    ap.add_argument("--cari", action="store_true")
+    a = ap.parse_args()
+    utama([float(x) / 100 for x in a.tarik.split(",")], a.cari)
