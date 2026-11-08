@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
-import { RefreshCw, Lock, Unlock, ExternalLink, ShoppingBag, CalendarClock, Repeat, Landmark, ShieldCheck, ChevronRight } from "lucide-vue-next";
+import { ref, computed, watch, onMounted, inject } from "vue";
+import { RefreshCw, Lock, Unlock, ExternalLink, CalendarClock, Repeat, Landmark, ShieldCheck, ChevronRight } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import { persen, rupiahRingkas } from "@/utils/format";
@@ -36,7 +36,6 @@ const AMBANG_RENDAH = 0.7;
 const KELAS_RISIKO = { Rendah: "bg-naik-bg text-naik", Sedang: "bg-kuning-bg text-kuning", Tinggi: "bg-turun-bg text-turun", "Rendah–Sedang": "bg-kuning-bg text-kuning", "Rendah–Tinggi": "bg-turun-bg text-turun" };
 const teksKomposisi = (k) => [`${pr(k.rendah, 0)} rendah`, `${pr(k.sedang, 0)} sedang`, k.tinggi > 0 ? `${pr(k.tinggi, 0)} tinggi` : null].filter(Boolean).join(" · ")
   + (k.dariJenis ? ` · ${k.dariJenis} produk dari jenis RD` : "");
-const NAMA_WADAH = { darurat: "Dana darurat · RD pasar uang", pt: "RD pendapatan tetap syariah", pu: "RD pasar uang syariah" };
 const NAMA_SKENARIO = { kategori: "rata-rata semua RD sejenis", keranjang: "keranjang produk di bawah" };
 
 const opsi = computed(() => (gaya.value === "fleksibel" ? "tanpa_sbn" : porsiSbn.value));
@@ -125,24 +124,19 @@ const komposisiRisiko = (kode) => {
 };
 const risikoGaya = computed(() => ({ fleksibel: komposisiRisiko("tanpa_sbn"), terkunci: komposisiRisiko(porsiSbn.value) }));
 
-const segmenRd = computed(() => {
-  if (!r.value) return [];
-  const total = r.value.masukan.modal || 1;
-  const pt = belanja.value.pt.reduce((a, x) => a + x.nilai, 0);
-  const pu = belanja.value.pu.reduce((a, x) => a + x.nilai, 0);
-  return [
-    { kode: "darurat", nama: "Dana darurat", nilai: r.value.dana_darurat, kelas: "bg-s4" },
-    { kode: "pt", nama: "RD pendapatan tetap", nilai: pt, kelas: "bg-s1" },
-    { kode: "pu", nama: "RD pasar uang", nilai: pu, kelas: "bg-s3" },
-    { kode: "sbn", nama: "SBN (terkunci)", nilai: r.value.terkunci, kelas: "bg-s2" },
-  ].filter((x) => x.nilai > 0).map((x) => ({ ...x, porsi: x.nilai / total }));
+const jumlahNilai = (isi) => isi.reduce((a, x) => a + x.nilai, 0);
+const grupBelanja = computed(() => {
+  const g = [
+    { kode: "darurat", judul: "Dana darurat", ket: `${bulanDarurat.value} bulan pengeluaran di 2 RD pasar uang, supaya tidak bergantung ke satu manajer investasi. Tidak ikut diambil.`, isi: belanja.value.darurat, kelas: "bg-s4" },
+    { kode: "pt", judul: "RD pendapatan tetap syariah", ket: "Bagian yang tumbuh. Dibagi rata.", isi: belanja.value.pt, kelas: "bg-s1" },
+    { kode: "pu", judul: "RD pasar uang syariah", ket: "Bagian yang stabil, dijual sedikit tiap bulan untuk penghasilan. Dibagi rata.", isi: belanja.value.pu, kelas: "bg-s3" },
+  ].filter((x) => x.isi.length).map((x) => ({ ...x, total: jumlahNilai(x.isi), rincian: `${x.isi.length} produk × ${rupiahRingkas(x.isi[0].nilai)}` }));
+  if (sbn.value && r.value?.terkunci > 0) {
+    g.push({ kode: "sbn", judul: `Sukuk negara ${sbn.value.seri} (${sbn.value.jenis === "ST" ? "Sukuk Tabungan" : "Sukuk Ritel"})`, ket: "Ditahan sampai jatuh tempo, kupon masuk tiap bulan.", isi: sbn.value.varian, kelas: "bg-s2",
+      total: r.value.terkunci, rincian: `${sbn.value.varian.length} seri × ${rupiahRingkas(sbn.value.varian[0]?.nilai)}` });
+  }
+  return g;
 });
-
-const grupBelanja = computed(() => [
-  { kode: "darurat", judul: "Dana darurat", ket: `${bulanDarurat.value} bulan pengeluaran, dibagi ke 2 RD pasar uang supaya tidak bergantung ke satu manajer investasi. Tidak ikut ditarik.`, isi: belanja.value.darurat },
-  { kode: "pt", judul: "RD pendapatan tetap syariah", ket: "Bagian yang tumbuh. Dibagi rata ke 5 produk.", isi: belanja.value.pt },
-  { kode: "pu", judul: "RD pasar uang syariah", ket: "Bagian yang dijual sedikit tiap bulan untuk penghasilan. Dibagi rata ke 5 produk.", isi: belanja.value.pu },
-].filter((g) => g.isi.length));
 
 const jadwal = computed(() => {
   if (!r.value) return [];
@@ -181,25 +175,16 @@ const jadwal = computed(() => {
 const profil = computed(() => dasar.value?.profil ?? null);
 const cariProfil = (kode) => profil.value?.profil?.find((p) => p.kode === kode);
 const tahunAwalProfil = computed(() => String(profil.value?.periode?.awal ?? "").slice(0, 4));
-const TANGGA = [
-  { kode: "konservatif", nama: "Konservatif", titik: "bg-naik" },
-  { kode: "moderat", nama: "Moderat", titik: "bg-kuning" },
-  { kode: "agresif", nama: "Agresif", titik: "bg-turun" },
-];
-const kalimatTangga = (kode) => {
-  const p = cariProfil(kode);
-  if (!p) return "";
-  const saham = Math.round((p.bobot?.SH ?? 0) * 100);
-  return `${saham}% RD saham. ${p.jendela_menang} dari ${p.jendela_n} periode 5 tahun lebih baik dari Konservatif sejak ${tahunAwalProfil.value}.`;
-};
-const kenapaBuka = ref(false);
-const kenapaEl = ref(null);
-const bukaKenapa = async () => {
-  kenapaBuka.value = true;
-  await nextTick();
-  kenapaEl.value?.scrollIntoView({ behavior: "smooth", block: "start" });
-};
-const NAMA_PROFIL = { konservatif: "Konservatif (RD pendapatan tetap / pasar uang 50/50)", moderat: "Moderat (30% RD saham)", agresif: "Agresif (60% RD saham)", campuran: "RD campuran 100%" };
+const NAMA_PROFIL_PENDEK = { konservatif: "Konservatif (halaman ini)", moderat: "Moderat · 30% RD saham", agresif: "Agresif · 60% RD saham", campuran: "RD campuran" };
+const rentangAman = computed(() => {
+  const nilai = (r.value?.opsi ?? []).map((x) => x.aman_5).filter((x) => x != null);
+  return nilai.length ? `${pr(Math.min(...nilai))}–${pr(Math.max(...nilai))}` : "sebagian kecil";
+});
+const ddKonservatif = computed(() => {
+  const p = cariProfil("konservatif");
+  return p ? prTanda(p.dd, 1) : "kecil";
+});
+const NAMA_PROFIL ={ konservatif: "Konservatif (RD pendapatan tetap / pasar uang 50/50)", moderat: "Moderat (30% RD saham)", agresif: "Agresif (60% RD saham)", campuran: "RD campuran 100%" };
 const lamaPulih = (p) => (p.pulih_bulan == null ? "belum pulih" : `${p.pulih_bulan} bulan`);
 
 const jalur = computed(() => port.value?.jalur ?? []);
@@ -214,22 +199,6 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
 
 <template>
   <div class="space-y-5">
-    <div v-if="profil" class="grid gap-2.5 sm:grid-cols-3">
-      <component :is="t.kode === 'konservatif' ? 'div' : 'button'" v-for="t in TANGGA" :key="t.kode"
-        class="flex min-w-0 flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left transition"
-        :class="t.kode === 'konservatif' ? 'border-aksen bg-aksen-lembut' : 'border-garis bg-surface hover:bg-surface-2'"
-        @click="t.kode !== 'konservatif' && bukaKenapa()">
-        <span class="flex flex-wrap items-center gap-2">
-          <span class="h-2.5 w-2.5 rounded-full" :class="t.titik"></span>
-          <span class="text-[14px] font-medium">{{ t.nama }}</span>
-          <span v-if="t.kode === 'konservatif'" class="chip bg-surface text-aksen">aktif · halaman ini</span>
-          <span v-else class="chip bg-surface-2 text-muted">belum disarankan</span>
-        </span>
-        <span class="text-[11px] text-ink-2">{{ t.kode === "konservatif" ? "RD pendapatan tetap & pasar uang syariah, opsional sukuk negara." : kalimatTangga(t.kode) }}</span>
-        <span v-if="t.kode !== 'konservatif'" class="inline-flex items-center text-[11px] text-aksen">Kenapa?<ChevronRight class="h-3 w-3" /></span>
-      </component>
-    </div>
-
     <Panel judul="Portofolio Konservatif" ket="Penghasilan rutin dari reksa dana syariah (dan SBN ritel), tanpa daya beli modal berkurang">
       <template #aksi>
         <span v-if="ada" class="chip" :class="dasar?.basi ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-ink-2'">
@@ -238,6 +207,36 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
       </template>
       <PanelPekerjaan class="mb-4" :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
+      <div class="mb-6 grid gap-4 lg:grid-cols-2">
+        <div class="rounded-2xl bg-aksen-lembut px-5 py-4">
+          <div class="flex items-center gap-2 text-[15px] font-medium"><ShieldCheck class="h-4 w-4 text-aksen" />Apa itu gaya konservatif?</div>
+          <ul class="m-0 mt-2 space-y-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
+            <li><b class="font-medium text-ink">Tujuannya</b> penghasilan rutin tiap bulan, tanpa membuat daya beli modal berkurang. Yang dijaga adalah modal, bukan mengejar untung besar.</li>
+            <li><b class="font-medium text-ink">Isinya</b> RD pendapatan tetap syariah (bagian yang tumbuh) dan RD pasar uang syariah (bagian yang stabil, sumber uang bulanan). Boleh ditambah sukuk negara ritel (SR/ST) yang dijamin negara dan ditahan sampai jatuh tempo.</li>
+            <li><b class="font-medium text-ink">Aturannya</b> ambil sedikit saja: {{ rentangAman }} per tahun dari modal, dinaikkan ikut inflasi tiap tahun. Dana darurat dipisah dan tidak ikut diambil.</li>
+            <li><b class="font-medium text-ink">Yang perlu diterima</b> penghasilannya kecil. Imbalannya, penurunan terdalam di masa lalu hanya {{ ddKonservatif }}.</li>
+          </ul>
+        </div>
+        <div v-if="profil" class="rounded-2xl bg-surface-2 px-5 py-4">
+          <div class="text-[15px] font-medium">Kenapa tidak pakai RD saham?</div>
+          <p class="m-0 mt-2 text-[13px] leading-relaxed text-ink-2">
+            Di {{ tahunAwalProfil }}–{{ String(profil.periode.akhir).slice(0, 4) }}, menambah RD saham justru menghapus tingkat penarikan yang aman. Periode ini buruk untuk saham Indonesia, jadi belum tentu berulang.
+          </p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <div v-for="p in profil.profil" :key="p.kode" class="rounded-xl px-3 py-2" :class="p.kode === 'konservatif' ? 'bg-surface ring-1 ring-aksen' : 'bg-surface'">
+              <div class="text-[12px] font-medium">{{ NAMA_PROFIL_PENDEK[p.kode] ?? p.nama }}</div>
+              <div class="mt-0.5 text-[11px] text-muted">setelah inflasi <span class="tabular-nums" :class="p.cagr_riil < 0 ? 'text-turun' : 'text-naik'">{{ prTanda(p.cagr_riil, 1) }}/th</span></div>
+              <div class="text-[11px] text-muted">turun terdalam <span class="tabular-nums text-turun">{{ prTanda(p.dd, 1) }}</span> · pulih {{ lamaPulih(p) }}</div>
+              <div class="text-[11px] text-muted">aman ditarik <b class="font-medium text-ink">{{ p.aman_5 != null ? `${pr(p.aman_5)}/th` : "tidak ada" }}</b></div>
+              <div v-if="p.jendela_n" class="text-[11px] text-muted">{{ p.jendela_menang }} dari {{ p.jendela_n }} periode 5 th lebih baik</div>
+            </div>
+          </div>
+          <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">
+            Data {{ bulanTeks(profil.periode.awal) }} – {{ bulanTeks(profil.periode.akhir) }}, rata-rata semua RD sejenis termasuk yang bubar. Hanya dari NAV, tanpa biaya; RD saham dikelola aktif oleh manajer investasi, bukan indeks.
+            Rata-rata RD saham cenderung terlalu bagus karena {{ profil.lompatan.saham_nov2019_turun }} penurunan tajam di November 2019 dikeluarkan sebagai lompatan data. Moderat/Agresif = RD saham + sisanya RD pendapatan tetap & pasar uang 50/50.
+          </p>
+        </div>
+      </div>
       <div class="text-[13px] font-medium">1 · Isi data</div>
       <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="min-w-0">
@@ -337,63 +336,68 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         <p class="m-0 mt-3 text-[11px] text-muted">Dihitung dari {{ NAMA_SKENARIO[r.skenario] }}, yang hasilnya lebih kecil (lebih hati-hati). Berdasarkan {{ r.n_mulai_5 }} kali mulai berbeda sejak {{ bulanTeks(r.periode.awal) }}; hasil masa lalu, bukan jaminan.</p>
       </section>
 
-      <Panel judul="4 · Daftar belanja" :ket="`Total ${rupiahRingkas(r.masukan.modal)} · ${jumlahKartu} reksa dana${sbn ? ' + SBN' : ''}`">
-        <div class="flex h-3 w-full overflow-hidden rounded-full bg-surface-2">
-          <div v-for="s in segmenRd" :key="s.kode" :class="s.kelas" :style="{ width: `${s.porsi * 100}%` }" :title="s.nama"></div>
-        </div>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-2">
-          <span v-for="s in segmenRd" :key="s.kode" class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full" :class="s.kelas"></span>{{ s.nama }} {{ pr(s.porsi, 0) }} · {{ rupiahRingkas(s.nilai) }}</span>
+      <Panel judul="4 · Daftar belanja" :ket="`Beli ${jumlahKartu} reksa dana${sbn ? ` dan ${sbn.varian.length} seri sukuk negara` : ''}, total ${rupiahRingkas(r.masukan.modal)}. Urutkan dari langkah 1.`">
+        <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+          <div v-for="g in grupBelanja" :key="g.kode" :class="g.kelas" :style="{ width: `${(g.total / (r.masukan.modal || 1)) * 100}%` }" :title="g.judul"></div>
         </div>
 
-        <div v-for="g in grupBelanja" :key="g.kode" class="mt-6">
-          <div class="text-[14px] font-medium">{{ g.judul }}</div>
-          <div class="text-[12px] text-muted">{{ g.ket }}</div>
-          <div class="mt-2 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-            <div v-for="p in g.isi" :key="`${g.kode}-${p.id}`" class="flex min-w-0 flex-col gap-2 rounded-2xl border border-garis px-4 py-3">
-              <div class="flex min-w-0 items-start gap-3">
-                <Logo jenis="mi" :kunci="kunciMi(p.mi)" :teks="p.mi" :ukuran="36" />
+        <ol class="m-0 mt-5 list-none space-y-4 p-0">
+          <li v-for="(g, i) in grupBelanja" :key="g.kode" class="overflow-hidden rounded-2xl border border-garis">
+            <div class="flex items-start gap-3 bg-surface-2 px-4 py-3">
+              <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[13px] font-semibold text-white" :class="g.kelas">{{ i + 1 }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[14px] font-medium">{{ g.judul }}</div>
+                <div class="text-[12px] text-muted">{{ g.ket }}</div>
+                <div class="mt-1 text-[13px] sm:hidden"><b class="text-[16px] font-semibold tabular-nums">{{ rupiahRingkas(g.total) }}</b> <span class="text-[11px] text-muted">· {{ g.rincian }}</span></div>
+              </div>
+              <div class="hidden shrink-0 text-right sm:block">
+                <div class="text-[17px] font-semibold tabular-nums">{{ rupiahRingkas(g.total) }}</div>
+                <div class="text-[11px] text-muted">{{ g.rincian }}</div>
+              </div>
+            </div>
+
+            <ul v-if="g.kode !== 'sbn'" class="m-0 list-none divide-y divide-garis p-0">
+              <li v-for="p in g.isi" :key="`${g.kode}-${p.id}`" class="flex items-center gap-3 px-4 py-3">
+                <Logo jenis="mi" :kunci="kunciMi(p.mi)" :teks="p.mi" :ukuran="34" />
                 <div class="min-w-0 flex-1">
-                  <div class="text-[13px] leading-snug font-medium">{{ p.nama }}</div>
-                  <div class="truncate text-[11px] text-muted">{{ NAMA_WADAH[p.wadah] }} · {{ p.mi }}</div>
+                  <a :href="`#reksadana/katalog/${p.id}`" class="text-[13px] leading-snug font-medium text-ink hover:text-aksen" @click.prevent="bukaProduk(p.id)">{{ p.nama }}</a>
+                  <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span class="chip" :class="KELAS_RISIKO[p.risiko]" :title="p.risiko_sumber === 'resmi' ? `Tingkat risiko ${p.risiko_skala} dari skala 1–9 (detail produk / fund fact sheet)` : 'Diturunkan dari jenis RD, data resmi tidak ada'">Risiko {{ p.risiko.toLowerCase() }}<template v-if="p.risiko_sumber === 'jenis'"> · dari jenis RD</template></span>
+                    <TersediaDi v-if="p.platform.length" :platform="p.platform" kecil />
+                    <span v-else class="text-[11px] text-muted">belum ditemukan di Bibit/Makmur/Ajaib</span>
+                  </div>
                 </div>
-                <span class="chip shrink-0" :class="KELAS_RISIKO[p.risiko]" :title="p.risiko_sumber === 'resmi' ? `Tingkat risiko ${p.risiko_skala} dari skala 1–9 (detail produk / fund fact sheet)` : 'Diturunkan dari jenis RD, data resmi tidak ada'">{{ p.risiko }}<template v-if="p.risiko_sumber === 'jenis'"> · dari jenis RD</template></span>
-              </div>
-              <div class="flex items-baseline justify-between gap-2">
-                <span class="text-[18px] font-semibold tabular-nums">{{ rupiahRingkas(p.nilai) }}</span>
-                <span class="text-[12px] text-muted tabular-nums">{{ pr(p.porsi) }} dari modal</span>
-              </div>
-              <div class="mt-auto flex items-center justify-between gap-2">
-                <TersediaDi v-if="p.platform.length" :platform="p.platform" kecil />
-                <span v-else class="text-[11px] text-muted">belum ditemukan di Bibit/Makmur/Ajaib</span>
-                <a :href="`#reksadana/katalog/${p.id}`" class="inline-flex shrink-0 items-center text-[12px] text-aksen" @click.prevent="bukaProduk(p.id)">Detail<ChevronRight class="h-3.5 w-3.5" /></a>
-              </div>
-            </div>
-          </div>
-        </div>
+                <div class="shrink-0 text-right">
+                  <div class="text-[15px] font-semibold tabular-nums">{{ rupiahRingkas(p.nilai) }}</div>
+                  <a :href="`#reksadana/katalog/${p.id}`" class="inline-flex items-center text-[11px] text-aksen" @click.prevent="bukaProduk(p.id)">Detail<ChevronRight class="h-3 w-3" /></a>
+                </div>
+              </li>
+            </ul>
 
-        <div v-if="sbn" class="mt-6 rounded-2xl border-2 border-s2 bg-s2/10 px-4 py-4">
-          <div class="flex flex-wrap items-center gap-2">
-            <Lock class="h-4 w-4 text-s2" />
-            <span class="text-[14px] font-medium">SBN ritel syariah: {{ sbn.seri }} ({{ sbn.jenis === "ST" ? "Sukuk Tabungan" : "Sukuk Ritel" }})</span>
-            <span class="chip" :class="sbn.status === 'dibuka' ? 'bg-naik-bg text-naik' : 'bg-surface-2 text-ink-2'">{{ sbn.status === "dibuka" ? "sedang dibuka" : "perkiraan" }}</span>
-          </div>
-          <div class="mt-1 text-[12px] text-ink-2">
-            <template v-if="sbn.status === 'dibuka'">Masa penawaran {{ tglTeks(sbn.mulai) }} – {{ tglTeks(sbn.tutup) }} · terbit {{ tglTeks(sbn.terbit) }}</template>
-            <template v-else>Perkiraan dibuka sekitar {{ bulanTeks(sbn.bulan) }} (dari pola penawaran sebelumnya, bukan jadwal resmi)</template>
-          </div>
-          <div class="mt-3 grid gap-2 sm:grid-cols-2">
-            <div v-for="v in sbn.varian" :key="v.seri" class="rounded-xl bg-surface px-3 py-2.5">
-              <div class="flex items-baseline justify-between gap-3"><span class="text-[13px] font-medium">{{ v.seri }}</span><span class="text-[16px] font-semibold tabular-nums">{{ rupiahRingkas(v.nilai) }}</span></div>
-              <div class="text-[11px] text-muted">{{ v.tenor }} tahun · jatuh tempo {{ bulanTeks(v.jatuh_tempo) }} · kupon {{ v.kupon != null ? pr(v.kupon, 2) : "–" }}/th{{ v.kupon_perkiraan ? " (perkiraan, dari seri sebelumnya)" : "" }}</div>
-              <div v-if="v.kupon_bersih_bulan" class="text-[11px] text-ink-2">±{{ rupiahRingkas(v.kupon_bersih_bulan) }}/bulan setelah pajak 10%</div>
-            </div>
-          </div>
-          <p class="m-0 mt-2 text-[11px] text-muted">Seluruh bagian SBN masuk penawaran ini, dibagi rata antar seri. Beli lewat bank atau aplikasi mitra distribusi resmi DJPPR.<a v-if="sbn.sumber" :href="sbn.sumber" target="_blank" rel="noopener" class="ml-1 inline-flex items-center gap-0.5 text-aksen">info resmi<ExternalLink class="h-3 w-3" /></a></p>
-        </div>
+            <template v-else>
+              <ul class="m-0 list-none divide-y divide-garis p-0">
+                <li v-for="v in sbn.varian" :key="v.seri" class="flex items-center gap-3 px-4 py-3">
+                  <span class="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[30%] bg-s2/10 text-s2"><Landmark class="h-4 w-4" /></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-[13px] font-medium">{{ v.seri }} · {{ v.tenor }} tahun</div>
+                    <div class="text-[11px] text-muted">jatuh tempo {{ bulanTeks(v.jatuh_tempo) }} · kupon {{ v.kupon != null ? pr(v.kupon, 2) : "–" }}/th{{ v.kupon_perkiraan ? " (perkiraan)" : "" }}<template v-if="v.kupon_bersih_bulan"> · ±{{ rupiahRingkas(v.kupon_bersih_bulan) }}/bulan setelah pajak</template></div>
+                    <span class="chip mt-1 bg-naik-bg text-naik">Risiko rendah · dijamin negara</span>
+                  </div>
+                  <div class="shrink-0 text-[15px] font-semibold tabular-nums">{{ rupiahRingkas(v.nilai) }}</div>
+                </li>
+              </ul>
+              <p class="m-0 border-t border-garis px-4 py-3 text-[11px] text-muted">
+                <template v-if="sbn.status === 'dibuka'">Sedang dibuka: {{ tglTeks(sbn.mulai) }} – {{ tglTeks(sbn.tutup) }}, terbit {{ tglTeks(sbn.terbit) }}.</template>
+                <template v-else>Perkiraan dibuka sekitar {{ bulanTeks(sbn.bulan) }} (dari pola sebelumnya, bukan jadwal resmi).</template>
+                Beli lewat bank atau aplikasi mitra distribusi resmi DJPPR. Sampai uangnya dipakai, simpan dulu di RD pasar uang.<a v-if="sbn.sumber" :href="sbn.sumber" target="_blank" rel="noopener" class="ml-1 inline-flex items-center gap-0.5 text-aksen">info resmi<ExternalLink class="h-3 w-3" /></a>
+              </p>
+            </template>
+          </li>
+        </ol>
 
         <p class="m-0 mt-4 flex items-start gap-1.5 text-[11px] text-muted"><ShieldCheck class="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>Produk dipilih dari aturan, bukan dari hasil masa lalu: syariah, rupiah, masih aktif, riwayat ≥ {{ r.keranjang.kriteria.min_tahun }} tahun, tidak membagi hasil tunai, biayanya diketahui, dana kelolaan di atas tengah-tengah, lalu yang biayanya paling murah. Bukan rekomendasi.
-            Daftar dibentuk {{ tglTeks(r.keranjang.dibentuk) }}; dicek ulang tiap Januari atau bila ada produk yang bubar / tidak lolos lagi.
+            Daftar dibentuk {{ tglTeks(r.keranjang.dibentuk) }}; dicek ulang tiap Januari, dan produk yang bermasalah diganti di tengah tahun.
             <template v-if="tanpaAplikasi"> {{ tanpaAplikasi }} dari {{ belanja.pt.length + belanja.pu.length }} produk belum ditemukan di Bibit, Makmur, atau Ajaib (bisa jadi dijual di tempat lain).</template>
             <template v-if="!r.keranjang.sama_dengan_hitungan"> Daftar ini lebih baru dari hitungan terakhir; tekan "Hitung ulang".</template>
           </span>
@@ -417,8 +421,8 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
       </Panel>
 
       <section class="panel">
-        <details>
-          <summary class="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-[15px] font-medium"><ShoppingBag class="h-4 w-4 text-muted" />6 · Detail untuk yang penasaran <span class="hidden text-xs font-normal text-muted sm:inline">· grafik, perbandingan, istilah teknis</span></summary>
+        <div>
+          <header class="px-6 pt-5 pb-4"><h2 class="m-0 text-[17px] font-medium">6 · Detail untuk yang penasaran</h2><p class="m-0 mt-0.5 text-xs text-muted">Grafik, perbandingan, dan istilah teknis</p></header>
           <div class="space-y-6 px-6 pb-6">
             <div v-if="jalurPilih">
               <div class="text-[14px] font-medium">Perjalanan modal riil · {{ NAMA_OPSI[opsi] }}</div>
@@ -500,59 +504,9 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               <div>• Contoh Desember memakai rata-rata hasil per tahun masa lalu (pendapatan tetap {{ pr(r.desember?.rata_pt) }}, pasar uang {{ pr(r.desember?.rata_pu) }}); angka sebenarnya akan berbeda.</div>
             </div>
           </div>
-        </details>
+        </div>
       </section>
     </template>
 
-    <section v-if="profil" ref="kenapaEl" class="panel scroll-mt-28 lg:scroll-mt-4">
-      <details :open="kenapaBuka" @toggle="kenapaBuka = $event.target.open">
-        <summary class="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-[15px] font-medium"><ChevronRight class="h-4 w-4 text-muted transition" :class="kenapaBuka ? 'rotate-90' : ''" />Kenapa tidak pakai RD saham?</summary>
-        <div class="space-y-4 px-6 pb-6">
-          <p class="m-0 text-[14px] leading-relaxed text-ink-2">
-            Di {{ tahunAwalProfil }}–{{ String(profil.periode.akhir).slice(0, 4) }}, menambah RD saham justru menghapus tingkat penarikan yang aman.
-            Periode ini buruk untuk saham Indonesia, jadi belum tentu berulang.
-          </p>
-          <div class="space-y-2 sm:hidden">
-            <div v-for="p in profil.profil" :key="p.kode" class="rounded-2xl border border-garis px-4 py-3" :class="p.kode === 'konservatif' ? 'bg-surface-2' : ''">
-              <div class="text-[13px] font-medium">{{ NAMA_PROFIL[p.kode] ?? p.nama }}</div>
-              <div class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                <span class="text-muted">Rata-rata/th setelah inflasi</span><span class="text-right tabular-nums" :class="p.cagr_riil < 0 ? 'text-turun' : 'text-naik'">{{ prTanda(p.cagr_riil, 1) }}</span>
-                <span class="text-muted">Turun terdalam</span><span class="text-right tabular-nums text-turun">{{ prTanda(p.dd, 1) }}</span>
-                <span class="text-muted">Lama pulih</span><span class="text-right tabular-nums">{{ lamaPulih(p) }}</span>
-                <span class="text-muted">Aman ditarik/th (5 th)</span><span class="text-right font-medium tabular-nums">{{ p.aman_5 != null ? pr(p.aman_5) : "tidak ada" }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="hidden overflow-x-auto sm:block">
-            <table class="tabel min-w-[560px]">
-              <thead><tr><th>Profil</th><th class="text-right!">Rata-rata/th setelah inflasi</th><th class="text-right!">Turun terdalam</th><th class="text-right!">Lama pulih</th><th class="text-right!">Aman ditarik/th (5 th)</th></tr></thead>
-              <tbody>
-                <tr v-for="p in profil.profil" :key="p.kode" :class="p.kode === 'konservatif' ? 'bg-surface-2' : ''">
-                  <td class="text-[13px]">{{ NAMA_PROFIL[p.kode] ?? p.nama }}</td>
-                  <td class="text-right tabular-nums" :class="p.cagr_riil < 0 ? 'text-turun' : 'text-naik'">{{ prTanda(p.cagr_riil, 1) }}</td>
-                  <td class="text-right tabular-nums text-turun">{{ prTanda(p.dd, 1) }}</td>
-                  <td class="text-right tabular-nums">{{ lamaPulih(p) }}</td>
-                  <td class="text-right font-medium tabular-nums">{{ p.aman_5 != null ? pr(p.aman_5) : "tidak ada" }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="grid gap-2 sm:grid-cols-3">
-            <div v-for="p in profil.profil.filter((x) => x.kode !== 'konservatif')" :key="p.kode" class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">{{ NAMA_PROFIL[p.kode] ?? p.nama }}</div>
-              <div class="text-[17px] font-semibold">{{ p.jendela_menang }} dari {{ p.jendela_n }}</div>
-              <div class="text-[11px] text-muted">periode 5 tahun yang mengalahkan Konservatif</div>
-            </div>
-          </div>
-          <div class="rounded-2xl bg-surface-2 px-5 py-4 text-[12px] leading-relaxed text-ink-2">
-            <div>• Data {{ bulanTeks(profil.periode.awal) }} – {{ bulanTeks(profil.periode.akhir) }}, rata-rata semua RD saham syariah ({{ profil.jumlah_seri.SH }} produk) dan campuran syariah ({{ profil.jumlah_seri.CA }} produk), termasuk yang sudah bubar.</div>
-            <div>• Hanya dari harga per unit (NAV), tanpa biaya beli/jual.</div>
-            <div>• RD saham dikelola aktif oleh manajer investasi, bukan mengikuti indeks; hasil tiap produk bisa jauh berbeda dari rata-rata.</div>
-            <div>• Rata-rata RD saham cenderung terlalu bagus: {{ profil.lompatan.saham_nov2019_turun }} penurunan tajam RD saham di November 2019 dikeluarkan karena dianggap lompatan data, padahal kemungkinan rugi sungguhan.</div>
-            <div>• Moderat & Agresif: sisa porsinya RD pendapatan tetap / pasar uang 50/50, disamakan tiap Desember, tanpa sukuk negara. Ini perbandingan masa lalu, bukan ramalan.</div>
-          </div>
-        </div>
-      </details>
-    </section>
   </div>
 </template>
