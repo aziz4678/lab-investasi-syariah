@@ -9,10 +9,11 @@ import KatalogTab from "@/views/produk/reksadana/KatalogTab.vue";
 import BandingTab from "@/views/produk/reksadana/BandingTab.vue";
 import SukukTab from "@/views/produk/reksadana/SukukTab.vue";
 import CaraKerjaTab from "@/views/produk/reksadana/CaraKerjaTab.vue";
+import KonservatifTab from "@/views/produk/reksadana/KonservatifTab.vue";
 
 const props = defineProps({ sub: String });
 const emit = defineEmits(["sub"]);
-const SUB = [["mulai", "Mulai di sini"], ["katalog", "Reksa Dana"], ["sukuk", "Sukuk & SBN"], ["banding", "Bandingkan"], ["data", "Cara kerja & istilah"]];
+const SUB = [["mulai", "Mulai di sini"], ["konservatif", "Portofolio Konservatif"], ["katalog", "Reksa Dana"], ["sukuk", "Sukuk & SBN"], ["banding", "Bandingkan"], ["data", "Cara kerja & istilah"]];
 const MAKS_BANDING = 5;
 
 const baca = (k, awal) => {
@@ -86,6 +87,7 @@ function gantiSub(s) {
     <KatalogTab v-else-if="sub === 'katalog'" v-model:kategori="kategoriKatalog" :daftar="daftar" :kerja="kerjaRd" @muat="muat" @buka="buka" @banding="keBanding" />
     <BandingTab v-else-if="sub === 'banding'" :key="kunciBanding" />
     <SukukTab v-else-if="sub === 'sukuk'" />
+    <KonservatifTab v-else-if="sub === 'konservatif'" />
     <CaraKerjaTab v-else :daftar="daftar" :m="mulaiData" />
   </div>
 </template>

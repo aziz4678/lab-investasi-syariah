@@ -40,7 +40,7 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "konservatif", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
 const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
