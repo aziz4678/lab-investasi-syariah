@@ -43,6 +43,25 @@ def mentah(kode):
     return df.dropna(subset=["open", "high", "low", "close"])
 
 
+def bersih(kode):
+    return dt.baca(f"harga_bersih_2020/{kode}")
+
+
+def bersih_banyak(kode=None, kolom=None):
+    return dt.baca_banyak("harga_bersih_2020", None if kode is None else sorted(kode), kolom)
+
+
+def bersih_daftar():
+    return dt.daftar("harga_bersih_2020")
+
+
+def bersih_info(kode=None):
+    c = dt.db()["harga_bersih_2020_info"]
+    if kode is None:
+        return c.find_one({"_id": "_ringkasan"})
+    return c.find_one({"_id": kode})
+
+
 def ihsg():
     s = dt.baca("pasar")["ihsg"].dropna()
     h = dt.baca("harian/_ihsg")

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud, ScanSearch, Landmark } from "lucide-vue-next";
+import { CalendarClock, ShieldCheck, FileCheck2, DatabaseBackup, ChevronDown, DownloadCloud, ScanSearch, Landmark, Layers } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import Panel from "@/components/common/Panel.vue";
@@ -59,7 +59,7 @@ async function alihJadwal(aktif) {
 
 onMounted(async () => {
   await muat();
-  for (const j of ["paper_cek", "kualitas_data", "des_perbarui", "cadangan", "pulihkan"]) {
+  for (const j of ["paper_cek", "kualitas_data", "des_perbarui", "harga_bersih", "cadangan", "pulihkan"]) {
     await lanjutkan(j, setelah);
     if (sibuk.value) break;
   }
@@ -167,6 +167,19 @@ function waktu(s) {
           <div class="text-xs text-muted">Semua 921 saham dan data pasar sejak 2010 dari Yahoo, hanya bar final. ±10-20 menit. Setelah itu tekan 'Hitung ulang backtest' di Follow Tren › Backtest.</div>
         </div>
         <button class="tombol shrink-0" :disabled="sibuk" @click="jalankan('harga_unduh_ulang')">Unduh ulang</button>
+      </div>
+
+      <div class="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">
+        <Layers class="h-4.5 w-4.5 shrink-0 text-muted" />
+        <div class="min-w-0 flex-1">
+          <div class="text-[13px] font-medium">Harga bersih 2020+ (termasuk delisting)</div>
+          <div class="text-xs text-muted">
+            <template v-if="status?.harga_bersih">{{ status.harga_bersih.kode }} emiten · {{ status.harga_bersih.delisting }} delisting · data s/d {{ status.harga_bersih.akhir }} · dibangun {{ waktu(status.harga_bersih.dibuat) }}.</template>
+            <template v-else>Belum dibangun.</template>
+            Dari ringkasan resmi IDX, disesuaikan aksi korporasi. ±3 menit.
+          </div>
+        </div>
+        <button class="tombol shrink-0" :disabled="sibuk" @click="jalankan('harga_bersih')">Bangun</button>
       </div>
 
       <div class="rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2/60">

@@ -22,6 +22,7 @@ PERINTAH = {
     "harga_perbarui": ("Perbarui harga saham riset (sejak 2010)", ["-m", "backend.ingest.kumpul_data", "harga"]),
     "pasar_perbarui": ("Perbarui data pasar (IHSG, kurs, komoditas, indeks dunia)", ["-m", "backend.ingest.kumpul_data", "pasar"]),
     "harga_unduh_ulang": ("Unduh ulang penuh harga saham riset & data pasar", ["-m", "backend.ingest.kumpul_data", "penuh"]),
+    "harga_bersih": ("Bangun harga bersih 2020+ dari IDX (termasuk delisting)", ["-m", "backend.ingest.harga_bersih", "bangun"]),
     "makro_perbarui": ("Perbarui data makro (BI-Rate, inflasi)", ["-m", "backend.ingest.makro", "perbarui"]),
     "penarikan_hitung": ("Hitung portofolio konservatif (penarikan rutin)", ["-m", "backend.research.analisis_penarikan", "--tarik", "1,1.5,2,2.5,3", "--cari", "--simpan"]),
     "keranjang_cek": ("Cek keranjang produk portofolio konservatif", ["-m", "backend.research.keranjang"]),
@@ -55,6 +56,7 @@ PERINTAH = {
 }
 BATAS_LOG = 400
 BENTROK = {
+    "harga_bersih": {"impor_idx_harian", "kualitas_data", "koreksi_impor", "harga_perbarui", "harga_unduh_ulang", "impor_dividen", "impor_pengumuman", "cadangan_data", "pulihkan"},
     "koreksi_impor": {"kualitas_data", "koreksi_ekspor", "harga_perbarui", "harga_unduh_ulang", "paper_unduh", "pulihkan"},
     "koreksi_ekspor": {"koreksi_impor", "pulihkan"},
     "paper_unduh": {"paper_harian", "paper_h22", "paper_cek", "paper_h22_cek", "cadangan_data", "pulihkan", "kualitas_data"},

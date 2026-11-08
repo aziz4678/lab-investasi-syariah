@@ -99,6 +99,8 @@ def status_data():
     idx = (cek or {}).get("idx") or {}
     hasil["paper_cek"] = {"waktu": cek["waktu"], "cocok": cek["cocok"], "jumlah_beda": cek["jumlah_beda"], "sampai": cek["sampai"],
                           "idx": {k: idx.get(k) for k in ("cocok", "sampai_idx", "jumlah_beda", "beda_dipakai", "belum_dicek", "pesan")} | {"beda": (idx.get("beda") or [])[:5]} if idx else None} if cek else None
+    hb = dt.db()["harga_bersih_2020_info"].find_one({"_id": "_ringkasan"}, {"dibuat": 1, "kode": 1, "akhir": 1, "status": 1})
+    hasil["harga_bersih"] = {"dibuat": hb["dibuat"], "kode": hb["kode"], "akhir": hb["akhir"], "delisting": hb["status"].get("delisting", 0)} if hb else None
     cad = cd.daftar()
     hasil["backup_terakhir"] = cad[0]["waktu"] if cad else None
     try:
