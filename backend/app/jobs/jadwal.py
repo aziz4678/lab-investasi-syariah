@@ -108,7 +108,7 @@ URUTAN_HARIAN = [
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
     "5. Cek ulang paper (paper_cek, paper_h22_cek), lalu pantau_paper (jejak posisi H11a, banding dengan mesin backtest, insiden, catatan zona harian)",
-    "6. Sumber data browser lain (termasuk NAB bulanan OJK bila sudah terbit), impor NAB OJK dibatalkan bila bulan lama tidak cocok dengan arsip; keranjang_cek (keranjang produk konservatif dibentuk ulang tiap Januari atau bila isinya bubar/gagal saringan), lalu penarikan_hitung (portofolio konservatif) bila NAB OJK/inflasi/BI-Rate/sbsn_ritel.csv/keranjang berubah; tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
+    "6. Sumber data browser lain (termasuk NAB bulanan OJK bila sudah terbit), impor NAB OJK dibatalkan bila bulan lama tidak cocok dengan arsip; keranjang_cek (keranjang produk konservatif dibentuk ulang tiap Januari atau bila isinya bubar/gagal saringan), pertumbuhan_hitung --bila-perlu (keranjang pertumbuhan dicek tiap hari, simulasi dihitung ulang bila NAB OJK/keranjang/H35 berubah), lalu penarikan_hitung (portofolio konservatif) bila NAB OJK/inflasi/BI-Rate/sbsn_ritel.csv/keranjang berubah; tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
 ]
 
 
@@ -179,6 +179,7 @@ def jalan():
         langkah(db, "pantau_paper", catatan=log)
     jalan_browser(db, kecuali={"idx_harian"})
     langkah(db, "keranjang_cek", catatan=log)
+    langkah(db, "pertumbuhan_hitung", ["--bila-perlu"], catatan=log)
     from backend.app.services import penarikan
     perlu, alasan = penarikan.perlu_hitung()
     if perlu:

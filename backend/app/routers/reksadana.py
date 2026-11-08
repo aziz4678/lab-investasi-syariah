@@ -54,6 +54,18 @@ def konservatif_rencana(modal: float = 1_000_000_000, pengeluaran: float = 10_00
     return penarikan.rencana(modal, pengeluaran, darurat, opsi, aplikasi)
 
 
+@router.get("/pertumbuhan")
+def pertumbuhan():
+    from backend.app.services import pertumbuhan as pt
+    return pt.dasar()
+
+
+@router.get("/pertumbuhan/rencana")
+def pertumbuhan_rencana(setoran: float = 1_000_000, modal_awal: float = 0, aplikasi: str = "semua"):
+    from backend.app.services import pertumbuhan as pt
+    return pt.rencana(setoran, modal_awal, aplikasi)
+
+
 @router.get("/rd/pengingat_sbn")
 def rd_pengingat_sbn():
     from backend.app.services import penarikan
