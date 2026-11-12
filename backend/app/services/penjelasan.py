@@ -54,6 +54,7 @@ BAGIAN = {
     "H33": [("## H33:", None), ("## Standar seragam", None)],
     "H34": [("## H34:", None), ("## Standar seragam", None)],
     "H35": [("## H35:", None)],
+    "H37": [("## H37:", None)],
 }
 for _k in "abcdefg":
     BAGIAN[f"H19{_k}"] = [("## H19:", None)]
