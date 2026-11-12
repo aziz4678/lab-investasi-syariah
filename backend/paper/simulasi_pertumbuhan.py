@@ -54,11 +54,12 @@ def ringkas_emas(m):
     beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"]
     selesai = [k for k in m.kejadian if k["jenis"] == "order_selesai"]
     nilai = sum(t["nilai"] for t in beli)
-    prem = sum(t["premium"] * t["nilai"] for t in beli) / nilai if nilai else None
+    prem = sum(t["premium_eksekusi"] * t["nilai"] for t in beli if t["premium_eksekusi"] is not None) / nilai if nilai else None
+    prem_k = sum(t["premium_keputusan"] * t["nilai"] for t in beli) / nilai if nilai else None
     pakai = [t["pakai_batas"] for t in beli]
     sisa = sum(o["sisa"] for o in m.st["antrean"] if o["jenis"] == "etf_beli")
     return {"selesai_hari": selesai[0]["hari_order"] if selesai else None, "tgl_selesai": selesai[0]["tgl"] if selesai else None,
-            "hari_beli": len({t["tgl"] for t in beli}), "lewati": len([k for k in m.kejadian if k["jenis"] == "lewati_premium"]), "premium_rata": prem,
+            "hari_beli": len({t["tgl"] for t in beli}), "lewati": len([k for k in m.kejadian if k["jenis"] == "lewati_premium"]), "premium_rata": prem, "premium_keputusan_rata": prem_k,
             "pakai_rata": float(np.mean(pakai)) if pakai else None, "pakai_maks": float(np.max(pakai)) if pakai else None, "sisa_belum_beli": sisa,
             "kas": m.st["kas"], "etf": m.st["etf"], "hari_order": max([o["hari"] for o in m.st["antrean"] if o["jenis"] == "etf_beli"], default=None)}
 
@@ -88,7 +89,8 @@ def laporan_nyata(mulai):
     e = ringkas_emas(m37)
     sel = "belum selesai (hari ke-%s, sisa Rp%s)" % (e["hari_order"], f"{e['sisa_belum_beli']:,.0f}") if e["selesai_hari"] is None else f"hari ke-{e['selesai_hari']} ({e['tgl_selesai']})"
     print(f"Pembelian emas selesai: {sel}; hari beli {e['hari_beli']}; hari dilewati karena premium {e['lewati']}")
-    print(f"Premium rata-rata saat beli (tertimbang nilai): {'-' if e['premium_rata'] is None else format(e['premium_rata'] * 100, '+.2f') + '%'}; "
+    fp = lambda v: "-" if v is None else format(v * 100, "+.2f") + "%"
+    print(f"Premium rata-rata saat beli (tertimbang nilai): keputusan {fp(e['premium_keputusan_rata'])} (t-1), eksekusi {fp(e['premium_rata'])} (t); sisa kas emas Rp{e['kas']:,.0f}; "
           f"pemakaian batas 20% nilai transaksi: rata {'-' if e['pakai_rata'] is None else format(e['pakai_rata'] * 100, '.0f') + '%'}, maks {'-' if e['pakai_maks'] is None else format(e['pakai_maks'] * 100, '.0f') + '%'}")
     cnt = Counter(k["jenis"] for k in m37.kejadian)
     print(f"Kejadian H37: {sum(cnt.values())} ({', '.join(f'{k} {v}' for k, v in sorted(cnt.items()))}); H35: {len(m35.kejadian)}")

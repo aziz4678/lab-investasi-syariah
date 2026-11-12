@@ -7,6 +7,7 @@ from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import sintetis_pertumbuhan as sp
 
 HARI = sp.hari_kerja("2026-12-01", "2027-01-29")
+HARI_X = [pd.Timestamp("2026-11-30")] + HARI
 
 
 def jenis(m, j):
@@ -15,7 +16,7 @@ def jenis(m, j):
 
 class TesMesin(unittest.TestCase):
     def jalan(self, strategi="h37", hari=HARI, etf=None, aum=None, rd_naik=0.0001, **kw):
-        data = sp.bangun(hari, etf=etf, aum=aum, rd_naik=rd_naik)
+        data = sp.bangun([pd.Timestamp("2026-11-30")] + list(hari), etf=etf, aum=aum, rd_naik=rd_naik)
         m = sp.mesin(strategi, data, hari[0], **kw)
         m.jalan(hari)
         return m, data
@@ -58,7 +59,7 @@ class TesMesin(unittest.TestCase):
         self.assertEqual(len(jenis(m, "order_selesai")), 1)
 
     def test_hari_ke_15_membeli_di_harga_mana_pun(self):
-        etf = {"AAA": sp.seri_etf(HARI, premium=0.05)}
+        etf = {"AAA": sp.seri_etf(HARI_X, premium=0.05)}
         m, _ = self.jalan("h37", etf=etf)
         beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"]
         self.assertEqual(beli[0]["tgl"], str(HARI[14].date()))
@@ -70,27 +71,54 @@ class TesMesin(unittest.TestCase):
         self.assertAlmostEqual(beli[0]["premium"], 0.05)
 
     def test_premium_di_bawah_batas_beli_hari_pertama(self):
-        etf = {"AAA": sp.seri_etf(HARI, premium=0.019)}
+        etf = {"AAA": sp.seri_etf(HARI_X, premium=0.019)}
         m, _ = self.jalan("h37", etf=etf)
         beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"]
         self.assertEqual(beli[0]["tgl"], str(HARI[0].date()))
         self.assertFalse(jenis(m, "lewati_premium"))
 
     def test_data_kosong_tidak_ada_transaksi_emas_dan_tidak_dikarang(self):
-        df = sp.seri_etf(HARI)
+        df = sp.seri_etf(HARI_X)
         kosong = [HARI[1], HARI[2]]
         df2 = df.drop(kosong)
         df2.loc[HARI[3], "premium"] = np.nan
         df2 = df2.sort_index()
         m, _ = self.jalan("h37", etf={"AAA": df2})
         tgl_beli = {t["tgl"] for t in m.transaksi if t["kaki"] == "emas"}
-        for h in kosong + [HARI[3]]:
+        for h in kosong + [HARI[3], HARI[4]]:
             self.assertNotIn(str(h.date()), tgl_beli)
-        self.assertEqual(len(jenis(m, "data_kosong_emas")), 3)
+        self.assertEqual(len(jenis(m, "data_kosong_emas")), 4)
         self.assertEqual(m.ekuitas[1]["tgl"], str(HARI[1].date()))
 
+    def test_keputusan_memakai_premium_kemarin_bukan_hari_ini(self):
+        prem = lambda idx: np.where(idx <= HARI[2], 0.05, 0.005)
+        etf = {"AAA": sp.seri_etf(HARI_X, premium=prem)}
+        m, _ = self.jalan("h37", etf=etf)
+        tgl_beli = sorted({t["tgl"] for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"})
+        self.assertEqual(tgl_beli[0], str(HARI[4].date()))
+        self.assertNotIn(str(HARI[3].date()), tgl_beli)
+        lewat = [k for k in jenis(m, "lewati_premium") if k["tgl"] == str(HARI[3].date())]
+        self.assertEqual(len(lewat), 1)
+        self.assertGreater(lewat[0]["premium_keputusan"], mp.PREMIUM_MAKS_BELI)
+        self.assertLess(lewat[0]["premium_eksekusi"], mp.PREMIUM_MAKS_BELI)
+        pertama = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"][0]
+        self.assertAlmostEqual(pertama["premium_keputusan"], 0.005)
+        self.assertAlmostEqual(pertama["premium_eksekusi"], 0.005)
+        self.assertEqual(pertama["premium"], pertama["premium_eksekusi"])
+
+    def test_nav_kemarin_kosong_tidak_beli(self):
+        df = sp.seri_etf(HARI_X)
+        df.loc[HARI[2], "nav"] = np.nan
+        df.loc[HARI[2], "premium"] = np.nan
+        m, _ = self.jalan("h37", etf={"AAA": df})
+        tgl_beli = {t["tgl"] for t in m.transaksi if t["kaki"] == "emas"}
+        self.assertIn(str(HARI[2].date()), tgl_beli)
+        self.assertNotIn(str(HARI[3].date()), tgl_beli)
+        kosong = jenis(m, "data_kosong_emas")
+        self.assertEqual([k["tgl"] for k in kosong], [str(HARI[3].date())])
+
     def test_ganti_etf_karena_aum(self):
-        etf = {"AAA": sp.seri_etf(HARI), "BBB": sp.seri_etf(HARI, premium=0.01)}
+        etf = {"AAA": sp.seri_etf(HARI_X), "BBB": sp.seri_etf(HARI_X, premium=0.01)}
         m, data = self.jalan("h37", HARI[:3], etf=etf, aum={"AAA": 20e9, "BBB": 20e9})
         self.assertEqual(m.st["etf"], "AAA")
         data.aum_nilai["AAA"] = 5e9
@@ -103,7 +131,7 @@ class TesMesin(unittest.TestCase):
 
     def test_ganti_etf_lima_hari_tanpa_transaksi(self):
         vol = lambda idx: np.where((idx >= HARI[10]) & (idx <= HARI[14]), 0.0, 125000.0)
-        etf = {"AAA": sp.seri_etf(HARI, volume=vol), "BBB": sp.seri_etf(HARI)}
+        etf = {"AAA": sp.seri_etf(HARI_X, volume=vol), "BBB": sp.seri_etf(HARI_X)}
         m, _ = self.jalan("h37", HARI[:15], etf=etf, aum={"AAA": 20e9, "BBB": 20e9})
         g = jenis(m, "ganti_etf")
         self.assertEqual(len(g), 1)
@@ -112,7 +140,7 @@ class TesMesin(unittest.TestCase):
         self.assertEqual(m.st["etf"], "BBB")
 
     def test_ganti_etf_gagal_bila_tidak_ada_pengganti(self):
-        etf = {"AAA": sp.seri_etf(HARI)}
+        etf = {"AAA": sp.seri_etf(HARI_X)}
         m, data = self.jalan("h37", HARI[:2], etf=etf, aum={"AAA": 20e9})
         data.aum_nilai["AAA"] = 5e9
         m.jalan(HARI[:5])
