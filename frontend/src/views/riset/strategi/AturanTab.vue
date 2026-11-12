@@ -1,9 +1,19 @@
 <script setup>
+import { ref, computed, onMounted } from "vue";
 import { RotateCcw } from "lucide-vue-next";
+import { ambil } from "@/api/client";
+import { tanggal } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 
 defineProps({ s: Object });
+const catatan = ref([]);
+onMounted(async () => {
+  const r = await ambil("paper/ringkasan").catch(() => null);
+  catatan.value = r?.catatan || [];
+});
+const kalimatSplit = computed(() => catatan.value.map((c) => `${c.ticker} melewati split/bonus x${String(Number(c.rasio).toFixed(4)).replace(".", ",")} pada ${tanggal(c.tgl)}: selisih keputusan dalam 5 hari bursa sesudah split dianggap beda karena split/bonus (diharapkan); di luar jendela itu tetap dihitung penyimpangan.`));
+const isiPanel = (d) => (d.judul.startsWith("Selisih metode") ? [...d.isi, ...kalimatSplit.value] : d.isi);
 </script>
 
 <template>
@@ -71,7 +81,7 @@ defineProps({ s: Object });
       </Panel>
       <Panel v-for="d in s?.panel_daftar || []" :key="d.judul" :judul="d.judul" :ket="d.ket">
         <ol class="m-0 list-decimal space-y-2 pl-5 text-ink-2">
-          <li v-for="r in d.isi" :key="r">{{ r }}</li>
+          <li v-for="r in isiPanel(d)" :key="r">{{ r }}</li>
         </ol>
       </Panel>
     </div>

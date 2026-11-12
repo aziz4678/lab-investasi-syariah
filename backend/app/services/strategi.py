@@ -66,7 +66,10 @@ TREN52 = {
         "Kapasitas kecil: di saham yang lebih likuid (nilai transaksi ≥ Rp20 M) hasilnya kira-kira separuh. Cocok untuk modal pribadi kecil, tidak bisa diperbesar.",
         "Jangan ubah aturan di tengah jalan: melonggarkan stop, memasang target untung, atau memilih saham sendiri.",
     ],
-    "panel_daftar": [],
+    "panel_daftar": [
+        {"judul": "Riwayat perbaikan implementasi", "ket": "Perbaikan bug, bukan perubahan aturan",
+         "isi": ["2026-11-12: penyesuaian skala saat split/bonus (ditemukan lewat dry-run), aturan stop tidak berubah."]},
+    ],
     "variabel": [
         {"grup": "Universe (saham yang boleh dibeli)", "isi": [
             {"nama": "Status syariah", "nilai": "Masuk DES OJK pada hari sinyal", "ket": "Daftar Efek Syariah periode yang berlaku (1 Jun / 1 Des). Saham yang keluar DES tidak dibeli lagi."},
@@ -235,6 +238,8 @@ BLEND = {
         ]},
     ],
     "panel_daftar": [
+        {"judul": "Riwayat perbaikan implementasi", "ket": "Perbaikan bug, bukan perubahan aturan",
+         "isi": ["2026-11-12: penyesuaian skala saat split/bonus (ditemukan lewat dry-run), aturan stop tidak berubah."]},
         {"judul": "Selisih metode paper vs simulasi", "ket": "Disengaja, bukan bug: angka paper tidak akan sama persis dengan simulasi",
          "isi": [
              "Bagian RS 12-1 paper memakai harga mentah + dividen tunai dipotong pajak 10%; simulasi memakai harga disesuaikan Yahoo (dividen masuk tanpa pajak).",

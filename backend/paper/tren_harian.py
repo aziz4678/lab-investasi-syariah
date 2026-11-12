@@ -27,7 +27,8 @@ BOBOT = 0.10
 LOT = 100
 PAJAK_DIVIDEN = 0.10
 SIZING_KEMARIN_SEJAK = pd.Timestamp("2026-11-02")
-KOLOM_POSISI = ["ticker", "status", "tgl_sinyal", "tgl_masuk", "harga_masuk", "lot", "atr_sinyal", "stop", "tertinggi", "hari", "dividen_rp"]
+KOLOM_POSISI = ["ticker", "status", "tgl_sinyal", "tgl_masuk", "harga_masuk", "lot", "atr_sinyal", "stop", "tertinggi", "hari", "dividen_rp", "modal_rp"]
+TOLERANSI_SKALA = 0.005
 
 
 def baca_lokal():
@@ -119,7 +120,7 @@ def muat_state(modal):
         p = {k: p.get(k) for k in KOLOM_POSISI}
         for k in ["tgl_sinyal", "tgl_masuk"]:
             p[k] = pd.Timestamp(p[k]) if p[k] is not None else pd.NaT
-        for k in ["harga_masuk", "atr_sinyal", "stop", "tertinggi", "dividen_rp"]:
+        for k in ["harga_masuk", "atr_sinyal", "stop", "tertinggi", "dividen_rp", "modal_rp"]:
             p[k] = np.nan if p[k] is None else float(p[k])
         posisi.append(p)
     return status, posisi
@@ -133,7 +134,7 @@ def simpan_state(status, posisi):
         db.paper_posisi.insert_many([{k: ke_mongo(p.get(k)) for k in KOLOM_POSISI} for p in posisi])
 
 
-KOLOM_TRANSAKSI = ["tgl", "aksi", "ticker", "tgl_sinyal", "tgl_masuk", "harga_masuk", "harga_keluar", "lot", "hari", "net_pct", "untung_rp"]
+KOLOM_TRANSAKSI = ["tgl", "aksi", "ticker", "tgl_sinyal", "tgl_masuk", "harga_masuk", "harga_keluar", "lot", "hari", "net_pct", "untung_rp", "rasio"]
 KOLOM_EKUITAS = ["tgl", "ekuitas", "kas", "posisi"]
 
 
@@ -170,6 +171,45 @@ def ekuitas_kemarin(status, tgl):
     return float(x["ekuitas"]) if x else float(status["modal_awal"])
 
 
+def modal_posisi_rp(p):
+    if p.get("modal_rp") is not None and not pd.isna(p["modal_rp"]):
+        return float(p["modal_rp"])
+    return biaya_beli(p["harga_masuk"]) * LOT * p["lot"]
+
+
+def sesuaikan_split(p, b, x, tgl, peringatan):
+    r = float(b["split"])
+    if not (r > 0 and r != 1):
+        return
+    p["modal_rp"] = modal_posisi_rp(p)
+    skala = None
+    if pd.notna(p["tgl_masuk"]) and p["tgl_masuk"] in x.index:
+        skala = p["harga_masuk"] / float(x.at[p["tgl_masuk"], "m_open"])
+    lama = {"lot": p["lot"], "harga_masuk": p["harga_masuk"], "stop": p["stop"]}
+    if skala is not None and abs(skala / r - 1) < TOLERANSI_SKALA:
+        p["lot"] = p["lot"] * r
+        p["harga_masuk"] = p["harga_masuk"] / r
+        p["stop"] = p["stop"] / r
+        if pd.notna(p["tertinggi"]):
+            p["tertinggi"] = p["tertinggi"] / r
+        hasil = "disesuaikan"
+        pesan = f"{p['ticker']} split/bonus x{r:.4f} pada {tgl.date()}: jumlah lot x{r:.4f} ({lama['lot']:.2f} -> {p['lot']:.2f}), harga masuk dan stop dibagi {r:.4f}, modal tidak berubah. Aturan stop tidak berubah."
+        catat(FILE_TRANSAKSI, {"ticker": p["ticker"], "tgl_sinyal": p["tgl_sinyal"], "aksi": "split", "tgl": tgl.date(), "tgl_masuk": p["tgl_masuk"],
+                               "harga_masuk": p["harga_masuk"], "lot": p["lot"], "rasio": r})
+    elif skala is not None and abs(skala - 1) < TOLERANSI_SKALA:
+        hasil = "sudah_skala_baru"
+        pesan = f"{p['ticker']} split/bonus x{r:.4f} pada {tgl.date()}: posisi sudah tercatat dalam skala harga baru, tidak ada yang diubah."
+    else:
+        hasil = "perlu_cek_manual"
+        pesan = f"{p['ticker']} split/bonus x{r:.4f} pada {tgl.date()}: skala harga masuk tidak cocok dengan data, posisi tidak diubah, perlu dicek manual."
+    peringatan.append(pesan)
+    kdb.koneksi().paper_catatan.replace_one({"tgl": tgl.to_pydatetime(), "ticker": p["ticker"], "jenis": "split"},
+                                            {"tgl": tgl.to_pydatetime(), "ticker": p["ticker"], "jenis": "split", "rasio": r, "hasil": hasil, "pesan": pesan,
+                                             "lot_lama": float(lama["lot"]), "lot_baru": float(p["lot"]), "harga_masuk_lama": float(lama["harga_masuk"]),
+                                             "harga_masuk_baru": float(p["harga_masuk"]), "stop_lama": float(lama["stop"]), "stop_baru": float(p["stop"]),
+                                             "dicatat": datetime.now()}, upsert=True)
+
+
 def proses_hari(tgl, siap, des, status, posisi, peringatan):
     dasar_ukuran = ekuitas_kemarin(status, tgl) if tgl >= SIZING_KEMARIN_SEJAK else None
     sisa = []
@@ -178,8 +218,11 @@ def proses_hari(tgl, siap, des, status, posisi, peringatan):
         if b is None:
             sisa.append(p)
             continue
-        if b["split"] and p["status"] != "beli_besok":
-            peringatan.append(f"{p['ticker']} split {b['split']} pada {tgl.date()}: harga dan stop posisi perlu dicek manual")
+        if p["status"] in ("aktif", "jual_besok"):
+            if pd.isna(p.get("modal_rp")):
+                p["modal_rp"] = modal_posisi_rp(p)
+            if b["split"]:
+                sesuaikan_split(p, b, siap[p["ticker"]], tgl, peringatan)
         if p["status"] in ("aktif", "jual_besok") and b["dividen"] > 0:
             dv = float(b["dividen"]) * LOT * p["lot"] * (1 - PAJAK_DIVIDEN)
             status["kas"] += dv
@@ -197,7 +240,7 @@ def proses_hari(tgl, siap, des, status, posisi, peringatan):
                 catat(FILE_TRANSAKSI, {"ticker": p["ticker"], "tgl_sinyal": p["tgl_sinyal"], "aksi": "batal_kas", "tgl": tgl.date()})
                 continue
             status["kas"] -= lot * per_lot
-            p.update(status="aktif", tgl_masuk=tgl, harga_masuk=float(b["m_open"]), lot=lot,
+            p.update(status="aktif", tgl_masuk=tgl, harga_masuk=float(b["m_open"]), lot=lot, modal_rp=float(lot * per_lot),
                      stop=float(b["m_open"] - MULT_ATR * p["atr_sinyal"]), tertinggi=np.nan, hari=0, dividen_rp=0.0)
         elif p["status"] == "jual_besok":
             if b["m_high"] == b["m_low"]:
@@ -206,7 +249,7 @@ def proses_hari(tgl, siap, des, status, posisi, peringatan):
             uang = hasil_jual(b["m_open"]) * LOT * p["lot"]
             status["kas"] += uang
             uang += 0 if pd.isna(p.get("dividen_rp")) else p["dividen_rp"]
-            modal = biaya_beli(p["harga_masuk"]) * LOT * p["lot"]
+            modal = modal_posisi_rp(p)
             catat(FILE_TRANSAKSI, {"ticker": p["ticker"], "tgl_sinyal": p["tgl_sinyal"], "aksi": "jual", "tgl_masuk": p["tgl_masuk"],
                                    "harga_masuk": p["harga_masuk"], "tgl": tgl.date(), "harga_keluar": float(b["m_open"]),
                                    "lot": p["lot"], "hari": p["hari"], "net_pct": round((uang / modal - 1) * 100, 2),

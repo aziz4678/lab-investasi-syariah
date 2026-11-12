@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -19,8 +20,11 @@ KUNCI = {
     "paper_sinyal": ["tgl"],
     "paper_posisi": ["ticker"],
 }
-MAKS_BEDA = 20
+MAKS_BEDA = 50
 TOLERANSI_IDX = 0.0001
+KONSTAN_MAKS = 0.001
+JENDELA_SEBELUM, JENDELA_SESUDAH = 90, 14
+POLA_AKSI = re.compile(r"bonus|pemecahan|stock split|reverse stock|penggabungan nilai|hmetd|hak memesan|penawaran umum terbatas", re.I)
 
 
 def ticker_paper(prod):
@@ -29,6 +33,67 @@ def ticker_paper(prod):
     for s in prod.paper_sinyal.find({}, {"kandidat": 1, "terpilih": 1}):
         t |= set(s.get("kandidat") or []) | set(s.get("terpilih") or [])
     return t
+
+
+def jenis_aksi(judul):
+    j = judul.lower()
+    if "bonus" in j:
+        return "saham bonus"
+    if "pemecahan" in j or "stock split" in j:
+        return "pemecahan saham"
+    if "reverse" in j or "penggabungan nilai" in j:
+        return "penggabungan saham"
+    return "HMETD / right issue"
+
+
+def teks_rasio(r, jenis):
+    if r > 1 and jenis == "saham bonus":
+        n = 1 / (r - 1)
+        if abs(n - round(n)) < 0.02 * n:
+            return f"{round(n)}:1"
+    return f"x{r:.4f}"
+
+
+def pengumuman_aksi(kode, awal, akhir):
+    dari, sampai = awal - pd.Timedelta(days=JENDELA_SEBELUM), akhir + pd.Timedelta(days=JENDELA_SESUDAH)
+    hasil = []
+    for x in dt.db()["pengumuman"].find({"kode": kode, "tgl": {"$gte": dari.to_pydatetime(), "$lte": sampai.to_pydatetime()}}, {"_id": 0, "judul": 1, "tgl": 1}):
+        if POLA_AKSI.search(x.get("judul") or ""):
+            hasil.append({"tgl": str(x["tgl"].date()), "judul": x["judul"][:120]})
+    return sorted(hasil, key=lambda z: z["tgl"])
+
+
+def tanggal_ex(kode, sejak):
+    try:
+        x = hg.harian(kode)
+    except Exception:
+        return None
+    if x is None or "stock_splits" not in x:
+        return None
+    s = x["stock_splits"].fillna(0)
+    s = s[(s != 0) & (s.index >= sejak)]
+    return str(s.index[0].date()) if len(s) else None
+
+
+def kelompok_beda(beda):
+    g = {}
+    for b in beda:
+        g.setdefault(b["ticker"], []).append(b)
+    hasil = []
+    for kode, daftar in sorted(g.items()):
+        r = [b["idx"] / b["paper"] for b in daftar if b.get("paper")]
+        tgl = sorted(b["tgl"] for b in daftar)
+        konstan = len(r) >= 2 and max(r) - min(r) < KONSTAN_MAKS
+        aksi = None
+        if konstan:
+            peng = pengumuman_aksi(kode, pd.Timestamp(tgl[0]), pd.Timestamp(tgl[-1]))
+            if peng:
+                jenis = next((jenis_aksi(x["judul"]) for x in peng if "bonus" in x["judul"].lower()), jenis_aksi(peng[-1]["judul"]))
+                aksi = {"jenis": jenis, "rasio": teks_rasio(sum(r) / len(r), jenis), "ex": tanggal_ex(kode, pd.Timestamp(tgl[-1])), "pengumuman": peng[-3:]}
+        hasil.append({"kode": kode, "tgl_awal": tgl[0], "tgl_akhir": tgl[-1], "baris": len(daftar), "rasio_min": round(min(r), 4) if r else None,
+                      "rasio_maks": round(max(r), 4) if r else None, "konstan": konstan, "kategori": "aksi_korporasi" if aksi else "harga_berbeda",
+                      "dipakai": any(b["dipakai"] for b in daftar), "aksi": aksi})
+    return hasil
 
 
 def cek_idx(prod, mulai, sampai):
@@ -69,7 +134,13 @@ def cek_idx(prod, mulai, sampai):
                 if angka > 0 and abs(float(b[kol]) / float(angka) - 1) > TOLERANSI_IDX:
                     beda.append({"ticker": k, "tgl": str(r.tgl.date()), "jenis": kol, "idx": float(angka), "paper": float(b[kol]), "dipakai": pakai})
     beda.sort(key=lambda x: (not x["dipakai"], x["tgl"], x["ticker"]))
-    return {"cocok": not beda, "sampai_idx": str(idx["tgl"].max().date()), "hari": int(idx["tgl"].nunique()), "baris": dicek,
+    per_kode = kelompok_beda(beda)
+    kategori = {k["kode"]: k["kategori"] for k in per_kode}
+    for b in beda:
+        b["kategori"] = kategori[b["ticker"]]
+    aksi_baris = sum(1 for b in beda if b["kategori"] == "aksi_korporasi")
+    return {"per_kode": per_kode, "jumlah_aksi_korporasi": aksi_baris, "jumlah_acak": len(beda) - aksi_baris, "cocok_selain_aksi": len(beda) == aksi_baris,
+            "cocok": not beda, "sampai_idx": str(idx["tgl"].max().date()), "hari": int(idx["tgl"].nunique()), "baris": dicek,
             "jumlah_beda": len(beda), "beda_dipakai": sum(x["dipakai"] for x in beda), "beda": beda[:MAKS_BEDA],
             "tanpa_transaksi_dikoreksi": tanpa_transaksi, "belum_dicek": belum}
 

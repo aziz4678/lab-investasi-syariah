@@ -32,11 +32,52 @@ CATATAN_H22 = [
     "H29 replay = 50% replay Follow Tren + 50% backtest RS 12-1, dikembalikan ke 50/50 tiap akhir bulan (fungsi gabung simulasi_h29). Monte Carlo H29 memakai 100 simulasi bagian Follow Tren.",
     "Backtest memakai lembar pecahan, paper memakai lot 100 lembar.",
 ]
+LABEL_SPLIT = "beda karena split/bonus (diharapkan), bukan penyimpangan"
+JENDELA_SPLIT_HARI = 5
 _CACHE = {}
 
 
 def db():
     return kdb.koneksi()
+
+
+def split_tercatat():
+    hasil = {}
+    for c in db().paper_catatan.find({"jenis": "split"}, {"_id": 0}).sort("tgl", 1):
+        hasil.setdefault(c["ticker"], []).append(c)
+    return hasil
+
+
+def batas_jendela_split(tgl_split, kalender, hari=JENDELA_SPLIT_HARI):
+    awal = pd.Timestamp(tgl_split).normalize()
+    k = pd.DatetimeIndex(sorted(pd.Timestamp(x).normalize() for x in kalender))
+    letak = int(k.searchsorted(awal))
+    if letak + hari < len(k):
+        return k[letak + hari]
+    return awal + pd.offsets.BDay(hari)
+
+
+def tanggal_keputusan(baris, sampai):
+    hasil = []
+    for kunci in ("tgl_masuk", "tgl_keluar"):
+        a, b = baris.get(f"{kunci}_paper"), baris.get(f"{kunci}_backtest")
+        if a != b:
+            hasil += [x for x in (a, b) if x]
+    if not hasil:
+        hasil = [str(pd.Timestamp(sampai).date())]
+    return [pd.Timestamp(x).normalize() for x in hasil]
+
+
+def dikecualikan_split(baris, catatan_split, kalender, sampai):
+    if not catatan_split:
+        return False
+    tanggal = tanggal_keputusan(baris, sampai)
+    for c in catatan_split:
+        awal = pd.Timestamp(c["tgl"]).normalize()
+        akhir = batas_jendela_split(awal, kalender)
+        if any(awal <= t <= akhir for t in tanggal):
+            return True
+    return False
 
 
 def r4(v):
@@ -241,6 +282,7 @@ def h11a():
     for x in db().paper_transaksi.find({"aksi": {"$in": ["batal_ARA", "batal_kas"]}}, {"_id": 0}):
         trade_p.append({"ticker": x["ticker"], "tgl_sinyal": pd.Timestamp(x["tgl_sinyal"]), "status": x["aksi"]})
     trade, replay_rows = [], []
+    split_ticker = split_tercatat()
     for p in sorted(trade_p, key=lambda z: (z["tgl_sinyal"], z["ticker"])):
         b = satu_trade(sb.get(p["ticker"]), p["ticker"], p["tgl_sinyal"])
         baris = {"ticker": p["ticker"], "tgl_sinyal": str(p["tgl_sinyal"].date()), "status_paper": p["status"], "status_backtest": b["status"] if b else "tidak_ada",
@@ -267,7 +309,9 @@ def h11a():
         baris["keputusan_sama"] = bool(cocok)
         if not cocok and p.get("tgl_masuk") is not None:
             baris["data_sama"] = data_sama_rentang(sp.get(p["ticker"]), sb.get(p["ticker"]), p["tgl_masuk"], sampai)
-            if baris["data_sama"] and p["status"] not in ("batal_ARA", "batal_kas"):
+            if dikecualikan_split(baris, split_ticker.get(p["ticker"]), kal, sampai):
+                baris["catatan"] = LABEL_SPLIT
+            elif baris["data_sama"] and p["status"] not in ("batal_ARA", "batal_kas"):
                 tak.append({"jenis": "trade", "tgl": baris["tgl_sinyal"], "ticker": p["ticker"], "paper": st_p, "backtest": b["status"] if b else None})
         trade.append(baris)
         if b and b.get("tgl_masuk") is not None and p["status"] in ("aktif", "jual_besok", "jual"):
@@ -304,6 +348,9 @@ def h11a():
     _CACHE["h11a"] = {"replay": replay, "mc": mc_kurva, "sampai": sampai}
     harga_p = [t for t in trade if t.get("selisih_masuk_pct") is not None]
     catatan = list(CATATAN_H11A)
+    for t, daftar in split_ticker.items():
+        bagian = ", ".join("x%.4f pada %s" % (c["rasio"], c["tgl"].date()) for c in daftar)
+        catatan.append(f"{t} melewati split/bonus ({bagian}): selisih keputusan dalam {JENDELA_SPLIT_HARI} hari bursa sesudah tanggal split dikecualikan ({LABEL_SPLIT}); di luar jendela itu tetap dihitung tak terjelaskan.")
     if akhir_riset is not None and akhir_riset < sampai:
         catatan.insert(0, f"Data riset (harga) baru sampai {akhir_riset.date()}, paper sampai {sampai.date()}: hari sesudahnya belum bisa dibandingkan.")
     terlibat = {t["ticker"] for t in trade} | {b["ticker"] for b in beda}
