@@ -32,6 +32,7 @@ const WARNA = ["bg-aksen-lembut text-aksen", "bg-kuning-bg text-kuning", "bg-nai
 const inisial = computed(() => {
   const t = (props.teks || props.kunci || "?").replace(/\b(PT|Tbk|Reksa Dana|RD|Syariah)\b/gi, "").trim();
   const kata = t.split(/\s+/).filter(Boolean);
+  if (props.jenis === "emiten") return t.slice(0, 2).toUpperCase();
   if (/^[A-Z0-9.]{2,6}$/.test(t)) return t.replace(".L", "").slice(0, 4);
   return (kata.length > 1 ? kata[0][0] + kata[1][0] : t.slice(0, 2)).toUpperCase();
 });
@@ -47,5 +48,5 @@ const gaya = computed(() => ({ width: `${props.ukuran}px`, height: `${props.ukur
   <span v-if="pakaiGambar" class="inline-grid shrink-0 place-items-center overflow-hidden rounded-[30%] border border-garis bg-white" :style="gaya">
     <img :src="`/api/logo/${jalur}`" :alt="teks || kunci" class="h-[78%] w-[78%] object-contain" loading="lazy" @error="gagal = true" />
   </span>
-  <span v-else class="inline-grid shrink-0 place-items-center rounded-[30%] font-semibold tracking-tight" :class="warna" :style="gaya">{{ inisial }}</span>
+  <span v-else class="inline-grid shrink-0 place-items-center overflow-hidden rounded-[30%] font-semibold tracking-tight" :class="warna" :style="gaya">{{ inisial }}</span>
 </template>

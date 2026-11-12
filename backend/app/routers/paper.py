@@ -9,6 +9,7 @@ from backend.app.services import pasar as ps
 from backend.db import cadangan as cd
 from backend.db import data as dt
 from backend.db import koneksi as d
+from backend.paper.tren_harian import LOT, biaya_beli
 
 router = APIRouter(prefix="/api")
 DB = d.koneksi()
@@ -58,8 +59,15 @@ def paper_ringkasan():
         p["tgl_close"] = h.index[-1].to_pydatetime() if h is not None and len(h) else None
         if p["status"] in ("aktif", "jual_besok") and close and p.get("harga_masuk"):
             p["untung_pct"] = (close / p["harga_masuk"] - 1) * 100
-            p["jarak_stop_pct"] = (close / p["stop"] - 1) * 100 if p.get("stop") else None
+            p["jarak_stop_pct"] = (close - p["stop"]) / close * 100 if p.get("stop") else None
             p["nilai_rp"] = close * p["lot"] * 100
+            p["untung_rp"] = (close - p["harga_masuk"]) * p["lot"] * 100
+            dv = p.get("dividen_rp")
+            dv = 0.0 if dv is None or dv != dv else float(dv)
+            modal = p.get("modal_rp")
+            p["biaya_beli_rp"] = float(modal) if modal is not None and modal == modal else biaya_beli(p["harga_masuk"]) * LOT * p["lot"]
+            p["untung_bersih_rp"] = p["nilai_rp"] + dv - p["biaya_beli_rp"]
+            p["untung_bersih_pct"] = p["untung_bersih_rp"] / p["biaya_beli_rp"] * 100
         if p["status"] == "beli_besok" and h is not None and p.get("tgl_sinyal") in h.index:
             c = float(h.loc[p["tgl_sinyal"]])
             p["close_sinyal"] = c
@@ -71,6 +79,7 @@ def paper_ringkasan():
         "tgl_mulai": pertama["tgl"] if pertama else None,
         "ekuitas": terakhir["ekuitas"] if terakhir else status["modal_awal"],
         "return_pct": (terakhir["ekuitas"] / status["modal_awal"] - 1) * 100 if terakhir else 0.0,
+        "catatan": list(DB.paper_catatan.find({}, {"_id": 0}).sort("tgl", -1).limit(20)),
         "posisi": sorted(posisi, key=lambda x: ({"jual_besok": 0, "beli_besok": 1, "aktif": 2}.get(x["status"], 3), x["ticker"])),
         **stat_transaksi(),
     }
@@ -230,7 +239,10 @@ def paper_h29():
         nilai = close * p["lembar"] if close else None
         hasil = (nilai + p.get("terima_rp", 0) + p.get("dividen_rp", 0)) / p["modal_rp"] * 100 - 100 if nilai and p.get("modal_rp") else None
         pr = peringkat.get(p["ticker"])
-        posisi.append({**p, "close": close, "nilai_rp": nilai, "untung_pct": hasil, "bobot_pct": nilai / ek22 * 100 if nilai else None,
+        untung_rp = nilai + p.get("terima_rp", 0) + p.get("dividen_rp", 0) - p["modal_rp"] if nilai and p.get("modal_rp") else None
+        posisi.append({**p, "close": close, "nilai_rp": nilai, "untung_pct": hasil, "untung_rp": untung_rp,
+                       "untung_kotor_rp": (close - p["harga_masuk"]) * p["lembar"] if close and p.get("harga_masuk") else None,
+                       "untung_kotor_pct": (close / p["harga_masuk"] - 1) * 100 if close and p.get("harga_masuk") else None, "bobot_pct": nilai / ek22 * 100 if nilai else None,
                        "peringkat": pr[0] if pr else None, "momentum_pct": pr[1] if pr else None})
     transaksi = list(DB[h22.K_TRANSAKSI].find({}, {"_id": 0}).sort("tgl", -1).limit(1000))
     jual = [t["net_pct"] for t in transaksi if t.get("aksi") == "jual" and t.get("net_pct") is not None]
@@ -303,7 +315,7 @@ def paper_langsung():
         if not x:
             continue
         out[p["ticker"]] = {**x, "di_bawah_stop": bool(p.get("stop") and x["harga"] < p["stop"]),
-                            "jarak_stop_pct": (x["harga"] / p["stop"] - 1) * 100 if p.get("stop") else None,
+                            "jarak_stop_pct": (x["harga"] - p["stop"]) / x["harga"] * 100 if p.get("stop") else None,
                             "untung_pct": (x["harga"] / p["harga_masuk"] - 1) * 100 if p.get("harga_masuk") and p["status"] != "beli_besok" else None}
     return {"ada": True, "sesi": sesi, "jam": jam, "lengkap": lengkap, "posisi": out,
             "ekuitas": status["kas"] + nilai if lengkap else None, "modal_awal": status["modal_awal"]}

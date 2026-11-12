@@ -52,3 +52,20 @@ export const rupiahRingkas = (v) => {
   if (a >= 1e6) return f(a / 1e6, "jt");
   return f(a / 1e3, "rb", 0);
 };
+
+export const kelasUntung = (v) => (v === null || v === undefined || Number.isNaN(v) || Math.abs(v) < 0.1 ? "text-ink-2" : v > 0 ? "text-naik" : "text-turun");
+
+export const rupiahBertanda = (v) => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  return (v >= 500 ? "+" : "") + rupiahRingkas(v);
+};
+
+export const persenRupiah = (pct, rp) => `${persen(pct, 2)} (${rupiahBertanda(rp)})`;
+
+export const rupiahJt = (v, digit = 2) => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  const tanda = v < 0 ? "-" : v > 0 ? "+" : "";
+  const a = Math.abs(v);
+  if (a < 1e6) return `${tanda}Rp${Math.round(a / 1e3).toLocaleString("id-ID")} rb`;
+  return `${tanda}Rp${(a / 1e6).toLocaleString("id-ID", { minimumFractionDigits: digit, maximumFractionDigits: digit })} jt`;
+};

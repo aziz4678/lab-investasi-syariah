@@ -3,7 +3,7 @@ import Info from "@/components/common/Info.vue";
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import { pecahAngka } from "@/utils/format";
 defineProps({ items: Array, kolom: { type: String, default: "grid-cols-2 md:grid-cols-3 xl:grid-cols-6" }, polos: Boolean });
-const WARNA = { naik: "text-naik", turun: "text-turun" };
+const WARNA = { naik: "text-naik", turun: "text-turun", netral: "text-ink-2" };
 const BERTANDA = /[+-]\d[\d.,]*%/g;
 
 function jumlahTanda(s) {
@@ -26,6 +26,7 @@ function nada(s) {
         <div class="label flex items-center gap-1">{{ s.label }}<Info v-if="s.info" :teks="s.info" /></div>
         <div class="mt-1.5 truncate text-[clamp(17px,1.35vw,24px)] leading-8 font-medium tracking-tight tabular-nums" :class="nada(s)">
           <TeksWarna v-if="!s.nada && jumlahTanda(s.nilai) > 1" :teks="s.nilai" />
+          <template v-else-if="nada(s)">{{ s.nilai }}</template>
           <template v-else>{{ pecahAngka(s.nilai)[0] }}<span class="font-light opacity-50">{{ pecahAngka(s.nilai)[1] }}</span></template>
         </div>
         <div v-if="s.ket" class="mt-0.5 text-xs leading-snug text-muted" :class="s.baris === 3 ? 'line-clamp-3' : 'line-clamp-2'" :title="s.ket"><TeksWarna :teks="s.ket" /></div>

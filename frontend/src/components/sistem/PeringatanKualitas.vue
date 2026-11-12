@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject, onMounted } from "vue";
-import { TriangleAlert, ShieldAlert, ArrowRight } from "lucide-vue-next";
+import { TriangleAlert, ShieldAlert, ArrowRight, Info as IkonInfo } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { tanggal } from "@/utils/format";
 
@@ -47,8 +47,9 @@ function label(x) {
         Cek silang IDX akan menandai kalau ada selisih.
       </div>
     </div>
-    <div v-if="umum" class="flex items-center gap-3 rounded-2xl bg-surface-2 px-4 py-2.5 text-xs text-ink-2">
-      <TriangleAlert class="h-4 w-4 shrink-0 text-kuning" />
+    <div v-if="umum" class="flex items-center gap-3 rounded-2xl px-4 py-2.5 text-xs text-ink-2" :class="k.jumlah_temuan > 0 ? 'bg-kuning-bg' : 'bg-surface-2'">
+      <TriangleAlert v-if="k.jumlah_temuan > 0" class="h-4 w-4 shrink-0 text-kuning" />
+      <IkonInfo v-else class="h-4 w-4 shrink-0 text-aksen" />
       <span class="min-w-0 flex-1">Cek kualitas data: {{ k.jumlah_temuan }} temuan baru<span v-if="k.jumlah_tahan">, {{ k.jumlah_tahan }} koreksi ditahan</span> (tidak menyentuh paper).</span>
       <button class="tombol shrink-0" @click="pindahTab('kualitas')">Lihat</button>
     </div>

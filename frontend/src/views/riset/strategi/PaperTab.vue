@@ -4,11 +4,13 @@ import KodeSaham from "@/components/common/KodeSaham.vue";
 import { ref, computed, inject, onMounted, onUnmounted } from "vue";
 import { RefreshCw, RotateCcw, Lock, Radio, TriangleAlert } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
-import { persen, rupiah, tanggal, infoAksi, kelasPersen } from "@/utils/format";
+import { persen, rupiah, tanggal, infoAksi, kelasPersen, kelasUntung, rupiahBertanda } from "@/utils/format";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import KurvaPaper from "@/components/tren/KurvaPaper.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import PeringatanKualitas from "@/components/sistem/PeringatanKualitas.vue";
+import PeringatanHargaIdx from "@/components/sistem/PeringatanHargaIdx.vue";
+import CatatanAksiPaper from "@/components/sistem/CatatanAksiPaper.vue";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import ZonaPaper from "@/components/tren/ZonaPaper.vue";
@@ -19,19 +21,20 @@ const props = defineProps({ s: Object });
 const muatStatus = inject("muatStatus");
 const pindahTab = inject("pindahTab");
 const statusApp = inject("status");
-const bedaIdx = computed(() => {
-  const x = statusApp?.value?.paper_cek?.idx;
-  return x && x.cocok === false ? x : null;
-});
 const langsung = ref(null);
 let detakLangsung = null;
-async function muatLangsung() {
+const muatLangsung = async () => {
   langsung.value = await ambil("paper/langsung").catch(() => langsung.value);
-}
+};
 onUnmounted(() => clearInterval(detakLangsung));
 const adaLangsung = computed(() => langsung.value?.ada && r.value?.mulai && langsung.value.sesi > (r.value.tgl_terakhir || ""));
 const kini = (t) => (adaLangsung.value ? langsung.value.posisi?.[t] : null);
 const ekuitasKini = computed(() => (adaLangsung.value ? langsung.value.ekuitas : null));
+const gerak = computed(() => {
+  if (ekuitasKini.value == null || !r.value?.ekuitas) return null;
+  const rp = ekuitasKini.value - r.value.ekuitas;
+  return { rp, pct: (rp / r.value.ekuitas) * 100 };
+});
 const bawahStop = computed(() => (adaLangsung.value ? aktif.value.filter((p) => kini(p.ticker)?.di_bawah_stop) : []));
 const r = ref(null);
 const siap = ref(false);
@@ -47,7 +50,7 @@ const konfirmasi = ref("");
 const tanyaReset = ref(false);
 const pesan = ref("");
 
-async function muat() {
+const muat = async () => {
   try {
     r.value = await ambil("paper/ringkasan");
     versiMuat.value += 1;
@@ -68,19 +71,19 @@ async function muat() {
   } catch (e) {
     galat.value = `API tidak bisa dihubungi: ${e.message}`;
   }
-}
+};
 
-function mulaiPaper() {
+const mulaiPaper = () => {
   pesan.value = "";
   mulai("aksi/paper_mulai", { modal: Number(modal.value) }, muat);
-}
+};
 
-function perbarui() {
+const perbarui = () => {
   pesan.value = "";
   mulai("aksi/paper_harian", {}, muat);
-}
+};
 
-async function reset() {
+const reset = async () => {
   try {
     const hasil = await kirim("aksi_paper_reset", {
       konfirmasi: konfirmasi.value,
@@ -93,7 +96,7 @@ async function reset() {
   } catch (e) {
     pesan.value = e.message;
   }
-}
+};
 
 onMounted(async () => {
   await muat();
@@ -106,10 +109,20 @@ const aksi = computed(() =>
 const aktif = computed(() =>
   (r.value?.posisi || []).filter((p) => p.status === "aktif"),
 );
+const catatanTicker = (t) => (r.value?.catatan || []).find((c) => c.ticker === t && c.hasil === "disesuaikan");
+const jumlah = (daftar, kunci) => daftar.reduce((a, p) => a + (p[kunci] || 0), 0);
+const total = computed(() => {
+  const a = aktif.value;
+  const biaya = jumlah(a, "biaya_beli_rp");
+  const rp = jumlah(a, "untung_bersih_rp");
+  const modalKotor = a.reduce((t, p) => t + p.harga_masuk * p.lot * 100, 0);
+  return { nilai: jumlah(a, "nilai_rp"), rp, pct: biaya ? (rp / biaya) * 100 : 0, kotorPct: modalKotor ? (jumlah(a, "untung_rp") / modalKotor) * 100 : 0 };
+});
 const dijual = computed(
   () => aksi.value.filter((p) => p.status === "jual_besok").length,
 );
 const LABEL_AKSI = {
+  split: "Split / bonus",
   jual: "Jual",
   dividen: "Dividen",
   batal_ARA: "Batal · ARA terkunci",
@@ -127,16 +140,16 @@ const stat = computed(() => {
   const terpakai = ((x.ekuitas - x.kas) / x.ekuitas) * 100;
   return [
     {
-      label: "Ekuitas",
+      label: "Ekuitas (resmi)",
       nilai: `Rp${rupiah(Math.round(x.ekuitas))}`,
-      ket: `modal Rp${rupiah(x.modal_awal)}`,
-      info: "Kas + nilai posisi di harga penutupan terakhir yang sudah diproses.",
+      ket: `modal Rp${rupiah(x.modal_awal)} · close ${tanggal(x.tgl_terakhir)}`,
+      info: "Kas + nilai posisi di harga penutupan resmi terakhir yang sudah diproses. Perkiraan harga hari ini ada di kotak Perkiraan live.",
     },
     {
       label: "Return",
-      nilai: persen(x.return_pct),
-      nada: x.return_pct > 0 ? "naik" : x.return_pct < 0 ? "turun" : null,
-      ket: `sejak ${tanggal(x.tgl_mulai)}`,
+      nilai: persen(x.return_pct, 2),
+      nada: x.return_pct >= 0.1 ? "naik" : x.return_pct <= -0.1 ? "turun" : "netral",
+      ket: `${rupiahBertanda(x.ekuitas - x.modal_awal)} sejak ${tanggal(x.tgl_mulai)}`,
     },
     {
       label: "Posisi",
@@ -147,7 +160,7 @@ const stat = computed(() => {
       label: "Trade selesai",
       nilai: String(x.trade_selesai),
       ket: x.trade_selesai
-        ? `win rate ${persen(x.win_rate, 0, false)} · backtest ±34%`
+        ? `${persen(x.win_rate, 0, false)} menang · backtest ±34%`
         : "belum ada",
     },
     {
@@ -155,7 +168,8 @@ const stat = computed(() => {
       nilai: x.trade_selesai
         ? `${persen(x.rata_menang, 0)} / ${persen(x.rata_kalah, 0)}`
         : "–",
-      ket: "backtest +35% / -10%",
+      ket: "rata-rata backtest: menang +35%, kalah -10%",
+      baris: 3,
       info: "Strategi ini wajar lebih sering kalah, asal rata-rata menang jauh lebih besar dari rata-rata kalah.",
     },
     {
@@ -173,7 +187,8 @@ const stat = computed(() => {
     <PeringatanKualitas bagian="h11a" />
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">Aturan Follow Tren dijalankan ke depan dengan uang pura-pura, lalu dibandingkan dengan backtest.</p>
-      <div v-if="r?.mulai" class="flex items-center gap-2">
+      <div v-if="r?.mulai" class="flex flex-wrap items-center gap-2">
+        <span class="chip !h-8 bg-surface-2 !px-3 !text-xs text-ink-2">Data resmi per close {{ tanggal(r.tgl_terakhir) }}</span>
         <button
           class="tombol"
           :disabled="sibuk"
@@ -219,11 +234,8 @@ const stat = computed(() => {
       </button>
     </div>
 
-    <p v-if="bedaIdx" class="m-0 flex items-start gap-2 rounded-2xl bg-turun-bg px-4 py-2.5 text-xs text-turun">
-      <TriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span>Cek silang dengan data resmi IDX menemukan {{ bedaIdx.jumlah_beda }} harga berbeda<template v-if="bedaIdx.beda_dipakai"> ({{ bedaIdx.beda_dipakai }} di saham yang dipakai paper)</template>:
-        {{ bedaIdx.beda.map((b) => `${b.ticker} ${b.tgl} ${b.jenis} IDX ${b.idx} vs paper ${b.paper ?? "–"}`).join("; ") }}. Data paper tidak diubah otomatis; periksa dulu.</span>
-    </p>
+    <PeringatanHargaIdx strategi="h11a" />
+    <CatatanAksiPaper :catatan="r?.catatan || []" />
     <div v-if="galat" class="panel px-5 py-3.5 text-turun">{{ galat }}</div>
     <PanelPekerjaan :kerja="kerja" :galat="galatKerja" />
     <div v-if="pesan" class="panel px-5 py-3.5 text-ink-2">{{ pesan }}</div>
@@ -283,19 +295,13 @@ const stat = computed(() => {
       <Stats :items="stat" />
 
       <div v-if="adaLangsung" class="panel px-6 py-4">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div class="flex items-center gap-2 text-[13px] font-medium"><Radio class="h-4 w-4 text-aksen" />Pantauan hari ini</div>
-          <div v-if="ekuitasKini != null">
-            <span class="text-xs text-muted">Ekuitas berjalan</span>
-            <span class="ml-2 text-[17px] font-medium tabular-nums">Rp{{ rupiah(Math.round(ekuitasKini)) }}</span>
-            <span class="ml-2 text-[13px] font-medium tabular-nums" :class="kelasPersen(ekuitasKini - r.ekuitas)">{{ persen((ekuitasKini / r.ekuitas - 1) * 100, 2) }}</span>
-            <span class="ml-1 text-xs text-muted">hari ini</span>
-          </div>
-          <div class="text-xs text-muted">
-            <span class="tabular-nums" :class="kelasPersen((ekuitasKini / r.modal_awal - 1) * 100)">{{ ekuitasKini != null ? persen((ekuitasKini / r.modal_awal - 1) * 100, 2) : "–" }}</span> sejak mulai
-          </div>
-          <span class="ml-auto text-xs text-muted">harga per menit Yahoo, pukul {{ langsung.jam }} · tertunda ±10 menit · resmi masuk paper setelah 17:00</span>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Radio class="h-4 w-4 shrink-0 text-aksen" />
+          <span class="text-[13px] font-medium">Pergerakan hari ini <span class="font-normal text-muted">(perkiraan, belum resmi)</span></span>
+          <span v-if="gerak" class="text-[17px] font-medium tabular-nums" :class="kelasUntung(gerak.pct)">{{ rupiahBertanda(gerak.rp) }} ({{ persen(gerak.pct, 2) }})</span>
+          <span class="text-xs text-muted">· pukul {{ langsung.jam }}</span>
         </div>
+        <p v-if="ekuitasKini != null" class="m-0 mt-1 text-xs text-muted">kalau ditutup sekarang, ekuitas ≈ Rp{{ rupiah(Math.round(ekuitasKini)) }} · baru resmi setelah 17:00 · harga per menit Yahoo, tertunda ±10 menit</p>
         <p v-if="bawahStop.length" class="m-0 mt-3 flex items-start gap-2 rounded-2xl bg-turun-bg px-4 py-2.5 text-xs text-turun">
           <TriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{{ bawahStop.map((p) => p.ticker).join(", ") }} sedang di bawah stop. Kalau harga penutupan tetap di bawah stop, saham dijual di open besok.</span>
@@ -327,7 +333,7 @@ const stat = computed(() => {
                 <th>Alasan</th>
                 <th class="!text-right">Lot</th>
                 <th class="!text-right">Stop</th>
-                <th class="!text-right">Hasil saat ini</th>
+                <th class="!text-right">Untung di close</th>
               </tr>
             </thead>
             <tbody>
@@ -365,15 +371,9 @@ const stat = computed(() => {
                 </td>
                 <td
                   class="text-right font-medium"
-                  :class="
-                    p.status === 'jual_besok'
-                      ? p.untung_pct >= 0
-                        ? 'text-naik'
-                        : 'text-turun'
-                      : 'text-muted'
-                  "
+                  :class="p.status === 'jual_besok' ? kelasUntung(p.untung_pct) : 'text-muted'"
                 >
-                  {{ p.status === "jual_besok" ? persen(p.untung_pct) : "–" }}
+                  {{ p.status === "jual_besok" ? persen(p.untung_pct, 2) : "–" }}
                 </td>
               </tr>
             </tbody>
@@ -383,27 +383,26 @@ const stat = computed(() => {
 
       <Panel
         judul="Posisi aktif"
-        ket="Terkunci = hasil kalau kena stop sekarang · tidak ada target jual tetap"
+        :ket="`Semua angka per close resmi ${tanggal(r.tgl_terakhir)} · Terkunci = hasil yang diamankan kalau harga menyentuh batas jual (stop) sekarang · tidak ada target jual tetap`"
         rapat
-        info="Stop = close tertinggi sejak beli − 3×ATR. Stop ikut naik dan tidak pernah turun. Kalau close di bawah stop, jual di open besok."
+        info="Stop = harga tutup tertinggi sejak beli dikurangi 3 kali rata-rata gerak harian (ATR). Stop ikut naik dan tidak pernah turun. Kalau harga tutup di bawah stop, saham dijual di harga buka besok. Jarak ke stop = selisih harga tutup dan stop, dibagi harga tutup. Untung (setelah biaya beli) = nilai di harga tutup dikurangi harga masuk + 1 tik + fee beli 0,15%; biaya jual baru dihitung saat saham dijual. Angka kotor = tanpa biaya beli."
       >
         <p v-if="!aktif.length" class="m-0 px-6 pt-1 pb-4 text-muted">
           Belum ada posisi aktif.
         </p>
         <div v-else class="overflow-x-auto">
-          <table class="tabel min-w-[820px]">
+          <table class="tabel min-w-[880px]">
             <thead>
               <tr>
                 <th>Saham</th>
                 <th>Tanggal masuk</th>
                 <th class="!text-right">Harga masuk</th>
-                <th class="!text-right">Close</th>
-                <th v-if="adaLangsung" class="!text-right">Sekarang</th>
-                <th class="!text-right">Untung</th>
+                <th class="!text-right">Harga tutup</th>
+                <th class="!text-right">Untung (setelah biaya beli)</th>
                 <th class="!text-right">Stop</th>
                 <th class="!text-right">Terkunci</th>
                 <th class="!text-right">Jarak ke stop</th>
-                <th class="!text-right">Hari</th>
+                <th class="!text-right" :title="`Hari bursa sejak masuk sampai close ${tanggal(r.tgl_terakhir)}`">Hari</th>
                 <th class="!text-right">Nilai</th>
               </tr>
             </thead>
@@ -411,25 +410,16 @@ const stat = computed(() => {
               <tr v-for="p in aktif" :key="p.ticker">
                 <td><KodeSaham :kode="p.ticker" /></td>
                 <td class="text-ink-2">{{ tanggal(p.tgl_masuk) }}</td>
-                <td class="text-right">{{ rupiah(p.harga_masuk) }}</td>
+                <td class="text-right">{{ rupiah(Math.round(p.harga_masuk)) }}<div v-if="catatanTicker(p.ticker)" class="text-[11px] text-muted">disesuaikan ×{{ String(catatanTicker(p.ticker).rasio.toFixed(4)).replace(".", ",") }}</div></td>
                 <td class="text-right">{{ rupiah(p.close) }}</td>
-                <td v-if="adaLangsung" class="text-right tabular-nums">
-                  <template v-if="kini(p.ticker)">
-                    <span :class="kini(p.ticker).di_bawah_stop ? 'font-medium text-turun' : ''">{{ rupiah(kini(p.ticker).harga) }}</span>
-                    <span class="ml-1 text-xs" :class="kelasPersen(kini(p.ticker).ret)">{{ persen(kini(p.ticker).ret, 1) }}</span>
-                  </template>
-                  <span v-else class="text-muted">–</span>
-                </td>
-                <td
-                  class="text-right font-medium"
-                  :class="(kini(p.ticker)?.untung_pct ?? p.untung_pct) >= 0 ? 'text-naik' : 'text-turun'"
-                >
-                  {{ persen(kini(p.ticker)?.untung_pct ?? p.untung_pct) }}
+                <td class="text-right tabular-nums">
+                  <div class="font-medium" :class="kelasUntung(p.untung_bersih_pct)">{{ persen(p.untung_bersih_pct, 2) }}</div>
+                  <div class="text-[11px] text-muted">kotor {{ persen(p.untung_pct, 2) }}</div>
                 </td>
                 <td class="text-right">{{ rupiah(Math.round(p.stop)) }}</td>
                 <td
                   class="text-right"
-                  :class="kelasPersen((p.stop / p.harga_masuk - 1) * 100)"
+                  :class="kelasUntung((p.stop / p.harga_masuk - 1) * 100)"
                 >
                   <Lock
                     v-if="p.stop >= p.harga_masuk"
@@ -444,12 +434,29 @@ const stat = computed(() => {
                       : 'text-ink-2'
                   "
                 >
-                  {{ persen(kini(p.ticker)?.jarak_stop_pct ?? p.jarak_stop_pct, 1, false) }}
+                  {{ persen(p.jarak_stop_pct, 1, false) }}
                 </td>
                 <td class="text-right text-ink-2">{{ p.hari }}</td>
-                <td class="text-right">{{ rupiah(Math.round(p.nilai_rp)) }}</td>
+                <td class="text-right tabular-nums">
+                  {{ rupiah(Math.round(p.nilai_rp)) }}
+                  <span class="ml-1 text-xs" :class="kelasUntung(p.untung_bersih_pct)">({{ rupiahBertanda(p.untung_bersih_rp) }})</span>
+                </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr class="border-t border-garis font-medium">
+                <td colspan="4" class="text-ink-2">Total {{ aktif.length }} posisi</td>
+                <td class="text-right tabular-nums">
+                  <div :class="kelasUntung(total.pct)">{{ persen(total.pct, 2) }}</div>
+                  <div class="text-[11px] font-normal text-muted">kotor {{ persen(total.kotorPct, 2) }}</div>
+                </td>
+                <td colspan="4"></td>
+                <td class="text-right tabular-nums">
+                  {{ rupiah(Math.round(total.nilai)) }}
+                  <span class="ml-1 text-xs" :class="kelasUntung(total.pct)">({{ rupiahBertanda(total.rp) }})</span>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </Panel>
@@ -497,6 +504,7 @@ const stat = computed(() => {
                     <template v-else-if="t.aksi === 'dividen'"
                       >Rp{{ rupiah(t.untung_rp) }}</template
                     >
+                    <template v-else-if="t.aksi === 'split'">×{{ String(Number(t.rasio).toFixed(4)).replace(".", ",") }}</template>
                   </td>
                 </tr>
               </tbody>

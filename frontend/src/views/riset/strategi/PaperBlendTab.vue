@@ -1,18 +1,20 @@
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted, watch } from "vue";
 import { Line } from "vue-chartjs";
-import { RefreshCw, Lock, Radio, BookOpen, ArrowRight, TriangleAlert } from "lucide-vue-next";
+import { RefreshCw, Lock, Radio, BookOpen, ArrowRight, TriangleAlert, Info as IkonInfo } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { pakaiTema } from "@/composables/tema";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import { opsiDasar, warna, gradien } from "@/utils/chart";
-import { rupiah, persen, tanggal, kelasPersen } from "@/utils/format";
+import { rupiah, persen, tanggal, kelasPersen, kelasUntung, rupiahBertanda, rupiahJt } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 import Stats from "@/components/common/Stats.vue";
 import KodeSaham from "@/components/common/KodeSaham.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import PeringatanKualitas from "@/components/sistem/PeringatanKualitas.vue";
+import PeringatanHargaIdx from "@/components/sistem/PeringatanHargaIdx.vue";
+import CatatanAksiPaper from "@/components/sistem/CatatanAksiPaper.vue";
 import AturanEvaluasi from "@/components/tren/AturanEvaluasi.vue";
 
 const props = defineProps({ s: Object });
@@ -27,17 +29,17 @@ const galat = ref("");
 const { kerja, galat: galatKerja, sibuk, mulai, lanjutkan } = pakaiPekerjaan();
 let detak = null;
 
-async function muat() {
+const muat = async () => {
   try {
     [r.value, ft.value] = await Promise.all([ambil("paper/h29"), ambil("paper/ringkasan").catch(() => null)]);
     siap.value = true;
   } catch (e) {
     galat.value = `API tidak bisa dihubungi: ${e.message}`;
   }
-}
-async function muatLangsung() {
+};
+const muatLangsung = async () => {
   langsung.value = await ambil("paper/h29/langsung").catch(() => langsung.value);
-}
+};
 const perbarui = () => mulai("aksi/paper_h22", {}, muat);
 
 onMounted(async () => {
@@ -55,26 +57,52 @@ const akhir = computed(() => seri.value[seri.value.length - 1] || null);
 const posisiFt = computed(() => (ft.value?.posisi || []).filter((p) => p.status === "aktif" || p.status === "jual_besok"));
 const adaLangsung = computed(() => langsung.value?.ada && langsung.value.sesi > (r.value?.tgl_terakhir || ""));
 
+const nadaNilai = (v) => (v >= 0.1 ? "naik" : v <= -0.1 ? "turun" : "netral");
+const gerak = computed(() => {
+  const pct = langsung.value?.gabung_hari_ini_pct;
+  const dasar = akhir.value?.h29;
+  if (pct == null || !dasar) return null;
+  const rp = (pct / 100) * dasar;
+  return { pct, rp, nilai: dasar + rp };
+});
+
 const stat = computed(() => {
   const x = r.value;
   if (!x?.ada) return [];
   const e = akhir.value;
+  const retur = rk.value.h29?.return_pct ?? 0;
+  const returBiaya = rk.value.h29_biaya?.return_pct ?? 0;
+  const rp = (e?.h29 ?? 1e8) - 1e8;
+  const kBiaya = biaya.value && Math.abs(returBiaya - retur) >= 0.005 ? ` · setelah biaya pindah ${persen(returBiaya, 2)}` : "";
   return [
-    { label: "Ekuitas Momentum Blend", nilai: `Rp${rupiah(Math.round(e?.h29 ?? 1e8))}`, ket: "modal Rp100.000.000",
+    { label: "Ekuitas Momentum Blend (resmi)", nilai: `Rp${rupiah(Math.round(e?.h29 ?? 1e8))}`, ket: `modal Rp100.000.000 · close ${tanggal(r.value?.tgl_terakhir)}`,
       info: "Nilai gabungan: 50% hasil bagian Follow Tren + 50% hasil bagian RS 12-1, disamakan lagi tiap akhir bulan. Uang pura-pura." },
-    { label: "Return sejak mulai", nilai: persen(rk.value.h29?.return_pct ?? 0), nada: (rk.value.h29?.return_pct ?? 0) >= 0 ? "naik" : "turun",
-      ket: biaya.value ? `setelah biaya pindah ${persen(rk.value.h29_biaya?.return_pct ?? 0)}` : `sejak ${tanggal(x.mulai)}`,
-      info: "Dihitung dari titik awal close 30 Okt 2026. Angka kedua sudah dipotong perkiraan biaya saat porsi dikembalikan ke 50/50." },
-    { label: "Bagian Follow Tren", nilai: persen(rk.value.h11a?.return_pct ?? 0), nada: (rk.value.h11a?.return_pct ?? 0) >= 0 ? "naik" : "turun",
-      ket: `${posisiFt.value.length} / 10 saham dipegang`, info: "Bagian ini = paper Follow Tren yang sudah berjalan sejak 21 Okt 2026, dihitung dari 30 Okt." },
-    { label: "Bagian RS 12-1", nilai: persen(rk.value.h22?.return_pct ?? 0), nada: (rk.value.h22?.return_pct ?? 0) >= 0 ? "naik" : "turun",
-      ket: `${x.posisi.length} / ${x.rencana?.n || x.rebalance?.n || "±22"} saham dipegang`, info: "Bagian momentum bulanan dengan modal Rp100 jt sendiri, lot 100." },
+    { label: "Return sejak mulai", nilai: persen(retur, 2), nada: nadaNilai(retur), ket: `${rupiahJt(rp)} sejak ${tanggal(x.mulai)}${kBiaya}`,
+      info: "Dihitung dari titik awal close 30 Okt 2026. Kalau ada angka setelah biaya pindah, itu sudah dipotong perkiraan biaya saat porsi dikembalikan ke 50/50." },
+    { label: "Bagian Follow Tren", nilai: persen(rk.value.h11a?.return_pct ?? 0, 2), nada: nadaNilai(rk.value.h11a?.return_pct ?? 0),
+      ket: `${posisiFt.value.length} / 10 saham · per Rp100 jt`,
+      info: "Bagian ini = paper Follow Tren yang sama dengan menu Follow Tren, dihitung sejak close 30 Okt 2026 (titik awal Momentum Blend). Halaman Follow Tren menghitung sejak 21 Okt 2026, jadi angkanya beda (+0,04% di sana) padahal posisi dan ekuitasnya sama. Dihitung per Rp100 jt lalu digabung 50/50; porsi nyata di awal tiap bulan Rp50 jt." },
+    { label: "Bagian RS 12-1", nilai: persen(rk.value.h22?.return_pct ?? 0, 2), nada: nadaNilai(rk.value.h22?.return_pct ?? 0),
+      ket: `${x.posisi.length} / ${x.rencana?.n || x.rebalance?.n || "±22"} saham · per Rp100 jt`,
+      info: "Bagian momentum bulanan dengan modal Rp100 jt sendiri, lot 100. Dihitung per Rp100 jt lalu digabung 50/50; porsi nyata di awal tiap bulan Rp50 jt." },
     { label: "Turun terdalam", nilai: persen(rk.value.h29?.dd_maks_pct ?? 0, 1, false), nada: "turun", ket: "batas gagal -45%",
       info: "Penurunan terbesar dari titik tertinggi sejak mulai. Kalau lebih dalam dari -45%, paper Momentum Blend dinyatakan gagal." },
     { label: "Rebalance RS 12-1 berikutnya", nilai: tanggal(x.rebalance_berikutnya), ket: "otomatis di harga pembukaan",
       info: "Hari bursa pertama bulan berikutnya. Tanggal ini perkiraan; kalau hari itu libur bursa, dieksekusi di hari bursa berikutnya." },
   ];
 });
+
+const teksKoreksi = (x) => {
+  const t = x.koreksi_tercatat;
+  if (t) {
+    return `Peringkat dihitung ulang dari close IDX × faktor aksi korporasi (${t.dihitung_ulang} saham, ${t.berubah} berubah). Masuk: ${(t.masuk || []).join(", ") || "–"}. Keluar: ${(t.keluar || []).join(", ") || "–"}. ${t.alasan || ""}`;
+  }
+  if (x.koreksi?.length) {
+    const d = x.koreksi_dampak;
+    return `Peringkat dihitung ulang dari close IDX (${d?.dihitung_ulang ?? x.koreksi.length} saham, ${x.koreksi.length} berubah).${d ? ` Masuk: ${d.masuk.join(", ") || "–"}. Keluar: ${d.keluar.join(", ") || "–"}.` : ""}`;
+  }
+  return "";
+};
 
 const SERI = computed(() => [
   { kunci: "h29", label: "Momentum Blend", var: "--series-1", lebar: 2.5, putus: [], isi: true },
@@ -128,7 +156,6 @@ const opsiDd = computed(() => {
 const kartuAkhir = computed(() => SERI.value.map((s) => ({ ...s, x: rk.value[s.kunci === "ew" ? "ew" : s.kunci] })).filter((s) => s.x));
 
 const status = computed(() => r.value?.evaluasi?.status || {});
-const NAMA_ZONA = { normal: "zona normal", waspada: "zona waspada", gagal: "zona GAGAL", belum: "zona belum dinilai" };
 
 const rencanaBaris = computed(() => {
   const x = r.value?.rencana;
@@ -141,9 +168,16 @@ const tunda = computed(() => Object.keys(r.value?.tunda_beli || {}));
 const AKSI = { beli: "Beli", jual: "Jual", pangkas: "Pangkas", dividen: "Dividen", split: "Split", batal_kas: "Batal", batal_tunda: "Batal",
   batal_ARA: "Batal" };
 const WARNA_AKSI = { beli: "bg-aksen-lembut text-aksen", jual: "bg-turun-bg text-turun", pangkas: "bg-kuning-bg text-ink-2", dividen: "bg-aksen-lembut text-aksen" };
+const totalRs = computed(() => {
+  const a = r.value?.posisi || [];
+  const jml = (k) => a.reduce((t, p) => t + (p[k] || 0), 0);
+  const modal = jml("modal_rp");
+  const modalKotor = a.reduce((t, p) => t + (p.harga_masuk || 0) * (p.lembar || 0), 0);
+  return { nilai: jml("nilai_rp"), rp: jml("untung_rp"), pct: modal ? (jml("untung_rp") / modal) * 100 : 0, kotorPct: modalKotor ? (jml("untung_kotor_rp") / modalKotor) * 100 : 0 };
+});
 const posisiRs = computed(() => Object.fromEntries((r.value?.posisi || []).map((p) => [p.ticker, p])));
 const hariTahan = (a, b) => Math.round((new Date(String(b).slice(0, 10)) - new Date(String(a).slice(0, 10))) / 864e5);
-function keterangan(t) {
+const keterangan = (t) => {
   if (t.aksi === "beli") {
     const p = posisiRs.value[t.ticker];
     const rb = (r.value?.rebalance_riwayat || []).find((x) => String(x.eksekusi).slice(0, 10) <= String(t.tgl).slice(0, 10));
@@ -158,7 +192,7 @@ function keterangan(t) {
   if (t.aksi === "batal_kas") return "uang tidak cukup untuk 1 lot, kembali ke kas";
   if (t.aksi === "batal_tunda") return "sampai akhir bulan saham tidak bisa dibeli, uang kembali ke kas";
   return "";
-}
+};
 const riwayat = computed(() => (r.value?.transaksi || [])
   .map((t) => ({ ...t, lot: t.lembar ? Math.round(t.lembar / 100) : null, hasil: t.net_pct ?? null }))
   .sort((a, b) => (String(a.tgl) < String(b.tgl) ? 1 : String(a.tgl) > String(b.tgl) ? -1
@@ -180,22 +214,27 @@ const riwayatTersaring = computed(() => riwayat.value.filter((t) => !saringAksi.
 const riwayatTampil = computed(() => riwayatTersaring.value.slice((hal.value - 1) * PER, hal.value * PER));
 const jumlahHal = computed(() => Math.max(1, Math.ceil(riwayatTersaring.value.length / PER)));
 watch(saringAksi, () => (hal.value = 1));
-function hasil(t) {
+const hasil = (t) => {
   if (t.aksi === "jual" && t.hasil != null) return { teks: `${persen(t.hasil)} · ${t.untung_rp >= 0 ? "+" : "-"}Rp${rupiah(Math.abs(t.untung_rp || 0))}`, kelas: kelasPersen(t.hasil) };
   if (t.aksi === "dividen") return { teks: `+Rp${rupiah(t.nilai_rp)}`, kelas: "text-naik" };
   return { teks: "–", kelas: "text-muted font-normal" };
-}
+};
 </script>
 
 <template>
   <div class="space-y-5">
-    <PeringatanKualitas bagian="h22" />
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="panel flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">Dua aturan momentum dijalankan ke depan dengan uang pura-pura dalam satu modal, lalu dinilai pada 1 Nov 2027. Tidak perlu beli manual: semuanya tercatat otomatis.</p>
-      <button v-if="r?.ada" class="tombol-utama" :disabled="sibuk" @click="perbarui">
-        <RefreshCw class="h-3.5 w-3.5" :class="sibuk ? 'animate-spin' : ''" />{{ sibuk ? "Memperbarui..." : "Perbarui hari ini" }}
-      </button>
+      <div v-if="r?.ada" class="flex flex-wrap items-center gap-2">
+        <span class="chip !h-8 bg-surface-2 !px-3 !text-xs text-ink-2">Data resmi per close {{ tanggal(r.tgl_terakhir) }}</span>
+        <button class="tombol-utama" :disabled="sibuk" @click="perbarui">
+          <RefreshCw class="h-3.5 w-3.5" :class="sibuk ? 'animate-spin' : ''" />{{ sibuk ? "Memperbarui..." : "Perbarui hari ini" }}
+        </button>
+      </div>
     </div>
+    <PeringatanKualitas bagian="h22" />
+    <PeringatanHargaIdx strategi="h29" :posisi-rs="(r?.posisi || []).map((p) => p.ticker)" />
+    <CatatanAksiPaper :catatan="ft?.catatan || []" />
     <div v-if="galat" class="panel px-5 py-3.5 text-turun">{{ galat }}</div>
     <PanelPekerjaan :kerja="kerja" :galat="galatKerja" />
 
@@ -213,28 +252,18 @@ function hasil(t) {
     <template v-else-if="r">
       <Stats :items="stat" />
 
-      <details class="group rounded-2xl bg-surface-2/60 px-5 py-3 text-[13px] leading-relaxed text-ink-2">
-        <summary class="flex cursor-pointer list-none items-center gap-2 font-medium text-ink [&::-webkit-details-marker]:hidden">
-          <BookOpen class="h-4 w-4 text-aksen" />Cara membaca halaman ini
-          <span class="ml-auto text-xs font-normal text-aksen group-open:hidden">Buka</span><span class="ml-auto hidden text-xs font-normal text-aksen group-open:inline">Tutup</span>
-        </summary>
-        <ul class="m-0 mt-2 list-disc space-y-1.5 pl-5">
-          <li><b class="font-medium text-ink">Modal Rp100 jt dibagi dua.</b> Separuh ikut Follow Tren (beli saham yang mencetak rekor tertinggi setahun), separuh ikut RS 12-1 (tiap bulan pegang saham yang paling naik 12 bulan).</li>
-          <li><b class="font-medium text-ink">Bagian Follow Tren</b> bisa beli/jual hari apa saja. <b class="font-medium text-ink">Bagian RS 12-1</b> hanya bertransaksi sekali sebulan, di hari bursa pertama tiap bulan.</li>
-          <li><b class="font-medium text-ink">Tiap akhir bulan</b> porsi kedua bagian disamakan lagi jadi 50/50, jadi bagian yang naik lebih banyak "menyumbang" ke bagian yang tertinggal.</li>
-          <li><b class="font-medium text-ink">Rugi beberapa bulan itu normal.</b> Strategi momentum hidup dari sedikit saham yang naik besar. Yang dihitung gagal hanya kalau turun lebih dalam dari -45% dari puncak, atau ada kesalahan eksekusi.</li>
-          <li><b class="font-medium text-ink">Ini bukan rekomendasi beli.</b> Ide ini dibuat setelah melihat data lama, jadi kita menunggu bukti dari paper ini sampai Nov 2027.</li>
-        </ul>
-      </details>
-
       <div v-if="adaLangsung" class="panel px-6 py-4">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <div class="flex items-center gap-2 text-[13px] font-medium"><Radio class="h-4 w-4 text-aksen" />Pantauan hari ini</div>
-          <div v-if="langsung.gabung_hari_ini_pct != null"><span class="text-xs text-muted">Momentum Blend</span><span class="ml-2 text-[17px] font-medium tabular-nums" :class="kelasPersen(langsung.gabung_hari_ini_pct)">{{ persen(langsung.gabung_hari_ini_pct, 2) }}</span></div>
-          <div v-if="langsung.h11a_hari_ini_pct != null" class="text-xs text-muted">Follow Tren <span class="font-medium tabular-nums" :class="kelasPersen(langsung.h11a_hari_ini_pct)">{{ persen(langsung.h11a_hari_ini_pct, 2) }}</span></div>
-          <div v-if="langsung.h22_hari_ini_pct != null" class="text-xs text-muted">RS 12-1 <span class="font-medium tabular-nums" :class="kelasPersen(langsung.h22_hari_ini_pct)">{{ persen(langsung.h22_hari_ini_pct, 2) }}</span></div>
-          <span class="ml-auto text-xs text-muted">harga per menit Yahoo, pukul {{ langsung.jam }} · tertunda ±10 menit · resmi masuk paper setelah 17:00</span>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Radio class="h-4 w-4 shrink-0 text-aksen" />
+          <span class="text-[13px] font-medium">Pergerakan hari ini <span class="font-normal text-muted">(perkiraan, belum resmi)</span></span>
+          <span v-if="gerak" class="text-[17px] font-medium tabular-nums" :class="kelasUntung(gerak.pct)">{{ rupiahBertanda(gerak.rp) }} ({{ persen(gerak.pct, 2) }})</span>
+          <span class="text-xs text-muted">· pukul {{ langsung.jam }}</span>
         </div>
+        <p v-if="gerak" class="m-0 mt-1 text-xs text-muted">kalau ditutup sekarang, nilai ≈ Rp{{ rupiah(Math.round(gerak.nilai)) }} · baru resmi setelah 17:00 · harga per menit Yahoo, tertunda ±10 menit</p>
+        <p class="m-0 mt-1 flex flex-wrap gap-x-4 text-xs text-muted">
+          <span v-if="langsung.h11a_hari_ini_pct != null">Follow Tren <b class="font-medium tabular-nums" :class="kelasUntung(langsung.h11a_hari_ini_pct)">{{ persen(langsung.h11a_hari_ini_pct, 2) }}</b></span>
+          <span v-if="langsung.h22_hari_ini_pct != null">RS 12-1 <b class="font-medium tabular-nums" :class="kelasUntung(langsung.h22_hari_ini_pct)">{{ persen(langsung.h22_hari_ini_pct, 2) }}</b></span>
+        </p>
       </div>
 
       <Panel judul="Aksi berikutnya" :ket="r.rencana ? `Rebalance RS 12-1 · sinyal close ${tanggal(r.rencana.sinyal)} · dieksekusi di harga pembukaan hari bursa berikutnya` : `Bagian RS 12-1 baru bertransaksi lagi di rebalance ${tanggal(r.rebalance_berikutnya)}`" rapat
@@ -288,7 +317,7 @@ function hasil(t) {
           </ul>
           <div class="mt-3 flex flex-wrap gap-2 text-xs">
             <span v-for="(v, k) in status" :key="k" class="chip !h-auto !whitespace-normal py-1 leading-snug" :class="v.gagal ? 'bg-turun-bg text-turun' : 'bg-aksen-lembut text-aksen'">
-              {{ k === "h29" ? "Momentum Blend" : "Follow Tren" }} · {{ v.gagal ? `GAGAL: ${v.alasan.join("; ")}` : "belum gagal" }}<template v-if="v.dd_maks_pct != null"> · turun terdalam {{ persen(v.dd_maks_pct, 1) }} (batas -45%)</template><template v-if="v.status_v2"> · v2: {{ v.status_v2 === "waspada" ? "info waspada" : v.status_v2 }}</template><template v-if="v.zona"> · {{ NAMA_ZONA[v.zona] || v.zona }} h11a_v1 (lama)</template>
+              {{ k === "h29" ? "Momentum Blend" : "Follow Tren" }} · {{ v.gagal ? `GAGAL: ${v.alasan.join("; ")}` : "belum gagal" }}<template v-if="v.dd_maks_pct != null"> · turun terdalam {{ persen(v.dd_maks_pct, 1) }} (batas -45%)</template><template v-if="v.status_v2"> · v2: {{ v.status_v2 === "waspada" ? "info waspada" : v.status_v2 }}</template>
             </span>
           </div>
           <p v-if="biaya" class="m-0 mt-3 text-xs text-muted">Angka kedua "setelah biaya pindah" memotong {{ persen(r.evaluasi?.biaya_pindah_pct, 2, false) }} dari nilai yang dipindah tiap akhir bulan (fee jual 0,25% + beli 0,15% + 2 × tick rata-rata {{ persen(r.evaluasi?.tick_estimasi_pct, 2, false) }}): {{ rk.kali_rebalance || 0 }} kali, total Rp{{ rupiah(Math.round(rk.biaya_rebalance_rp || 0)) }}. Laporan saja, bukan syarat.</p>
@@ -301,9 +330,9 @@ function hasil(t) {
       <Panel judul="Posisi bagian RS 12-1" :ket="`${r.posisi.length} saham · bobot = nilai saham dibanding ekuitas bagian RS 12-1 · peringkat dari rebalance terakhir`" rapat
         info="Saham dipegang selama peringkatnya masih di 2N teratas. Tidak ada stop dan target untung: keluar hanya di rebalance bulanan.">
         <div v-if="r.posisi.length" class="overflow-x-auto">
-          <table class="tabel min-w-[820px]">
-            <thead><tr><th>Saham</th><th>Tanggal masuk</th><th class="!text-right">Lot</th><th class="!text-right">Harga masuk</th><th class="!text-right">Close</th>
-              <th v-if="adaLangsung" class="!text-right">Sekarang</th><th class="!text-right">Untung</th><th class="!text-right">Bobot</th><th class="!text-right">Peringkat</th><th class="!text-right">Nilai</th></tr></thead>
+          <table class="tabel min-w-[900px]">
+            <thead><tr><th>Saham</th><th>Tanggal masuk</th><th class="!text-right">Lot</th><th class="!text-right">Harga masuk</th><th class="!text-right">Harga tutup</th>
+              <th class="!text-right">Untung (setelah biaya beli)</th><th class="!text-right">Bobot</th><th class="!text-right">Peringkat</th><th class="!text-right">Nilai</th></tr></thead>
             <tbody>
               <tr v-for="p in r.posisi" :key="p.ticker">
                 <td><KodeSaham :kode="p.ticker" /></td>
@@ -311,13 +340,23 @@ function hasil(t) {
                 <td class="text-right tabular-nums">{{ rupiah(Math.round(p.lembar / 100)) }}</td>
                 <td class="text-right tabular-nums">{{ rupiah(Math.round(p.harga_masuk)) }}</td>
                 <td class="text-right tabular-nums">{{ p.close != null ? rupiah(Math.round(p.close)) : "–" }}</td>
-                <td v-if="adaLangsung" class="text-right tabular-nums" :class="kelasPersen(langsung.posisi?.[p.ticker]?.untung_pct)">{{ langsung.posisi?.[p.ticker] ? rupiah(Math.round(langsung.posisi[p.ticker].harga)) : "–" }}</td>
-                <td class="text-right font-medium tabular-nums" :class="kelasPersen(p.untung_pct)">{{ p.untung_pct != null ? persen(p.untung_pct) : "–" }}</td>
+                <td class="text-right tabular-nums"><div class="font-medium" :class="kelasUntung(p.untung_pct)">{{ p.untung_pct != null ? persen(p.untung_pct, 2) : "–" }}</div><div v-if="p.untung_kotor_pct != null" class="text-[11px] text-muted">kotor {{ persen(p.untung_kotor_pct, 2) }}</div></td>
                 <td class="text-right tabular-nums">{{ p.bobot_pct != null ? persen(p.bobot_pct, 1, false) : "–" }}</td>
                 <td class="text-right tabular-nums text-ink-2">{{ p.peringkat ?? "–" }}</td>
-                <td class="text-right tabular-nums">{{ p.nilai_rp != null ? `Rp${rupiah(Math.round(p.nilai_rp))}` : "–" }}</td>
+                <td class="text-right tabular-nums">{{ p.nilai_rp != null ? `Rp${rupiah(Math.round(p.nilai_rp))}` : "–" }}<span v-if="p.untung_rp != null" class="ml-1 text-xs" :class="kelasUntung(p.untung_pct)">({{ rupiahBertanda(p.untung_rp) }})</span></td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr class="border-t border-garis font-medium">
+                <td colspan="5" class="text-ink-2">Total {{ r.posisi.length }} posisi</td>
+                <td class="text-right tabular-nums">
+                  <div :class="kelasUntung(totalRs.pct)">{{ persen(totalRs.pct, 2) }}</div>
+                  <div class="text-[11px] font-normal text-muted">kotor {{ persen(totalRs.kotorPct, 2) }}</div>
+                </td>
+                <td colspan="2"></td>
+                <td class="text-right tabular-nums">Rp{{ rupiah(Math.round(totalRs.nilai)) }}<span class="ml-1 text-xs" :class="kelasUntung(totalRs.pct)">({{ rupiahBertanda(totalRs.rp) }})</span></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <p v-else class="m-0 px-6 pt-1 pb-4 text-muted">Belum ada posisi. Pembelian pertama di harga pembukaan {{ tanggal(r.rebalance_berikutnya) }}{{ r.rencana ? ` (${r.rencana.beli.length} saham, lihat Aksi berikutnya)` : "" }}.</p>
@@ -335,19 +374,25 @@ function hasil(t) {
         info="Lolos = saham syariah likuid yang memenuhi syarat saat sinyal. N = jumlah saham yang dipegang. Saham baru dibeli kalau masuk N teratas, dijual kalau peringkatnya jatuh ke luar 2N teratas. Per saham baru = uang untuk tiap saham yang baru dibeli.">
         <div v-if="r.rebalance_riwayat.length" class="overflow-x-auto">
           <table class="tabel min-w-[860px]">
-            <thead><tr><th>Eksekusi</th><th class="!text-right">Lolos</th><th class="!text-right">N</th><th>Dibeli</th><th>Dijual</th><th class="!text-right">Tetap</th><th class="!text-right">Per saham baru</th><th class="!text-right">Ekuitas bagian</th></tr></thead>
-            <tbody>
-              <tr v-for="x in r.rebalance_riwayat" :key="x.eksekusi" class="align-top">
-                <td class="!h-auto py-3 text-ink-2">{{ tanggal(x.eksekusi) }}<div class="text-[11px] text-muted">sinyal {{ tanggal(x.sinyal) }}</div>
-                  <div v-if="x.koreksi_tercatat" class="mt-1 max-w-[220px] !whitespace-normal text-[11px] text-ink-2" :title="x.koreksi_tercatat.alasan">koreksi data: peringkat dihitung ulang dari close IDX × faktor aksi korporasi ({{ x.koreksi_tercatat.dihitung_ulang }} saham, {{ x.koreksi_tercatat.berubah }} berubah) · masuk <b class="font-medium">{{ x.koreksi_tercatat.masuk.join(", ") || "–" }}</b>, keluar <b class="font-medium">{{ x.koreksi_tercatat.keluar.join(", ") || "–" }}</b><span v-if="x.koreksi_tercatat.disetujui" class="block text-muted">disetujui {{ x.koreksi_tercatat.disetujui }}</span></div>
-                  <div v-else-if="x.koreksi?.length" class="mt-1 max-w-[220px] !whitespace-normal text-[11px] text-ink-2">koreksi data: peringkat dihitung ulang dari close IDX ({{ x.koreksi_dampak?.dihitung_ulang ?? x.koreksi.length }} saham, {{ x.koreksi.length }} berubah)<template v-if="x.koreksi_dampak"> · masuk {{ x.koreksi_dampak.masuk.join(", ") || "–" }}, keluar {{ x.koreksi_dampak.keluar.join(", ") || "–" }}</template></div></td>
+            <thead><tr><th>Eksekusi</th><th class="!text-right">Lolos</th><th class="!text-right">N</th><th>Dibeli</th><th>Dijual</th><th class="!text-right">Tetap</th><th class="!text-right">Per saham baru</th><th class="!text-right">Ekuitas bagian (per Rp100 jt)</th></tr></thead>
+            <tbody v-for="x in r.rebalance_riwayat" :key="x.eksekusi">
+              <tr class="align-top">
+                <td class="!h-auto py-3 text-ink-2">{{ tanggal(x.eksekusi) }}<div class="text-[11px] text-muted">sinyal {{ tanggal(x.sinyal) }}</div></td>
                 <td class="!h-auto py-3 text-right tabular-nums">{{ x.lolos }}</td>
                 <td class="!h-auto py-3 text-right tabular-nums">{{ x.n }}</td>
-                <td class="!h-auto !whitespace-normal py-3"><div class="flex flex-wrap gap-1"><KodeSaham v-for="t in x.baru" :key="t" :kode="t" /><span v-if="!x.baru?.length" class="text-muted">–</span></div></td>
-                <td class="!h-auto !whitespace-normal py-3"><div class="flex flex-wrap gap-1"><KodeSaham v-for="t in x.jual" :key="t" :kode="t" /><span v-if="!x.jual?.length" class="text-muted">–</span></div></td>
+                <td class="!h-auto !whitespace-normal py-3"><div class="flex flex-wrap gap-x-3 gap-y-1"><KodeSaham v-for="t in x.baru" :key="t" :kode="t" /><span v-if="!x.baru?.length" class="text-muted">–</span></div></td>
+                <td class="!h-auto !whitespace-normal py-3"><div class="flex flex-wrap gap-x-3 gap-y-1"><KodeSaham v-for="t in x.jual" :key="t" :kode="t" /><span v-if="!x.jual?.length" class="text-muted">–</span></div></td>
                 <td class="!h-auto py-3 text-right tabular-nums">{{ x.tetap?.length ?? 0 }}</td>
                 <td class="!h-auto py-3 text-right tabular-nums text-ink-2">{{ x.anggaran_rp ? `Rp${rupiah(x.anggaran_rp)}` : "–" }}</td>
                 <td class="!h-auto py-3 text-right tabular-nums">Rp{{ rupiah(x.ekuitas_dasar) }}</td>
+              </tr>
+              <tr v-if="teksKoreksi(x)">
+                <td colspan="8" class="!h-auto !whitespace-normal pt-0 pb-3">
+                  <details class="text-xs text-ink-2">
+                    <summary class="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted hover:text-ink [&::-webkit-details-marker]:hidden"><IkonInfo class="h-3.5 w-3.5 text-aksen" />Catatan koreksi data</summary>
+                    <p class="m-0 mt-1.5 max-w-3xl leading-relaxed">{{ teksKoreksi(x) }}</p>
+                  </details>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -391,6 +436,20 @@ function hasil(t) {
         <p v-else-if="riwayat.length" class="m-0 px-6 pt-1 pb-4 text-muted">Tidak ada transaksi dengan aksi ini.</p>
         <p v-else class="m-0 flex items-start gap-2 px-6 pt-1 pb-4 text-muted"><TriangleAlert class="mt-0.5 h-4 w-4 shrink-0" />Belum ada transaksi RS 12-1. Transaksi pertama di harga pembukaan {{ tanggal(r.rebalance_berikutnya) }}.</p>
       </Panel>
+
+      <details class="group rounded-2xl bg-surface-2/60 px-5 py-3 text-[13px] leading-relaxed text-ink-2">
+        <summary class="flex cursor-pointer list-none items-center gap-2 font-medium text-ink [&::-webkit-details-marker]:hidden">
+          <BookOpen class="h-4 w-4 text-aksen" />Cara membaca halaman ini
+          <span class="ml-auto text-xs font-normal text-aksen group-open:hidden">Buka</span><span class="ml-auto hidden text-xs font-normal text-aksen group-open:inline">Tutup</span>
+        </summary>
+        <ul class="m-0 mt-2 list-disc space-y-1.5 pl-5">
+          <li><b class="font-medium text-ink">Modal Rp100 jt dibagi dua.</b> Separuh ikut Follow Tren (beli saham yang mencetak rekor tertinggi setahun), separuh ikut RS 12-1 (tiap bulan pegang saham yang paling naik 12 bulan).</li>
+          <li><b class="font-medium text-ink">Bagian Follow Tren</b> bisa beli/jual hari apa saja. <b class="font-medium text-ink">Bagian RS 12-1</b> hanya bertransaksi sekali sebulan, di hari bursa pertama tiap bulan.</li>
+          <li><b class="font-medium text-ink">Tiap akhir bulan</b> porsi kedua bagian disamakan lagi jadi 50/50, jadi bagian yang naik lebih banyak "menyumbang" ke bagian yang tertinggal.</li>
+          <li><b class="font-medium text-ink">Rugi beberapa bulan itu normal.</b> Strategi momentum hidup dari sedikit saham yang naik besar. Yang dihitung gagal hanya kalau turun lebih dalam dari -45% dari puncak, atau ada kesalahan eksekusi.</li>
+          <li><b class="font-medium text-ink">Ini bukan rekomendasi beli.</b> Ide ini dibuat setelah melihat data lama, jadi kita menunggu bukti dari paper ini sampai Nov 2027.</li>
+        </ul>
+      </details>
     </template>
   </div>
 </template>

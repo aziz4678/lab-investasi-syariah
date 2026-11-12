@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { Line } from "vue-chartjs";
 import { pakaiTema } from "@/composables/tema";
 import { opsiDasar, warna, gradien } from "@/utils/chart";
-import { rupiah, persen, kelasPersen } from "@/utils/format";
+import { rupiah, persen, kelasUntung } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 
 const props = defineProps({ ekuitas: Array, modal: Number });
@@ -64,11 +64,11 @@ const akhir = computed(() => {
 </script>
 
 <template>
-  <Panel judul="Ekuitas paper" ket="Kas + posisi di harga penutupan · IHSG disetarakan ke modal awal">
+  <Panel judul="Ekuitas paper" ket="Kas + posisi di harga tutup resmi · IHSG disetarakan ke modal awal">
     <template #aksi>
       <span v-for="s in akhir" :key="s.label" class="inline-flex items-center gap-2 rounded-full bg-surface-2 py-1.5 pr-3 pl-2.5 text-xs text-ink-2">
         <i class="h-2 w-2 rounded-full" :style="{ background: `var(${s.var})` }"></i>{{ s.label }}
-        <b class="font-medium text-ink tabular-nums" :class="kelasPersen((s.nilai / modal - 1) * 100)">{{ persen((s.nilai / modal - 1) * 100) }}</b>
+        <b class="font-medium tabular-nums" :class="kelasUntung((s.nilai / modal - 1) * 100)">{{ persen((s.nilai / modal - 1) * 100, 2) }}</b>
       </span>
     </template>
     <div class="h-[260px]"><Line :data="data" :options="opsi" /></div>

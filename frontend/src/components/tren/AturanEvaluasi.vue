@@ -5,15 +5,16 @@ import { ambil } from "@/api/client";
 import { persen, tanggal } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
+import GrafikZona from "@/components/tren/GrafikZona.vue";
 
 const props = defineProps({ strategi: { type: String, default: "h11a" }, muatUlang: Number });
 const d = ref(null);
 const bukaAudit = ref(false);
 const bukaAturan = ref(false);
 
-async function muat() {
+const muat = async () => {
   d.value = await ambil(`paper/aturan?strategi=${props.strategi}`).catch(() => ({ ada: false }));
-}
+};
 onMounted(muat);
 watch(() => [props.muatUlang, props.strategi], muat);
 
@@ -39,9 +40,9 @@ const kotak = computed(() => {
   }
   const g = b.gagal || {};
   return [
-    { l: "Return", v: persen(x.return_pct, 1), w: x.hari >= g.mulai_ret ? `GAGAL < ${persen(g.ret, 1)} hari ini` : `rem return mulai hari ke-${g.mulai_ret} (sekarang hari ${x.hari})` },
-    { l: "Turun terdalam", v: persen(x.dd_maks_pct, 1), w: `GAGAL < ${persen(g.dd, 1)} hari ini · selalu < -45%` },
-    { l: "Rugi beruntun", v: `${x.beruntun}x`, w: g.ber == null ? "belum ada trade selesai" : `GAGAL > ${g.ber}x (${x.trade} trade)` },
+    { l: "Return", v: persen(x.return_pct, 2), w: x.hari >= g.mulai_ret ? `GAGAL kalau di bawah ${persen(g.ret, 1)} hari ini` : `batas return mulai berlaku hari ke-${g.mulai_ret} (sekarang hari ke-${x.hari})` },
+    { l: "Turun terdalam", v: persen(x.dd_maks_pct, 2), w: `GAGAL kalau di bawah ${persen(g.dd, 1)} hari ini · selalu gagal di bawah -45%` },
+    { l: "Rugi beruntun", v: `${x.beruntun}x`, w: g.ber == null ? "belum ada trade selesai" : `GAGAL kalau lebih dari ${g.ber}x (${x.trade} trade selesai)` },
   ];
 });
 
@@ -59,7 +60,7 @@ const NAMA_NULL = { null1: "bobot sama", null2: "JII", null3: "pilihan acak", nu
     <template #aksi>
       <span class="chip !h-7 !px-3 !text-xs" :class="st.k">{{ st.l }}</span>
     </template>
-    <p class="m-0 -mt-1 mb-4 text-[13px] text-ink-2">{{ st.t }}<template v-if="t"> Data {{ tanggal(t.tgl) }}, hari bursa ke-{{ t.hari }}.</template></p>
+    <p class="m-0 -mt-1 mb-4 text-[13px] text-ink-2">{{ st.t }}<template v-if="t"> Data resmi per close {{ tanggal(t.tgl) }}, hari bursa ke-{{ t.hari }}.</template></p>
 
     <ul v-if="t?.gagal?.length" class="m-0 mb-3 list-disc space-y-1 pl-5 text-[13px] text-turun"><li v-for="a in t.gagal" :key="a">{{ a }}</li></ul>
     <ul v-if="t?.waspada?.length" class="m-0 mb-3 list-disc space-y-1 pl-5 text-[13px] text-kuning"><li v-for="a in t.waspada" :key="a">{{ a }}</li></ul>
@@ -72,6 +73,8 @@ const NAMA_NULL = { null1: "bobot sama", null2: "JII", null3: "pilihan acak", nu
         <div class="text-[11px] leading-snug text-muted">{{ b.w }}</div>
       </div>
     </div>
+
+    <GrafikZona v-if="strategi === 'h11a'" :muat-ulang="muatUlang" />
 
     <div class="mb-3 rounded-2xl bg-surface-2 px-5 py-4">
       <div class="mb-2 flex items-center gap-2 text-[13px] font-medium"><CalendarClock class="h-3.5 w-3.5 text-aksen" />Keputusan Okt/Nov 2027 = keputusan manual, bukan bukti edge</div>
