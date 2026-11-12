@@ -3,6 +3,7 @@ import { computed, inject } from "vue";
 import { CalendarClock, Repeat, Scale, AlertTriangle, ChevronRight, Globe, MapPin, Info, ShieldAlert } from "lucide-vue-next";
 import { rupiahRingkas } from "@/utils/format";
 import Segmen from "@/components/common/Segmen.vue";
+import PilihanEmas from "@/views/riset/pertumbuhan/PilihanEmas.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 import TersediaDi from "@/components/produk/TersediaDi.vue";
@@ -119,6 +120,8 @@ const risiko = computed(() => {
         </div>
       </div>
     </section>
+
+    <PilihanEmas :setoran="setoran || 0" />
 
     <section class="panel relative px-4 py-5 sm:px-6">
       <Pemutar v-if="memuat" class="absolute top-4 right-4" />

@@ -170,3 +170,37 @@ def dasar():
                                                           "per_aplikasi": dok.get("per_aplikasi"), "gugur": [{k: c.get(k) for k in ("id", "nama", "wadah", "alasan", "platform", "biaya")} for c in gugur],
                                                           "pengganti_global": [{k: c.get(k) for k in ("id", "nama", "alasan")} for c in dok.get("pengganti_global") or []
                                                                              if not any(str(x).startswith("ditolak") for x in c.get("alasan") or [])]}})
+
+
+def _periode_emas(h):
+    if not h:
+        return None
+    u, b = h["utama"], h["h35"]
+    pick = lambda m: {"cagr": m["cagr"], "dd": m["dd"], "dd_lembah": m["dd_lembah"], "j10_buruk": m["j10_buruk"], "j10_akhir": m["j10_akhir"], "vol": m["vol"]}
+    return {"h37": pick(u), "h35": pick(b), "bulan": h["bulan"], "lolos": h["vonis"] == "LOLOS", "kriteria": {k: v[0] for k, v in h["kriteria"].items()},
+            "varian": {k: v["lolos"] for k, v in h["varian"].items()}, "tahunan": h["tahunan"], "korelasi": h["korelasi"]}
+
+
+def emas():
+    from backend.ingest import etf_emas as ee
+    dev, hold = dt.baca_hasil("h37_dev"), dt.baca_hasil("h37_holdout")
+    ring = dt.baca_hasil("etf_emas_ringkas") or {}
+    etf = []
+    for kode, r in (ring.get("etf") or {}).items():
+        if not r.get("utama"):
+            continue
+        df = dt.baca(f"{ee.KOLEKSI}/{kode}") if dt.ada(f"{ee.KOLEKSI}/{kode}") else None
+        terakhir = None
+        if df is not None and df["premium"].notna().any():
+            x = df[df["premium"].notna()].iloc[-1]
+            terakhir = {"tgl": str(x.name.date()), "premium": float(x["premium"]), "close": float(x["close"]), "nav": float(x["nav"])}
+        etf.append({"kode": kode, "nama": r["nama"], "aum": r.get("aum"), "aum_tgl": r.get("aum_tgl"), "premium_median": r.get("premium_median"),
+                    "premium_terakhir": terakhir, "nilai_median_harian": r.get("nilai_median_harian"), "mulai": r.get("mulai"), "hari": r.get("hari")})
+    seleksi = ee.pilih()
+    info = {k["kode"]: k for k in seleksi["kandidat"]}
+    for x in etf:
+        k = info.get(x["kode"], {})
+        x.update({"lolos": k.get("lolos"), "alasan": k.get("alasan"), "premium_mutlak_60": k.get("premium_mutlak_median"), "nilai_median_60": k.get("nilai_median"), "hari_data": k.get("hari_data")})
+    etf.sort(key=lambda x: (x["kode"] != seleksi["terpilih"], not x.get("lolos"), x.get("premium_mutlak_60") if x.get("premium_mutlak_60") is not None else 9))
+    return bersih({"ada": bool(dev), "dev": _periode_emas(dev), "holdout": _periode_emas(hold), "etf": etf, "batas_premium": ee.BATAS_PREMIUM,
+                   "terpilih": seleksi["terpilih"], "dihitung": (ring.get("dibuat")), "bobot": {"lokal": 0.4, "global": 0.4, "emas": 0.2}})

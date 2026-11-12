@@ -103,7 +103,7 @@ def perlu_cek_des(hari_ini=None):
 
 
 URUTAN_HARIAN = [
-    "1. Unduh Yahoo: DES (musimnya), paper_unduh (harian paper + JII, dikoreksi), harga_perbarui, pasar_perbarui, reksa dana, ETF, makro",
+    "1. Unduh Yahoo: DES (musimnya), paper_unduh (harian paper + JII, dikoreksi), harga_perbarui, pasar_perbarui, reksa dana, ETF, ETF emas syariah harian (etf_emas_perbarui: harga, volume, NAV, premium; juga di jadwal pagi setelah NAV terbit), makro",
     "2. Ambil idx_harian (Chrome Lab); kalau gagal, langkah berikutnya tetap jalan dengan cadangan Yahoo dan ditandai",
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
@@ -162,6 +162,7 @@ def jalan():
     if sd.platform_perlu(db):
         langkah(db, "rd_platform_perbarui", catatan=log)
     langkah(db, "etf_perbarui", catatan=log)
+    langkah(db, "etf_emas_perbarui", catatan=log)
     langkah(db, "makro_perbarui", catatan=log)
     st_idx = langkah(db, "otomatis", ["idx_harian"], catatan=log)
     idx_ok, idx_terakhir = idx_hari_ini_ada()
@@ -205,6 +206,7 @@ def pagi():
     db = d.koneksi()
     log = []
     langkah(db, "rd_perbarui", catatan=log)
+    langkah(db, "etf_emas_perbarui", catatan=log)
     db.jadwal_harian.update_one({"_id": str(date.today())}, {"$set": {"pagi": log}}, upsert=True)
 
 

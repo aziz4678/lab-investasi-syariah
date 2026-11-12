@@ -66,6 +66,12 @@ def pertumbuhan_rencana(setoran: float = 1_000_000, modal_awal: float = 0, aplik
     return pt.rencana(setoran, modal_awal, aplikasi)
 
 
+@router.get("/pertumbuhan/emas")
+def pertumbuhan_emas():
+    from backend.app.services import pertumbuhan as pt
+    return pt.emas()
+
+
 @router.get("/rd/pengingat_sbn")
 def rd_pengingat_sbn():
     from backend.app.services import penarikan

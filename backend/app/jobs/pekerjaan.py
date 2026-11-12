@@ -19,6 +19,7 @@ PERINTAH = {
     "impor_logo": ("Impor logo emiten IDX", ["-m", "backend.ingest.impor_browser", "logo"]),
     "logo_perbarui": ("Perbarui logo emiten & produk", ["-m", "backend.ingest.logo"]),
     "etf_perbarui": ("Perbarui ETF syariah (harga bursa)", ["-m", "backend.ingest.etf"]),
+    "etf_emas_perbarui": ("Simpan harian ETF emas syariah (harga, volume, NAV, premium)", ["-m", "backend.ingest.etf_emas"]),
     "harga_perbarui": ("Perbarui harga saham riset (sejak 2010)", ["-m", "backend.ingest.kumpul_data", "harga"]),
     "pasar_perbarui": ("Perbarui data pasar (IHSG, kurs, komoditas, indeks dunia)", ["-m", "backend.ingest.kumpul_data", "pasar"]),
     "harga_unduh_ulang": ("Unduh ulang penuh harga saham riset & data pasar", ["-m", "backend.ingest.kumpul_data", "penuh"]),
