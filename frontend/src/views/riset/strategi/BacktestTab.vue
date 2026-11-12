@@ -119,9 +119,9 @@ watch(versi, (v) => v && isi(v));
     <CaraKerjaTrade v-else :trade="trade" :r="ringkasan" :contoh="contohTrade" :periode="periode" />
     <div class="flex items-center gap-3 pt-3"><span class="text-[15px] font-medium">Hasil portofolio</span><span class="text-xs text-muted">semua trade digabung jadi satu modal</span><span class="h-px flex-1 bg-garis" /></div>
     <KurvaModal :ekuitas="ekuitas" :catatan="ringkasan?.monte_carlo ? contoh : ''" :seri="b.seri" :ket="b.kurva_ket" :info="b.kurva_info" />
-    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''"
+    <HeatmapBulanan :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" :catatan="ringkasan?.monte_carlo ? contoh : ''" :trade="trade"
       :terpilih="{ tahun: tabel?.tahun || '', bulan: +(tabel?.bulan || 0) }" @pilih="(th, bl) => tabel?.saring(th, bl)" />
-    <TabelTrade ref="tabel" :trade="trade" :ekuitas="ekuitas" :per-tahun="ringkasan?.per_tahun" />
+    <TabelTrade ref="tabel" :trade="trade" :ekuitas="ekuitas" :versi="versi" />
     </div>
     <IstilahTren :tambahan="s?.istilah" :nama="s?.nama" />
     <Panel judul="Olah ulang data" :ket="b.olah_ket || 'Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit'">

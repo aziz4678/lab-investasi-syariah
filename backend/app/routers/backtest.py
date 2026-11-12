@@ -43,6 +43,15 @@ def trade(versi: str, tahun: int | None = None, ticker: str | None = None, hanya
     return list(DB.backtest_trade.find(q, {"_id": 0, "versi": 0}).sort("tgl_sinyal", 1).limit(batas))
 
 
+@router.get("/rincian/{versi}")
+def rincian(versi: str, tahun: int, bulan: int | None = Query(None, ge=1, le=12)):
+    from backend.app.services import rincian_periode
+    hasil = rincian_periode.rincian(versi, tahun, bulan)
+    if not hasil.get("ada"):
+        raise HTTPException(404, f"tidak ada data {versi} untuk {tahun}{f'-{bulan:02d}' if bulan else ''}")
+    return hasil
+
+
 @router.get("/distribusi/{versi}")
 def distribusi(versi: str):
     net = np.array([t["net"] for t in DB.backtest_trade.find({"versi": versi, "dipilih": True}, {"net": 1})])
