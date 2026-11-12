@@ -22,7 +22,7 @@ const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
 const GRUP = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
-  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "pertumbuhan", l: "Portofolio Pertumbuhan", ikon: Sprout, ket: "RD saham syariah lokal + global", sub: "Setor rutin, ≥ 5 tahun" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset", sub: "Semua uji H0-H35" }] },
+  { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "pertumbuhan", l: "Portofolio Pertumbuhan", ikon: Sprout, ket: "RD saham syariah lokal + global", sub: "Setor rutin, 5 th+" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "kualitas", l: "Kualitas data", ikon: ShieldCheck, ket: "Cek & koreksi harga", sub: "Cek & koreksi harga" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
@@ -54,6 +54,7 @@ const tab = ref("beranda");
 const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar", pertumbuhan: "rencana" });
 const sub = computed(() => subTab.value[tab.value]);
 const status = ref(null);
+const sidebar = ref(null);
 const kodeEmiten = ref("");
 const aktif = computed(() => TAB.find((t) => t.k === tab.value));
 const judul = computed(() => aktif.value?.l);
@@ -62,6 +63,10 @@ const atasJudul = computed(() => (aktif.value?.ket ? `${NAMA_APP} · ${aktif.val
 async function muatStatus() {
   status.value = await ambil("status").catch(() => null);
 }
+async function muatSidebar() {
+  sidebar.value = await ambil("sidebar").catch(() => null);
+}
+muatSidebar();
 
 function tulisHash() {
   const h = SUB_TAB[tab.value] ? `${tab.value}/${sub.value}` : tab.value === "emiten" && kodeEmiten.value ? `emiten/${kodeEmiten.value}` : tab.value;
@@ -78,6 +83,34 @@ function pilih(k, s) {
   if (k === "beranda" && s === "data") setTimeout(() => document.getElementById("sumber-data")?.scrollIntoView({ behavior: "smooth" }), 400);
   else window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+const tglPendek = (s) => new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+function keUjiMaju() {
+  pilih("pertumbuhan", "rencana");
+  const mulai = Date.now();
+  const coba = () => {
+    const el = document.getElementById("uji-maju");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (Date.now() - mulai < 4000) setTimeout(coba, 150);
+  };
+  setTimeout(coba, 200);
+}
+const lencana = (t) => {
+  if (t.k === "pertumbuhan") {
+    const u = sidebar.value?.uji_maju;
+    if (!u?.ada) return null;
+    return u.aktif ? { teks: "Uji maju", kelas: "bg-naik-bg text-naik", baris: "sub", klik: keUjiMaju } : { teks: `Mulai ${tglPendek(u.mulai)}`, kelas: "bg-surface-2 text-ink-2", baris: "sub", klik: keUjiMaju };
+  }
+  return t.lencana ? { teks: t.lencana, kelas: "bg-aksen-lembut text-aksen" } : null;
+};
+const klikLencana = (t, e) => {
+  const l = lencana(t);
+  if (!l?.klik) return;
+  e.stopPropagation();
+  l.klik();
+};
+const subJudul = (t) => (t.k === "hipotesis" && sidebar.value?.hipotesis_terakhir ? `Semua uji ${sidebar.value.hipotesis_pertama}-${sidebar.value.hipotesis_terakhir}` : t.sub || t.ket);
+const klikMenu = (t) => (t.k === "pertumbuhan" ? pilih("pertumbuhan", "rencana") : pilih(t.k));
 
 function gantiSub(s) {
   subTab.value = { ...subTab.value, [tab.value]: s };
@@ -145,16 +178,19 @@ onMounted(() => {
           <div v-if="g.judul && lebar" class="mb-1.5 px-3 text-[11px] font-medium tracking-wide text-muted uppercase">{{ g.judul }}</div>
           <span v-else-if="i && !lebar" class="mx-auto mb-3 block h-px w-8 bg-garis"></span>
           <div class="flex flex-col gap-1" :class="lebar ? '' : 'items-center gap-2'">
-            <button v-for="t in g.isi" :key="t.k" @click="pilih(t.k)" :title="t.l" :aria-label="t.l"
+            <button v-for="t in g.isi" :key="t.k" @click="klikMenu(t)" :title="t.l" :aria-label="t.l"
               class="group relative flex items-center rounded-2xl transition"
               :class="[lebar ? 'h-11 w-full gap-3 px-3 text-left' : 'h-11 w-11 justify-center', tab === t.k ? 'bg-surface-2 text-ink' : 'text-muted hover:bg-surface-2/60 hover:text-ink']">
               <component :is="t.ikon" class="h-5 w-5 shrink-0" :stroke-width="tab === t.k ? 2.2 : 1.8" />
               <template v-if="lebar">
                 <span class="min-w-0 flex-1 leading-tight">
                   <span class="block truncate text-[13px]" :class="tab === t.k ? 'font-medium' : ''">{{ t.l }}</span>
-                  <span v-if="t.ket" class="block truncate text-[11px] text-muted">{{ t.sub || t.ket }}</span>
+                  <span v-if="t.ket" class="flex items-center gap-1.5">
+                    <span class="block min-w-0 flex-1 truncate text-[11px] text-muted">{{ subJudul(t) }}</span>
+                    <span v-if="lencana(t)?.baris === 'sub'" class="chip !h-5 !px-2 !text-[10px]" :class="[lencana(t).kelas, lencana(t).klik ? 'cursor-pointer hover:opacity-80' : '']" :role="lencana(t).klik ? 'link' : null" :tabindex="lencana(t).klik ? 0 : null" @click="klikLencana(t, $event)" @keydown.enter="klikLencana(t, $event)">{{ lencana(t).teks }}</span>
+                  </span>
                 </span>
-                <span v-if="t.lencana" class="chip !h-5 !px-2 !text-[10px] bg-aksen-lembut text-aksen">{{ t.lencana }}</span>
+                <span v-if="lencana(t) && lencana(t).baris !== 'sub'" class="chip !h-5 !px-2 !text-[10px]" :class="[lencana(t).kelas, lencana(t).klik ? 'cursor-pointer hover:opacity-80' : '']" :role="lencana(t).klik ? 'link' : null" :tabindex="lencana(t).klik ? 0 : null" @click="klikLencana(t, $event)" @keydown.enter="klikLencana(t, $event)">{{ lencana(t).teks }}</span>
               </template>
               <span v-else class="pointer-events-none absolute left-full ml-3 hidden rounded-full bg-surface-3 px-3 py-1 text-xs whitespace-nowrap text-ink shadow-lg group-hover:block">{{ t.l }}</span>
             </button>
@@ -183,7 +219,7 @@ onMounted(() => {
         </button>
       </div>
       <nav class="flex gap-1 overflow-x-auto px-3 py-2.5">
-        <button v-for="t in TAB" :key="t.k" @click="pilih(t.k)" class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium whitespace-nowrap transition"
+        <button v-for="t in TAB" :key="t.k" @click="klikMenu(t)" class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium whitespace-nowrap transition"
           :class="tab === t.k ? 'bg-aksen text-aksen-teks' : 'text-muted'">{{ t.l }}</button>
       </nav>
     </header>

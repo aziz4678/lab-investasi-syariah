@@ -18,11 +18,13 @@ const hitung = computed(() => {
   if (n === 1) return "besok";
   return aktif.value ? "sedang berjalan" : "hari pertama bursa Des 2026, menunggu pemrosesan";
 });
+const NAMA_PORSI = { lokal: "Indonesia", global: "global", emas: "emas" };
+const targetTeks = (b) => Object.entries(b).map(([k, v]) => `${pr(v, 0)} ${NAMA_PORSI[k] ?? k}`).join(" + ");
 const tglTeks = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "–");
 </script>
 
 <template>
-  <section v-if="u?.ada" class="panel px-4 py-5 sm:px-6">
+  <section v-if="u?.ada" id="uji-maju" class="panel scroll-mt-4 px-4 py-5 sm:px-6">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2 text-[14px] font-medium"><FlaskConical class="h-4 w-4 text-aksen" />Uji maju H35 &amp; H37</div>
       <div class="flex flex-wrap items-center gap-1.5">
@@ -47,7 +49,7 @@ const tglTeks = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "nume
         </template>
         <div v-else class="mt-2 text-[12px] text-muted">Belum ada transaksi. Mesin berjalan otomatis lewat jadwal harian.</div>
         <div class="mt-2 text-[11px] text-muted">
-          Target {{ Object.entries(x.bobot).map(([k, v]) => `${pr(v, 0)} ${k}`).join(" / ") }}<template v-if="x.etf_emas"> · ETF emas {{ x.etf_emas }}</template>
+          Target {{ targetTeks(x.bobot) }}<template v-if="x.etf_emas"> · ETF emas {{ x.etf_emas }}</template>
           · {{ x.jumlah_transaksi }} transaksi · {{ x.jumlah_kejadian }} kejadian
         </div>
         <ul v-if="x.kejadian.length" class="m-0 mt-2 list-none space-y-0.5 p-0 text-[11px] text-ink-2">

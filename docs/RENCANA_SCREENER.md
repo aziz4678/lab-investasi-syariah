@@ -1999,7 +1999,7 @@ Kas maks 80-100% = Jan-Apr 2020 sebelum keranjang ada. Setor Rp240 jt, nilai akh
 - **Halaman dirombak (2026-11-08, permintaan user)**: tiga tab tanpa bagian terlipat: Rencana & daftar belanja (isi data, hasil 5 & 10 th berdampingan, kartu produk + kinerja masa lalu dalam rupiah, jadwal, risiko), Data historis (ringkasan 25 th, grafik Rp1 + turun dari puncak untuk indeks/keranjang/kategori, per dekade, hasil per tahun, hasil setor rutin per bulan mulai, semua sumber + versi lama, hasil H35 + pecahan kurs), Cara kerja & aturan (penjelasan, beda dengan menu lain, langkah, istilah, aturan keranjang, lolos per aplikasi, calon pengganti global, produk gugur, data & keterbatasan, tombol Hitung ulang).
 
 
-## H37: "Syariah Global + Emas" — tiga kaki 40% JII / 40% global syariah / 20% emas, rupiah (dikunci 2026-11-12 atas permintaan user, sebelum return portofolio apa pun dihitung)
+## H37: "Syariah Global + Emas" — saham + emas: 40% JII / 40% global syariah / 20% emas, rupiah (dikunci 2026-11-12 atas permintaan user, sebelum return portofolio apa pun dihitung)
 
 - **Data**: persis H35 (JII dividen 2,5%/th biaya 0,5%/th; ^IMXL s/d Jan 2008 dividen 1,8%/th, lalu ISDW.L adj_close; kurs FRED s/d Des 2023 lalu Yahoo). Emas = GC=F akhir bulan x kurs akhir bulan yang sama, biaya kepemilikan 0,5%/th. Bulan bolong = error. Tidak ada seri emas rupiah nyata dan tidak ada data spread di database.
 - **Portofolio**: 40/40/20 mulai Jun 2001, rebalance akhir Desember. Biaya JII & global = cara H35. Spread emas 3% pulang-pergi (1,5% per sisi, termasuk pembelian awal). Pembanding = H35 50/50 dihitung ulang dengan kode dan data sama di periode sama.

@@ -7,7 +7,7 @@ import Segmen from "@/components/common/Segmen.vue";
 import { prTanda, pr, bulanPendek } from "@/views/riset/pertumbuhan/bantu";
 
 const props = defineProps({ setoran: { type: Number, default: 1000000 } });
-const PILIHAN = [["2", "2 kaki (50/50)"], ["3", "3 kaki dengan emas (40/40/20)"]];
+const PILIHAN = [["2", "Saham saja (50% Indonesia + 50% global)"], ["3", "Saham + emas (40% Indonesia + 40% global + 20% emas)"]];
 const pilih = ref("2");
 const e = ref(null);
 const siap = ref(false);
@@ -44,7 +44,7 @@ const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01)
 <template>
   <section v-if="ada" class="panel px-4 py-5 sm:px-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2 text-[14px] font-medium"><Coins class="h-4 w-4 text-kuning" />Pilih: 2 kaki atau 3 kaki dengan emas</div>
+      <div class="flex items-center gap-2 text-[14px] font-medium"><Coins class="h-4 w-4 text-kuning" />Pilih campuran: saham saja atau saham + emas</div>
       <Segmen v-model="pilih" :pilihan="PILIHAN" kecil />
     </div>
     <div class="mt-2 flex flex-wrap items-center gap-1.5">
@@ -61,10 +61,10 @@ const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01)
             <th class="px-2 text-center font-normal" colspan="2">Data uji · Jan 2014 – Okt 2026</th>
           </tr>
           <tr class="text-[11px] text-muted">
-            <th class="px-2 py-1 text-right font-normal" :class="pilih === '2' ? 'text-ink' : ''">2 kaki</th>
-            <th class="px-2 py-1 text-right font-normal" :class="pilih === '3' ? 'text-ink' : ''">3 kaki</th>
-            <th class="px-2 py-1 text-right font-normal" :class="pilih === '2' ? 'text-ink' : ''">2 kaki</th>
-            <th class="px-2 py-1 text-right font-normal" :class="pilih === '3' ? 'text-ink' : ''">3 kaki</th>
+            <th class="px-2 py-1 text-right font-normal" :class="pilih === '2' ? 'text-ink' : ''">Saham saja</th>
+            <th class="px-2 py-1 text-right font-normal" :class="pilih === '3' ? 'text-ink' : ''">Saham + emas</th>
+            <th class="px-2 py-1 text-right font-normal" :class="pilih === '2' ? 'text-ink' : ''">Saham saja</th>
+            <th class="px-2 py-1 text-right font-normal" :class="pilih === '3' ? 'text-ink' : ''">Saham + emas</th>
           </tr>
         </thead>
         <tbody>
@@ -75,7 +75,7 @@ const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01)
         </tbody>
       </table>
     </div>
-    <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Indeks, dalam rupiah, bukan produk nyata: biaya emas dimodelkan spread 3% pulang-pergi + 0,5%/th. Kedua kolom dihitung dengan kode dan data yang sama, masing-masing dimulai dari nol di awal periodenya. 3 kaki lolos semua kriteria yang dikunci di kedua periode; hasil masa lalu, bukan janji.</p>
+    <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Indeks, dalam rupiah, bukan produk nyata: biaya emas dimodelkan spread 3% pulang-pergi + 0,5%/th. Kedua kolom dihitung dengan kode dan data yang sama, masing-masing dimulai dari nol di awal periodenya. Saham + emas lolos semua kriteria yang dikunci di kedua periode; hasil masa lalu, bukan janji.</p>
 
     <div class="mt-4 rounded-2xl bg-surface-2 px-4 py-3 text-[13px] leading-relaxed text-ink-2">
       <div class="mb-1 text-[13px] font-medium text-ink">Kenapa emas, dan apa bebannya</div>
@@ -95,9 +95,9 @@ const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01)
           <span class="font-medium tabular-nums">{{ rupiahRingkas(x.nilai) }}</span>
         </li>
       </ul>
-      <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Daftar belanja di bawah masih dihitung untuk 2 kaki (50/50). Untuk 3 kaki pakai produk yang sama dengan nominal 40% + 40% di atas, dan 20% ke ETF emas. Seimbangkan tiap Desember ke 40/40/20.</p>
+      <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Daftar belanja di bawah masih dihitung untuk saham saja (50% Indonesia + 50% global). Untuk saham + emas pakai produk yang sama dengan nominal 40% + 40% di atas, dan 20% ke ETF emas. Seimbangkan tiap Desember ke 40/40/20.</p>
     </div>
-    <p v-else class="m-0 mt-3 text-[12px] text-muted">Daftar belanja dan jadwal di bawah mengikuti 2 kaki (50/50). Pilih "3 kaki" untuk melihat pembagian setoran dengan emas.</p>
+    <p v-else class="m-0 mt-3 text-[12px] text-muted">Daftar belanja dan jadwal di bawah mengikuti saham saja (50% Indonesia + 50% global). Pilih "Saham + emas" untuk melihat pembagian setoran dengan emas.</p>
 
     <div class="mt-4 grid gap-3 md:grid-cols-2">
       <div class="rounded-2xl border border-garis p-4">

@@ -229,3 +229,20 @@ def uji_maju():
     mulai = mp.MULAI.date()
     return bersih({"ada": bool(item), "item": item, "mulai": str(mulai), "hari_lagi": (mulai - date.today()).days, "aturan": aturan, "amandemen": amandemen,
                    "evaluasi_pertama": "Jan 2028"})
+
+
+def sidebar():
+    import re
+    from backend.app.services import hipotesis as hp
+    from backend.db import koneksi as kdb
+    from backend.paper import mesin_pertumbuhan as mp
+    db = kdb.koneksi()
+    nomor = [int(m.group(1)) for h in hp.HIPOTESIS for m in [re.fullmatch(r"H(\d+)", str(h.get("kode", "")))] if m]
+    docs = [db[f"paper_{k}_status"].find_one({"_id": "status"}) for k in ("h35", "h37")]
+    docs = [x for x in docs if x]
+    mulai = None
+    for x in docs:
+        for a in x.get("amandemen") or []:
+            mulai = a.get("mulai") or mulai
+    return {"hipotesis_terakhir": f"H{max(nomor)}" if nomor else None, "hipotesis_pertama": "H0",
+            "uji_maju": {"ada": bool(docs), "aktif": any(x.get("aktif") for x in docs), "mulai": mulai or str(mp.MULAI.date())}}

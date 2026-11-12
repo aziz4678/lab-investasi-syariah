@@ -14,6 +14,12 @@ router = APIRouter(prefix="/api")
 DB = d.koneksi()
 
 
+@router.get("/sidebar")
+def sidebar():
+    from backend.app.services import pertumbuhan as pt
+    return pt.sidebar()
+
+
 @router.post("/aksi/{jenis}")
 def aksi(jenis: str):
     if jenis not in pk.PERINTAH:
