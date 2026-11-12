@@ -4,6 +4,7 @@ import { CalendarClock, Repeat, Scale, AlertTriangle, ChevronRight, Globe, MapPi
 import { rupiahRingkas } from "@/utils/format";
 import Segmen from "@/components/common/Segmen.vue";
 import PilihanEmas from "@/views/riset/pertumbuhan/PilihanEmas.vue";
+import UjiMajuKartu from "@/views/riset/pertumbuhan/UjiMajuKartu.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 import TersediaDi from "@/components/produk/TersediaDi.vue";
@@ -122,6 +123,8 @@ const risiko = computed(() => {
     </section>
 
     <PilihanEmas :setoran="setoran || 0" />
+
+    <UjiMajuKartu />
 
     <section class="panel relative px-4 py-5 sm:px-6">
       <Pemutar v-if="memuat" class="absolute top-4 right-4" />

@@ -204,3 +204,28 @@ def emas():
     etf.sort(key=lambda x: (x["kode"] != seleksi["terpilih"], not x.get("lolos"), x.get("premium_mutlak_60") if x.get("premium_mutlak_60") is not None else 9))
     return bersih({"ada": bool(dev), "dev": _periode_emas(dev), "holdout": _periode_emas(hold), "etf": etf, "batas_premium": ee.BATAS_PREMIUM,
                    "terpilih": seleksi["terpilih"], "dihitung": (ring.get("dibuat")), "bobot": {"lokal": 0.4, "global": 0.4, "emas": 0.2}})
+
+
+def uji_maju():
+    from backend.db import koneksi as kdb
+    from backend.paper import mesin_pertumbuhan as mp
+    db = kdb.koneksi()
+    item = []
+    aturan, amandemen = None, []
+    for kode in ("h35", "h37"):
+        s = db[f"paper_{kode}_status"].find_one({"_id": "status"})
+        if not s:
+            continue
+        aturan = aturan or s.get("aturan")
+        amandemen = amandemen or [{"id": a["id"], "tgl": a["tgl"], "teks": a["teks"]} for a in s.get("amandemen") or []]
+        awal = db[f"paper_{kode}_ekuitas"].find_one(sort=[("_id", 1)])
+        akhir = db[f"paper_{kode}_ekuitas"].find_one(sort=[("_id", -1)])
+        kejadian = list(db[f"paper_{kode}_kejadian"].find({}, {"tgl": 1, "jenis": 1, "teks": 1}).sort("_id", -1).limit(5))
+        item.append({"kode": kode.upper(), "nama": s["nama"], "bobot": s["bobot"], "dikunci": bool(s.get("dikunci")), "aktif": bool(s.get("aktif")), "masuk": (s.get("mesin") or {}).get("masuk"),
+                     "etf_emas": s.get("etf_emas") or ((s.get("mesin") or {}).get("pilih_awal") or {}).get("terpilih"), "terakhir": s.get("terakhir_diproses"),
+                     "ekuitas": None if not akhir else {"tgl": akhir["tgl"], "nilai": akhir["nilai"], "kas": akhir["kas"], "ret": akhir["nilai"] / s["modal"] - 1},
+                     "jumlah_kejadian": db[f"paper_{kode}_kejadian"].count_documents({}), "jumlah_transaksi": db[f"paper_{kode}_transaksi"].count_documents({}),
+                     "kejadian": [{"tgl": k["tgl"], "jenis": k["jenis"], "teks": k["teks"]} for k in kejadian], "modal": s["modal"]})
+    mulai = mp.MULAI.date()
+    return bersih({"ada": bool(item), "item": item, "mulai": str(mulai), "hari_lagi": (mulai - date.today()).days, "aturan": aturan, "amandemen": amandemen,
+                   "evaluasi_pertama": "Jan 2028"})

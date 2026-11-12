@@ -109,29 +109,59 @@ def jalan():
     print("SELESAI")
 
 
-def pilih(hari=HARI_PILIH):
-    ring = (dt.baca_hasil("etf_emas_ringkas") or {}).get("etf") or {}
+def seleksi(frames, aum, nama=None, sampai=None, hari=HARI_PILIH, kecuali=()):
     kandidat = []
-    for kode, r in ring.items():
-        if not dt.ada(f"{KOLEKSI}/{kode}"):
+    for kode, df in frames.items():
+        if kode in kecuali:
             continue
-        ekor = dt.baca(f"{KOLEKSI}/{kode}").tail(hari)
+        ekor = df if sampai is None else df.loc[:sampai]
+        ekor = ekor.tail(hari)
+        if not len(ekor):
+            continue
         prem = ekor["premium"].dropna().abs()
-        aum = r.get("aum")
+        a = aum.get(kode)
         nilai = float(ekor["nilai"].median())
         med = float(prem.median()) if len(prem) else None
         alasan = []
-        if aum is None or aum < MIN_AUM:
+        if a is None or a < MIN_AUM:
             alasan.append("AUM < Rp10 M")
         if nilai < MIN_NILAI:
             alasan.append("median nilai transaksi 60 hari < Rp10 jt")
         if med is None:
             alasan.append("tidak ada premium")
-        kandidat.append({"kode": kode, "nama": r["nama"], "aum": aum, "nilai_median": nilai, "premium_mutlak_median": med, "hari_data": int(len(ekor)),
+        kandidat.append({"kode": kode, "nama": (nama or {}).get(kode, kode), "aum": a, "nilai_median": nilai, "premium_mutlak_median": med, "hari_data": int(len(ekor)),
                          "hari_premium": int(len(prem)), "lolos": not alasan, "alasan": alasan})
     lolos = sorted([k for k in kandidat if k["lolos"]], key=lambda k: (k["premium_mutlak_median"], -(k["aum"] or 0)))
     return {"terpilih": lolos[0]["kode"] if lolos else None, "kandidat": kandidat, "hari": hari}
 
+
+def pilih(hari=HARI_PILIH):
+    ring = (dt.baca_hasil("etf_emas_ringkas") or {}).get("etf") or {}
+    frames = {k: dt.baca(f"{KOLEKSI}/{k}") for k in ring if dt.ada(f"{KOLEKSI}/{k}")}
+    return seleksi(frames, {k: r.get("aum") for k, r in ring.items()}, {k: r["nama"] for k, r in ring.items()}, hari=hari)
+
+
+def verifikasi_kode():
+    db = d.koneksi()
+    peng = dt.db()["pengumuman"]
+    hasil = {}
+    semua = daftar(db)
+    nav_akhir = {k: float(nav_seri(db, v["id"]).iloc[-1]) for k, v in semua.items() if len(nav_seri(db, v["id"]))}
+    for kode, info in semua.items():
+        nav = nav_seri(db, info["id"])
+        awal = peng.find_one({"kode": kode, "judul": {"$regex": "Pencatatan Awal ETF"}}, sort=[("tgl", 1)])
+        tgl_awal = str(awal["tgl"])[:10] if awal else None
+        nav_awal = str(nav.index.min().date()) if len(nav) else None
+        h = dt.baca(f"{KOLEKSI}/{kode}") if dt.ada(f"{KOLEKSI}/{kode}") else None
+        skala = None
+        if h is not None and len(h) and kode in nav_akhir:
+            c = float(h["close"].iloc[-1])
+            selisih = sorted((abs(c / v - 1), k) for k, v in nav_akhir.items())
+            skala = {"close": c, "paling_dekat": selisih[0][1], "selisih_terdekat": round(selisih[0][0], 4), "selisih_berikut": round(selisih[1][0], 4) if len(selisih) > 1 else None,
+                     "unik": selisih[0][1] == kode and (len(selisih) < 2 or selisih[1][0] > 3 * selisih[0][0])}
+        hasil[kode] = {"produk": info["nama"], "skala_harga_vs_nav": skala, "pencatatan_awal_idx": tgl_awal, "nav_pertama_produk": nav_awal, "cocok": bool(tgl_awal and tgl_awal == nav_awal),
+                       "pengumuman_ada": int(peng.count_documents({"kode": kode}))}
+    return hasil
 
 def rp(x):
     return "-" if x is None else f"{x / 1e6:,.1f} jt" if abs(x) < 1e9 else f"{x / 1e9:,.2f} M"
@@ -149,7 +179,10 @@ def tampil(hasil):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "tampil":
+    if len(sys.argv) > 1 and sys.argv[1] == "verifikasi":
+        for k, v in verifikasi_kode().items():
+            print(k, v)
+    elif len(sys.argv) > 1 and sys.argv[1] == "tampil":
         tampil(dt.baca_hasil("etf_emas_ringkas")["etf"])
     else:
         jalan()
