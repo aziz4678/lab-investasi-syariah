@@ -7,13 +7,13 @@ import Kerangka from "@/components/common/Kerangka.vue";
 import Segmen from "@/components/common/Segmen.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import GrafikBanding from "@/components/charts/GrafikBanding.vue";
-import NavLengket from "@/components/portofolio/NavLengket.vue";
+import TabHalaman from "@/components/portofolio/TabHalaman.vue";
 import KartuRingkasan from "@/components/portofolio/KartuRingkasan.vue";
 import FormTransaksi from "@/components/portofolio/FormTransaksi.vue";
 import TabelTransaksi from "@/components/portofolio/TabelTransaksi.vue";
 import BarAlokasi from "@/components/portofolio/BarAlokasi.vue";
 
-const NAV = [["ringkasan", "Ringkasan"], ["catat", "Catat"], ["alokasi", "Alokasi"], ["riwayat", "Riwayat"]];
+const TAB = [["portofolio", "Portofolio"], ["contoh", "Contoh"]];
 const NAMA_KAKI = { lokal: "Saham Indonesia", global: "Saham global", emas: "Emas", lainnya: "Lainnya" };
 
 const meta = ref(null);
@@ -28,6 +28,14 @@ const draf = ref(null);
 const skenario = ref("");
 const daftarContoh = ref([]);
 const modeContoh = computed(() => !!skenario.value);
+const pilihTab = async (x) => {
+  if (x !== "contoh") {
+    skenario.value = "";
+    return;
+  }
+  if (!daftarContoh.value.length) daftarContoh.value = (await ambil("portofolio-saya/contoh").catch(() => null))?.skenario ?? [];
+  skenario.value = skenario.value || daftarContoh.value[0]?.kunci || "";
+};
 const formPorto = ref({ nama: "", target: "pertumbuhan_saham", setoran_rutin: 0, tanggal_setor: 1 });
 const pesanPorto = ref("");
 
@@ -167,14 +175,14 @@ const kalimatRugi = computed(() => {
 
 <template>
   <div class="space-y-5">
-    <header class="space-y-3">
+    <header>
       <p class="m-0 text-[13px] leading-relaxed text-ink-2">Catat pembelian nyata yang kamu lakukan sendiri. Aplikasi ini menghitung nilai dan analisanya. Data ini milikmu, terpisah dari paper dan uji maju.</p>
-      <div v-if="!modeContoh" class="flex flex-wrap items-center gap-2">
-        <Segmen v-if="pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
-        <button class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
-        <button v-if="daftarContoh.length" class="tombol sm:ml-auto" @click="skenario = daftarContoh[0].kunci"><FlaskConical class="h-3.5 w-3.5 text-s5" />Lihat contoh tampilan</button>
-      </div>
     </header>
+    <TabHalaman :model-value="modeContoh ? 'contoh' : 'portofolio'" :pilihan="TAB" @update:model-value="pilihTab" />
+    <div v-if="!modeContoh" class="flex flex-wrap items-center gap-2">
+      <Segmen v-if="pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
+      <button class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
+    </div>
     <section v-if="modeContoh" class="space-y-3 rounded-3xl border-2 border-s5 bg-s5/10 px-4 py-4 sm:px-6 sm:py-5" role="status">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex min-w-0 flex-wrap items-center gap-2">
@@ -196,7 +204,6 @@ const kalimatRugi = computed(() => {
         <details class="text-[12px] text-muted"><summary class="cursor-pointer">Tentang data contoh</summary><p v-for="(c, i) in a.contoh.catatan" :key="i" class="m-0 mt-1 leading-relaxed">{{ c }} Tanggal acuan {{ new Date(a.contoh.acuan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) }}.</p></details>
       </div>
     </section>
-    <NavLengket :item="NAV" />
 
     <section id="ringkasan" class="scroll-mt-16 space-y-5">
       <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
