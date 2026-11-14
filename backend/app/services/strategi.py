@@ -148,7 +148,7 @@ BLEND = {
         {"judul": "RS 12-1", "teks": "Tiap akhir bulan urutkan saham syariah likuid menurut kenaikan 12 bulan tanpa bulan terakhir, pegang ±20% teratas (minimal 10 saham). Dijual kalau peringkatnya jatuh ke luar 2× batas."},
         {"judul": "Kembali ke 50/50", "teks": "Tiap akhir bulan porsi kedua bagian disamakan lagi. Tidak ada target untung; bagian RS 12-1 tidak memakai stop."},
     ],
-    "harapan": "Dibuat setelah melihat hasil: simulasi gabungan ±15% per tahun di kedua periode (2011-2019 14,8%, 2020-2026 14,7%) dan lebih stabil dari masing-masing bagian, tapi itu bukan bukti karena idenya muncul setelah data itu terlihat. RS 12-1 gagal di universe likuid ≥ Rp20 M (S2) dan Follow Tren tinggal ±separuh di sana, jadi kapasitasnya tetap kecil: hanya cocok untuk modal pribadi kecil. Di simulasi 2020-2026 pernah turun ±42% dari puncak. Satu-satunya bukti adalah paper trade sampai Nov 2027.",
+    "harapan": "Dibuat setelah melihat hasil: simulasi gabungan ±15% per tahun di kedua periode (saat dikunci: dev 14,8%/-27,8%, 2020+ 14,7%/-32,7% · setelah koreksi data: dev 14,9%/-28,6%, 2020+ 14,9%/-44,0%) dan lebih stabil dari masing-masing bagian, tapi itu bukan bukti karena idenya muncul setelah data itu terlihat. RS 12-1 gagal di universe likuid ≥ Rp20 M (S2) dan Follow Tren tinggal ±separuh di sana, jadi kapasitasnya tetap kecil: hanya cocok untuk modal pribadi kecil. Di simulasi 2020-2026 pernah turun ±42% dari puncak. Satu-satunya bukti adalah paper trade sampai Nov 2027.",
     "detail": {"sub": "aturan", "teks": "Semua aturan yang dikunci & selisih paper vs simulasi di Aturan →"},
     "tab": [["paper", "Paper trade"], ["backtest", "Backtest"], ["aturan", "Aturan & variabel"]],
     "paper": "h29",
@@ -258,7 +258,7 @@ BLEND = {
          ]},
     ],
     "risiko": [
-        "Dibuat setelah melihat hasil: stabilnya angka gabungan (14,8% vs 14,7%) bisa kebetulan.",
+        "Dibuat setelah melihat hasil: stabilnya angka gabungan (saat dikunci: dev 14,8%/-27,8%, 2020+ 14,7%/-32,7% · setelah koreksi data: dev 14,9%/-28,6%, 2020+ 14,9%/-44,0%) bisa kebetulan.",
         "RS 12-1 sendirian runtuh di 2020-2026 (5,3% per tahun, pernah turun lebih dari 50% dari puncak), dan 8 dari 10 pemenang terbesarnya datang dari 2025 saja.",
         "Kapasitas kecil: RS 12-1 gagal di universe likuid ≥ Rp20 M dan Follow Tren tinggal ±separuh di sana.",
         "Pengembalian ke 50/50 hanya di atas kertas dan tanpa biaya di angka utama; di uang nyata perlu memindahkan dana antar dua bagian tiap bulan.",

@@ -1102,7 +1102,7 @@ HIPOTESIS.append({
                         ["H22 di universe Rp20 M (S2)", "gagal", "gagal"], ["H11a di universe Rp20 M", "3,7%", "10,8%"],
                         ["Simulasi harian halaman Backtest (median 100 simulasi Monte Carlo), sesudah koreksi data 2026-11-02", "14,9%, turun terdalam -28,6% (tidak berubah)", "14,9%, turun terdalam median -44,0%, terburuk -46,2% (sebelum koreksi 15,2% / -42,4%, terburuk -44,2%)"]]},
     "kenapa": "Dikunci sebagai paper trade, bukan hasil uji: angka historis dibuat setelah data dev dan 2020+ terlihat. Hasilnya baru dinilai di paper 1 Nov 2026 - 1 Nov 2027.",
-    "kelemahan": ["Pasca hasil: dibentuk setelah melihat dev dan 2020+ kedua strategi; stabilnya angka gabungan (14,8% vs 14,7%) bisa kebetulan.",
+    "kelemahan": ["Pasca hasil: dibentuk setelah melihat dev dan 2020+ kedua strategi; stabilnya angka gabungan (saat dikunci: dev 14,8%/-27,8%, 2020+ 14,7%/-32,7% · setelah koreksi data: dev 14,9%/-28,6%, 2020+ 14,9%/-44,0%) bisa kebetulan.",
                   "H22 gagal S2 (likuiditas Rp20 M) dan H11a ±separuh di Rp20 M, jadi H29 tidak menyelesaikan masalah kapasitas.",
                   "Pemindahan dana bulanan antar bagian tanpa biaya; di uang nyata ada biaya dan jeda.",
                   "Bagian H11a = paper H11a: reset paper H11a ikut memutus H29.",
@@ -1449,7 +1449,7 @@ HIPOTESIS.append({
 })
 
 HIPOTESIS.append({
-    "kode": "H37", "keluarga": "H37", "nama": "Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas", "kategori": "rezim", "status": "uji_maju",
+    "kode": "H37", "keluarga": "H37", "nama": "Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas", "kategori": "rezim", "status": "uji_maju", "lencana": ["pasca_hasil"],
     "tgl_kunci": "2026-11-12", "skor": "dev 3/3 + holdout 3/3, sensitivitas 4/4 di keduanya (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026)",
     "awam": "Campuran 50/50 saham syariah Indonesia dan global (H35) ditambah emas: 40% JII, 40% global syariah, 20% emas, semuanya dalam rupiah. Diuji apakah emas membuat penurunan terdalam lebih dangkal tanpa mengorbankan hasil.",
     "aturan": {"Data": "JII dan global syariah persis H35 (dividen JII 2,5%/th, biaya 0,5%/th; ^IMXL s/d Jan 2008 dengan dividen 1,8%/th lalu ISDW.L adj_close). Emas rupiah = GC=F akhir bulan x kurs akhir bulan yang sama dengan porsi saham global (FRED s/d Des 2023, lalu Yahoo), biaya kepemilikan 0,5%/th. Bulan bolong = error.",

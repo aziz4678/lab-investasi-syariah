@@ -275,7 +275,7 @@ def utama():
         kx = v["kriteria"]
         print(f"  {'K4 ' if nm == 'pesimis gabungan' else '   '}{nm}: K1 {p(kx['K1'][1])} vs {p(kx['K1'][2])} {'✔' if kx['K1'][0] else '✘'} | "
               f"K2 {kx['K2'][1]:.3f} vs {kx['K2'][2]:.3f} {'✔' if kx['K2'][0] else '✘'} | K3 {p(kx['K3'][1])} vs {p(kx['K3'][2])} {'✔' if kx['K3'][0] else '✘'}")
-    print(f"  HASIL: {'LOLOS PASCA HASIL (wajib uji maju Jan 2027)' if lolos else 'GAGAL'}")
+    print(f"  HASIL: {'LOLOS PASCA HASIL (wajib uji maju 1 Des 2026, amandemen a1)' if lolos else 'GAGAL'}")
     print(f"\nKurs: FRED vs kurs/USD akhir bulan di {kk['bulan']} bulan lengkap: median {kk['median'] * 100:.2f}%, p95 {kk['p95'] * 100:.2f}%, maks {kk['maks'] * 100:.2f}%, "
           f"> 1%: {kk['beda_1']}, > 3%: {kk['beda_3']}; bulan tidak lengkap {kk['bulan_buruk']}. 2024+ (kurs/USD): pencilan {kk['pasca2023_pencil']}, jeda > 7 hari {kk['pasca2023_jeda']}")
     print(f"XIJI {xj['mulai']}-{xj['akhir']}: TR {p(xj['xiji_tr'], 2)} vs JKII harga {p(xj['jkii_harga'], 2)} → selisih {p(xj['selisih'], 2)}/th (asumsi 2,5% − 0,5% = +2,0%); lonjakan harian > 15%: {xj['lonjakan_15']}")

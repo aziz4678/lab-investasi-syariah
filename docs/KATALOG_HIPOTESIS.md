@@ -80,4 +80,4 @@ Catatan: H35 dan H37 berstatus Uji maju (mulai 1 Des 2026) sekaligus lolos pasca
 | H34 | Warren Buffett: cicil saham berkualitas + tambah saat turun | fundamental | Gagal | dasar 0/5 · S1 0/5 · S2 1/5 · S3 0/5 · khusus 1/3 | 2026-11-08 |
 | H35 | Syariah Global: campuran IDX + global untuk lapisan Apresiasi | rezim | Uji maju (pasca_hasil) | K1-K4 4/4 (pasca hasil) | 2026-11-08 |
 | H36 | PEAD / Earnings Surprise syariah (SUE murni) | fundamental | Gagal | dev lulus (bergantung artefak 2020) · holdout gagal · syarat 2a & 2b gagal | 2026-11-12 |
-| H37 | Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas | rezim | Uji maju | dev 3/3 + holdout 3/3, sensitivitas 4/4 di keduanya (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026) | - |
+| H37 | Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas | rezim | Uji maju (pasca_hasil) | dev 3/3 + holdout 3/3, sensitivitas 4/4 di keduanya (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026) | - |
