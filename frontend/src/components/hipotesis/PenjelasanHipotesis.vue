@@ -80,16 +80,35 @@ function potong(teks) {
   });
 }
 const INDEN = ["pl-0", "pl-5", "pl-10"];
+const INDEN_LABEL = ["pl-0", "pl-5 @2xl:ml-[166px] @2xl:pl-0", "pl-10 @2xl:ml-[186px] @2xl:pl-0"];
+function pisah(teks) {
+  const p = potong(teks);
+  if (p[0]?.t !== "b") return null;
+  let label = p[0].x.replace(/\s*:\s*$/, "");
+  let ket = [];
+  const m = label.match(/^([^(]+?)\s*(\(.*)$/);
+  if (m) {
+    label = m[1];
+    ket = potong(m[2]);
+  }
+  const sisa = p.slice(1);
+  if (sisa[0]?.t === "s") sisa[0] = { ...sisa[0], x: sisa[0].x.replace(/^\s*:\s*/, "") };
+  return { label, ket, sisa: sisa.filter((x) => x.x) };
+}
+const berlabel = (b) => b.blok.some((x) => x.t === "li" && x.n === 0 && pisah(x.x));
+const buka = ref(null);
+const tampil = computed(() => buka.value ?? !awam.value);
+watch(() => props.kode, () => { buka.value = null; });
 </script>
 
 <template>
   <Kerangka v-if="!siap" panel jenis="baris" :n="10" />
-  <Panel v-else :judul="`Penjelasan lengkap · ${kode}`" ket="Dalam bahasa sederhana: pertanyaannya, cara mengujinya, hasil dibanding pembanding, dan artinya untuk kita">
+  <Panel v-else :judul="`Penjelasan lengkap · ${kode}`" :ket="awam ? 'Dalam bahasa sederhana: pertanyaannya, cara mengujinya, hasil dibanding pembanding, dan artinya untuk kita' : 'Catatan riset lengkap: aturan, data, hasil, dan keterbatasan'">
     <template v-if="muat" #aksi><Pemutar /></template>
 
     <p v-if="gagal" class="m-0 rounded-2xl bg-turun-bg px-4 py-3 text-[13px] text-turun">Penjelasan gagal dimuat.</p>
 
-    <div v-else class="@container space-y-5" :class="muat ? 'opacity-60 transition-opacity' : ''">
+    <div v-else class="@container space-y-6" :class="muat ? 'opacity-60 transition-opacity' : ''">
       <template v-if="awam">
         <div class="flex gap-3 rounded-2xl px-4 py-4" :class="lulus ? 'bg-naik-bg' : 'bg-surface-2/70'">
           <component :is="lulus ? CircleCheck : CircleX" class="mt-0.5 h-5 w-5 shrink-0" :class="lulus ? 'text-naik' : 'text-turun'" />
@@ -190,8 +209,6 @@ const INDEN = ["pl-0", "pl-5", "pl-10"];
         </div>
       </template>
 
-      <p v-else class="m-0 rounded-2xl bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2">Penjelasan sederhana untuk hipotesis ini belum ditulis. Sementara itu, catatan teknisnya ada di bawah.</p>
-
       <div v-if="analisis?.length">
         <div class="mb-2 text-[11px] font-medium tracking-wide text-muted uppercase">Analisis pendukung terkait · deskriptif, bukan uji</div>
         <div class="grid gap-3 @3xl:grid-cols-2">
@@ -208,25 +225,37 @@ const INDEN = ["pl-0", "pl-5", "pl-10"];
         </div>
       </div>
 
-      <details v-if="isi?.bagian?.length" class="group rounded-2xl border border-garis" :open="!awam">
-        <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] [&::-webkit-details-marker]:hidden">
+      <section v-if="isi?.bagian?.length" :class="awam ? 'rounded-2xl border border-garis' : ''">
+        <button v-if="awam" type="button" class="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left text-[13px]" @click="buka = !tampil">
           <FileText class="h-4 w-4 shrink-0 text-muted" />
           <span class="font-medium">Catatan teknis asli</span>
           <span class="hidden truncate text-xs text-muted sm:inline">{{ isi.berkas }} · untuk yang ingin detail lengkap</span>
-          <ChevronDown class="ml-auto h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
-        </summary>
-        <div class="space-y-6 border-t border-garis px-4 pt-4 pb-5">
-          <article v-for="b in isi.bagian" :key="b.baris" class="min-w-0">
-            <div class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 class="m-0 text-[14px] font-medium leading-snug">{{ b.judul }}</h3>
+          <ChevronDown class="ml-auto h-4 w-4 shrink-0 text-muted transition-transform" :class="tampil ? 'rotate-180' : ''" />
+        </button>
+        <div v-else class="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span class="flex items-center gap-1.5 text-[13px] font-medium"><FileText class="h-4 w-4 text-muted" />Catatan teknis</span>
+          <span class="text-xs text-muted">{{ isi.berkas }} · penjelasan sederhana untuk hipotesis ini belum ditulis</span>
+        </div>
+        <div v-if="tampil" class="divide-y divide-garis" :class="awam ? 'border-t border-garis px-4' : ''">
+          <article v-for="b in isi.bagian" :key="b.baris" class="min-w-0 py-5 first:pt-3 last:pb-1">
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-l-[3px] border-aksen pl-3">
+              <h3 class="m-0 min-w-0 flex-1 basis-80 text-[15px] leading-snug font-medium text-ink">{{ b.judul }}</h3>
               <span class="text-[11px] text-muted">baris {{ b.baris }}</span>
             </div>
-            <div class="max-w-[860px] space-y-2 text-[13px] leading-relaxed text-ink-2">
+            <div class="mt-4 text-[13px] leading-[1.65] text-ink-2">
               <template v-for="(x, i) in b.blok" :key="i">
-                <h4 v-if="x.t === 'h'" class="m-0 pt-3 text-[13.5px] font-medium text-ink">
+                <h4 v-if="x.t === 'h'" class="m-0 mt-6 mb-1 text-[13.5px] font-medium text-ink first:mt-0">
                   <template v-for="(s, j) in potong(x.x)" :key="j"><code v-if="s.t === 'c'" class="kode">{{ s.x }}</code><span v-else>{{ s.x }}</span></template>
                 </h4>
-                <div v-else-if="x.t === 'tabel'" class="overflow-x-auto rounded-2xl border border-garis">
+                <div v-else-if="x.t === 'tabel' && x.kolom.length === 2" class="my-4 overflow-hidden rounded-2xl border border-garis">
+                  <div class="hidden gap-x-4 border-b border-garis bg-surface-2/50 px-4 py-2 text-[11px] text-muted @xl:grid @xl:grid-cols-[170px_minmax(0,1fr)]"><span>{{ x.kolom[0] }}</span><span>{{ x.kolom[1] }}</span></div>
+                  <div v-for="(r, j) in x.baris" :key="j" class="grid gap-x-4 gap-y-1 border-b border-garis px-4 py-2.5 last:border-b-0 @xl:grid-cols-[170px_minmax(0,1fr)]">
+                    <div v-for="(c, n) in r" :key="n" class="min-w-0 break-words" :class="n === 0 ? 'font-medium text-ink' : ''">
+                      <template v-for="(s, q) in potong(c)" :key="q"><b v-if="s.t === 'b'" class="font-medium text-ink"><TeksWarna :teks="s.x" /></b><code v-else-if="s.t === 'c'" class="kode">{{ s.x }}</code><button v-else-if="s.t === 'k'" class="font-medium text-aksen hover:underline" @click="emit('buka', s.x)">{{ s.x }}</button><TeksWarna v-else :teks="s.x" /></template>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="x.t === 'tabel'" class="my-4 overflow-x-auto rounded-2xl border border-garis">
                   <table class="tabel !text-xs">
                     <thead><tr><th v-for="(k, j) in x.kolom" :key="j">{{ k }}</th></tr></thead>
                     <tbody>
@@ -238,20 +267,27 @@ const INDEN = ["pl-0", "pl-5", "pl-10"];
                     </tbody>
                   </table>
                 </div>
-                <div v-else-if="x.t === 'li'" class="flex gap-2" :class="INDEN[x.n]">
+                <div v-else-if="x.t === 'li' && x.n === 0 && pisah(x.x)" class="mt-2.5 grid gap-x-4 gap-y-0.5 border-t border-garis/70 pt-2.5 first:mt-0 first:border-t-0 first:pt-0 @2xl:grid-cols-[150px_minmax(0,1fr)]">
+                  <div class="font-medium text-ink">{{ pisah(x.x).label }}</div>
+                  <div class="min-w-0">
+                    <div v-if="pisah(x.x).ket.length" class="mb-0.5 text-xs text-muted"><template v-for="(s, j) in pisah(x.x).ket" :key="j"><code v-if="s.t === 'c'" class="kode">{{ s.x }}</code><span v-else>{{ s.x }}</span></template></div>
+                    <template v-for="(s, j) in pisah(x.x).sisa" :key="j"><b v-if="s.t === 'b'" class="font-medium text-ink"><TeksWarna :teks="s.x" /></b><code v-else-if="s.t === 'c'" class="kode">{{ s.x }}</code><button v-else-if="s.t === 'k'" class="font-medium text-aksen hover:underline" @click="emit('buka', s.x)">{{ s.x }}</button><TeksWarna v-else :teks="s.x" /></template>
+                  </div>
+                </div>
+                <div v-else-if="x.t === 'li'" class="mt-2 flex gap-2 first:mt-0" :class="(berlabel(b) ? INDEN_LABEL : INDEN)[x.n]">
                   <span class="w-4 shrink-0 text-right text-muted">{{ x.m || "•" }}</span>
                   <span class="min-w-0 flex-1">
                     <template v-for="(s, j) in potong(x.x)" :key="j"><b v-if="s.t === 'b'" class="font-medium text-ink"><TeksWarna :teks="s.x" /></b><code v-else-if="s.t === 'c'" class="kode">{{ s.x }}</code><button v-else-if="s.t === 'k'" class="font-medium text-aksen hover:underline" @click="emit('buka', s.x)">{{ s.x }}</button><TeksWarna v-else :teks="s.x" /></template>
                   </span>
                 </div>
-                <p v-else class="m-0">
+                <p v-else class="m-0 mt-3 first:mt-0">
                   <template v-for="(s, j) in potong(x.x)" :key="j"><b v-if="s.t === 'b'" class="font-medium text-ink"><TeksWarna :teks="s.x" /></b><code v-else-if="s.t === 'c'" class="kode">{{ s.x }}</code><button v-else-if="s.t === 'k'" class="font-medium text-aksen hover:underline" @click="emit('buka', s.x)">{{ s.x }}</button><TeksWarna v-else :teks="s.x" /></template>
                 </p>
               </template>
             </div>
           </article>
         </div>
-      </details>
+      </section>
     </div>
   </Panel>
 </template>

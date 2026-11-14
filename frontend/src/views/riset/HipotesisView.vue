@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from "vue";
-import { Search, X, ChevronLeft, ChevronRight, ChevronDown, ArrowUp } from "lucide-vue-next";
+import { Search, X, ChevronLeft, ChevronRight, ArrowUp } from "lucide-vue-next";
 import { ambil } from "@/api/client";
 import { persen } from "@/utils/format";
 import Panel from "@/components/common/Panel.vue";
@@ -195,10 +195,12 @@ function keDaftar() {
     <p v-else-if="!data" class="m-0 rounded-2xl bg-turun-bg px-4 py-3 text-turun">Data hipotesis gagal dimuat.</p>
 
     <template v-else>
-      <p class="m-0 max-w-[820px] text-[13px] leading-relaxed text-ink-2">
-        Semua hipotesis yang pernah diuji. Kriteria ditulis sebelum uji, dicek di data lama (dev), lalu data baru (holdout) dibuka sekali hanya kalau dev lulus. Klik baris di daftar untuk melihat detailnya di bawah.
-      </p>
-      <Stats :items="stat" kolom="grid-cols-2 sm:grid-cols-4 xl:grid-cols-7" />
+      <div class="panel px-5 py-4">
+        <p class="m-0 max-w-[820px] text-[13px] leading-relaxed text-ink-2">
+          Semua hipotesis yang pernah diuji. Kriteria ditulis sebelum uji, dicek di data lama (dev), lalu data baru (holdout) dibuka sekali hanya kalau dev lulus. Klik baris di daftar untuk melihat detailnya di bawah.
+        </p>
+        <Stats polos :items="stat" kolom="grid-cols-2 sm:grid-cols-4 xl:grid-cols-7" class="mt-3 !bg-transparent !p-0" />
+      </div>
 
       <Panel judul="Pelajaran besar" ket="Didukung hasil uji, urut dari yang paling penting">
         <template #aksi>
@@ -218,16 +220,9 @@ function keDaftar() {
         </ol>
       </Panel>
 
-      <details class="panel group px-5 py-3.5">
-        <summary class="flex cursor-pointer list-none items-center gap-3 text-[13px] [&::-webkit-details-marker]:hidden">
-          <span class="font-medium">Arti status & lencana</span>
-          <span class="hidden min-w-0 flex-1 flex-wrap gap-1 sm:flex">
-            <span v-for="s in data.status" :key="s.id" class="chip" :class="WARNA[s.warna]">{{ s.label }}</span>
-            <span v-for="(l, k) in data.lencana" :key="k" class="chip" :class="WARNA_LENCANA[k]">{{ l }}</span>
-          </span>
-          <ChevronDown class="ml-auto h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
-        </summary>
-        <div class="mt-3 grid gap-x-6 gap-y-2 border-t border-garis pt-3 md:grid-cols-2">
+      <div class="panel px-5 py-4">
+        <div class="text-[14px] font-medium">Arti status & lencana</div>
+        <div class="mt-3 grid gap-x-6 gap-y-2.5 border-t border-garis pt-3 md:grid-cols-2">
           <div v-for="s in data.status" :key="s.id" class="grid grid-cols-[104px_1fr] items-start gap-3">
             <span class="chip justify-self-start" :class="WARNA[s.warna]">{{ s.label }}</span>
             <span class="text-xs leading-relaxed text-ink-2">{{ s.arti }}</span>
@@ -237,7 +232,7 @@ function keDaftar() {
             <span class="text-xs leading-relaxed text-ink-2">{{ ARTI_LENCANA[k] }}</span>
           </div>
         </div>
-      </details>
+      </div>
 
       <Panel ref="tabelEl" judul="Daftar hipotesis" :ket="`${tersaring.length} dari ${hip.length} ditampilkan · klik baris untuk detail`" rapat>
         <template #aksi>
@@ -322,12 +317,9 @@ function keDaftar() {
         </div>
       </Panel>
 
-      <div v-if="aktif" ref="detailEl" class="space-y-4">
+      <div v-if="aktif" ref="detailEl" class="space-y-5">
         <div class="flex flex-wrap items-center gap-2">
-          <div class="mr-auto min-w-0">
-            <div class="text-[11px] font-medium tracking-wide text-muted uppercase">Detail hipotesis</div>
-            <div class="text-[20px] font-medium tracking-tight">{{ aktif.kode }} · {{ aktif.nama }}</div>
-          </div>
+          <div class="mr-auto text-[11px] font-medium tracking-wide text-muted uppercase">Detail hipotesis</div>
           <button class="tombol !h-8 text-xs" @click="keDaftar"><ArrowUp class="h-3.5 w-3.5" />Daftar</button>
           <button class="tombol !h-8 text-xs" :disabled="!sebelum" @click="sebelum && buka(sebelum.kode)"><ChevronLeft class="h-3.5 w-3.5" />{{ sebelum?.kode || "—" }}</button>
           <button class="tombol !h-8 text-xs" :disabled="!sesudah" @click="sesudah && buka(sesudah.kode)">{{ sesudah?.kode || "—" }}<ChevronRight class="h-3.5 w-3.5" /></button>

@@ -78,7 +78,7 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
       </div>
     </header>
 
-    <div class="space-y-6 px-5 py-5 @xl:px-6">
+    <div class="space-y-5 px-5 py-5 @xl:space-y-6 @xl:px-6 @xl:py-6">
       <p class="m-0 max-w-[880px] text-[15px] leading-relaxed text-ink">{{ h.awam }}</p>
 
       <template v-if="belum">
@@ -109,13 +109,13 @@ const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numer
       </template>
 
       <template v-else>
-        <div class="grid items-start gap-6" :class="visualUtama && utama ? '@3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]' : ''">
-          <div v-if="visualUtama" class="min-w-0 rounded-2xl border border-garis p-4">
+        <div class="grid items-stretch gap-4" :class="visualUtama && utama ? '@3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]' : ''">
+          <div v-if="visualUtama" class="min-w-0 rounded-2xl border border-garis p-4 @xl:p-5">
             <GrafikHipotesis v-if="visualUtama.jenis === 'grafik'" :g="visualUtama.g" :tinggi="240" />
             <BatangEdge v-else :grup="edge" />
           </div>
-          <div v-if="utama" class="min-w-0">
-            <div class="mb-2 text-xs text-muted"><span class="whitespace-nowrap">Angka utama ·</span> <span class="text-ink-2">{{ utama.periode }}</span></div>
+          <div v-if="utama" class="min-w-0 @3xl:pl-1">
+            <div class="mb-2.5 text-xs text-muted"><span class="whitespace-nowrap">Angka utama ·</span> <span class="text-ink-2">{{ utama.periode }}</span></div>
             <div class="grid grid-cols-2 gap-2" :class="visualUtama ? '' : '@lg:grid-cols-3 @3xl:grid-cols-6'">
               <div v-for="t in tiles(utama)" :key="t.label" class="min-w-0 rounded-2xl bg-surface-2/70 px-3.5 py-3">
                 <div class="truncate text-[11px] text-muted">{{ t.label }}</div>
