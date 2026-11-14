@@ -162,16 +162,20 @@ def validasi_portofolio(x):
         mulai = tgl_teks(x.get("tanggal_mulai") or date.today())
     except Exception:
         raise ValueError("tanggal mulai tidak valid")
+    pengingat = bool(x.get("pengingat_setoran", False))
     try:
         setoran = float(x.get("setoran_rutin") or 0)
         hari = int(x.get("tanggal_setor") or 1)
     except Exception:
         raise ValueError("setoran dan tanggal setor harus angka")
-    if setoran < 0:
-        raise ValueError("setoran tidak boleh negatif")
-    if not 1 <= hari <= 28:
-        raise ValueError("tanggal setor harus 1 sampai 28")
-    return {"nama": nama, "target": target, "tanggal_mulai": mulai, "setoran_rutin": setoran, "tanggal_setor": hari, "aktif": bool(x.get("aktif", True))}
+    if pengingat:
+        if setoran <= 0:
+            raise ValueError("isi setoran rutin kalau pengingat setoran dinyalakan")
+        if not 1 <= hari <= 28:
+            raise ValueError("tanggal setor harus 1 sampai 28")
+    else:
+        setoran, hari = max(setoran, 0.0), min(max(hari, 1), 28)
+    return {"nama": nama, "target": target, "tanggal_mulai": mulai, "pengingat_setoran": pengingat, "setoran_rutin": setoran, "tanggal_setor": hari, "aktif": bool(x.get("aktif", True))}
 
 
 def hari_bursa_lalu(tgl, hari_ini):
@@ -319,10 +323,19 @@ class Repo:
     def daftar_portofolio(self):
         return list(self.db[KOLEKSI_PORTO].find({}))
 
+    def migrasi_pengingat(self):
+        diubah = 0
+        for p in self.db[KOLEKSI_PORTO].find({}):
+            if "pengingat_setoran" not in p:
+                self.db[KOLEKSI_PORTO].replace_one({"_id": p["_id"]}, {**p, "pengingat_setoran": False})
+                diubah += 1
+        return diubah
+
     def pastikan_default(self):
         if self.db[KOLEKSI_PORTO].find_one({}) is None:
-            self.db[KOLEKSI_PORTO].insert_one({"_id": baru_id(), "nama": "Pertumbuhan", "target": "pertumbuhan_saham", "tanggal_mulai": tgl_teks(date.today()), "setoran_rutin": 0.0, "tanggal_setor": 1,
-                                               "aktif": True, "dibuat": datetime.now()})
+            self.db[KOLEKSI_PORTO].insert_one({"_id": baru_id(), "nama": "Pertumbuhan", "target": "pertumbuhan_saham", "tanggal_mulai": tgl_teks(date.today()), "pengingat_setoran": False,
+                                               "setoran_rutin": 0.0, "tanggal_setor": 1, "aktif": True, "dibuat": datetime.now()})
+        self.migrasi_pengingat()
         return self.daftar_portofolio()
 
     def simpan_portofolio(self, data, pid=None):
@@ -372,6 +385,19 @@ class Repo:
 
     def riwayat(self, tid):
         return sorted(self.db[KOLEKSI_LOG].find({"transaksi_id": tid}), key=lambda x: x["waktu"])
+
+    def hapus_portofolio(self, pid):
+        porto = self.db[KOLEKSI_PORTO].find_one({"_id": pid})
+        if porto is None:
+            raise KeyError("portofolio tidak ditemukan")
+        if len(self.daftar_portofolio()) <= 1:
+            raise ValueError("minimal harus ada satu portofolio; ubah saja pengaturannya kalau mau memulai dari awal")
+        transaksi = self.transaksi(pid)
+        for t in transaksi:
+            self.db[KOLEKSI_TRX].delete_one({"_id": t["_id"]})
+            self.log(t["_id"], "hapus", {k: x for k, x in t.items() if k != "_id"}, None)
+        self.db[KOLEKSI_PORTO].delete_one({"_id": pid})
+        return {"nama": porto["nama"], "transaksi_dihapus": len(transaksi)}
 
 
 def _seri_rd(db, fid):
@@ -497,8 +523,10 @@ def ada_beli_bulan_ini(db, pid, hari_ini):
 def ringkas_untuk_cek(db, hari_ini):
     hasil = []
     for p in db[KOLEKSI_PORTO].find({"aktif": True}):
+        if not p.get("pengingat_setoran", False):
+            continue
         hasil.append({"id": p["_id"], "nama": p["nama"], "setoran_rutin": p.get("setoran_rutin") or 0.0, "tanggal_setor": p.get("tanggal_setor") or 1,
-                      "ada_beli_bulan_ini": ada_beli_bulan_ini(db, p["_id"], hari_ini)})
+                      "pengingat_setoran": True, "ada_beli_bulan_ini": ada_beli_bulan_ini(db, p["_id"], hari_ini)})
     return hasil
 
 
@@ -534,16 +562,16 @@ def cari_produk(q="", batas=30, db=None):
     return bersih(hasil[:batas])
 
 
-def isi_dari_belanja(pid, apps=None, hari_ini=None, db=None, repo=None):
+def isi_dari_belanja(pid, apps=None, hari_ini=None, db=None, repo=None, setoran=None):
     from backend.app.services import belanja as bl
     repo = repo or Repo(db)
     porto = repo.db[KOLEKSI_PORTO].find_one({"_id": pid})
     if porto is None:
         raise KeyError("portofolio tidak ditemukan")
     gaya = "emas" if porto["target"] == "pertumbuhan_emas" else "saham"
-    setoran = porto.get("setoran_rutin") or 0.0
+    setoran = float(setoran or porto.get("setoran_rutin") or 0.0)
     if setoran <= 0:
-        return {"ada": False, "alasan": "Isi setoran rutin portofolio dulu supaya daftar belanja bisa dihitung.", "draf": []}
+        return {"ada": False, "alasan": "Isi nominal setoran bulan ini dulu supaya daftar belanja bisa dihitung.", "draf": []}
     b = bl.pertumbuhan(apps, setoran, 0, gaya, hari_ini)
     if not b.get("ada"):
         return {"ada": False, "alasan": "Daftar belanja belum tersedia.", "draf": []}

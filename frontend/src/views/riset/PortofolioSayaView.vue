@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { Plus, ListChecks, AlertTriangle, FlaskConical, Bell } from "lucide-vue-next";
+import { Plus, ListChecks, AlertTriangle, FlaskConical, Bell, Trash2 } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { rupiahRingkas, rupiahBertanda } from "@/utils/format";
 import Kerangka from "@/components/common/Kerangka.vue";
@@ -36,8 +36,10 @@ const pilihTab = async (x) => {
   if (!daftarContoh.value.length) daftarContoh.value = (await ambil("portofolio-saya/contoh").catch(() => null))?.skenario ?? [];
   skenario.value = skenario.value || daftarContoh.value[0]?.kunci || "";
 };
-const formPorto = ref({ nama: "", target: "pertumbuhan_saham", setoran_rutin: 0, tanggal_setor: 1 });
+const formPorto = ref({ nama: "", target: "pertumbuhan_saham", pengingat_setoran: false, setoran_rutin: 0, tanggal_setor: 1 });
 const pesanPorto = ref("");
+const konfirmasiHapusPorto = ref(false);
+const setoranDraf = ref(1000000);
 
 const daftar = computed(() => meta.value?.portofolio ?? []);
 const pilihanPorto = computed(() => daftar.value.map((p) => [p._id, p.nama]));
@@ -53,7 +55,7 @@ const muatDaftar = async () => {
 };
 const isiFormPorto = () => {
   const p = daftar.value.find((x) => x._id === pid.value);
-  if (p) formPorto.value = { nama: p.nama, target: p.target, setoran_rutin: p.setoran_rutin ?? 0, tanggal_setor: p.tanggal_setor ?? 1, tanggal_mulai: p.tanggal_mulai };
+  if (p) formPorto.value = { nama: p.nama, target: p.target, pengingat_setoran: !!p.pengingat_setoran, setoran_rutin: p.setoran_rutin ?? 0, tanggal_setor: p.tanggal_setor ?? 1, tanggal_mulai: p.tanggal_mulai };
 };
 const muatAnalisis = async () => {
   if (!modeContoh.value && !pid.value) return;
@@ -75,6 +77,7 @@ watch(skenario, () => {
   muatAnalisis();
 });
 watch(pid, () => {
+  konfirmasiHapusPorto.value = false;
   isiFormPorto();
   draf.value = null;
   muatAnalisis();
@@ -89,6 +92,20 @@ const simpanPorto = async () => {
     pesanPorto.value = "Tersimpan.";
   } catch (e) {
     pesanPorto.value = e.message;
+  }
+};
+const hapusPorto = async () => {
+  pesanPorto.value = "";
+  try {
+    await kirim(`portofolio-saya/portofolio/${pid.value}/hapus`);
+    konfirmasiHapusPorto.value = false;
+    pid.value = "";
+    await muatDaftar();
+    isiFormPorto();
+    await muatAnalisis();
+  } catch (e) {
+    pesanPorto.value = e.message;
+    konfirmasiHapusPorto.value = false;
   }
 };
 const baruPorto = async () => {
@@ -134,7 +151,7 @@ const batalUbah = () => {
   galat.value = "";
 };
 const isiDariBelanja = async () => {
-  draf.value = await ambil(`portofolio-saya/${pid.value}/isi-belanja`).catch(() => ({ ada: false, alasan: "Gagal memuat daftar belanja.", draf: [] }));
+  draf.value = await ambil(`portofolio-saya/${pid.value}/isi-belanja?setoran=${setoranDraf.value || 0}`).catch(() => ({ ada: false, alasan: "Gagal memuat daftar belanja.", draf: [] }));
 };
 const pakaiDraf = (d) => {
   nilaiAwal.value = { ...d, _id: null };
@@ -217,18 +234,40 @@ const kalimatRugi = computed(() => {
 
       <div v-if="!modeContoh" class="panel px-4 py-5 sm:px-6">
         <div class="text-[14px] font-medium">Pengaturan portofolio</div>
-        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
           <div class="min-w-0"><label class="text-xs text-muted">Nama</label>
             <input v-model="formPorto.nama" class="mt-1 h-10 w-full rounded-full bg-surface-2 px-4 text-[14px] outline-none" /></div>
           <div class="min-w-0"><label class="text-xs text-muted">Target alokasi</label>
             <select v-model="formPorto.target" class="mt-1 h-10 w-full rounded-full bg-surface-2 px-4 text-[14px] outline-none"><option v-for="[k, l] in pilihanTarget" :key="k" :value="k">{{ l }}</option></select></div>
-          <div class="min-w-0"><label class="text-xs text-muted">Setoran rutin per bulan</label>
-            <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
-              <input :value="tampilRp(formPorto.setoran_rutin)" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[14px] outline-none" @input="(e) => (formPorto.setoran_rutin = angka(e.target.value))" /></div></div>
-          <div class="min-w-0"><label class="text-xs text-muted">Tanggal setor (1–28)</label>
-            <input v-model.number="formPorto.tanggal_setor" type="number" min="1" max="28" class="mt-1 h-10 w-full rounded-full bg-surface-2 px-4 text-[14px] outline-none" /></div>
         </div>
-        <div class="mt-3 flex flex-wrap items-center gap-3"><button class="tombol" @click="simpanPorto">Simpan pengaturan</button><span v-if="pesanPorto" class="text-[12px] text-ink-2">{{ pesanPorto }}</span></div>
+        <div class="mt-4 rounded-2xl bg-surface-2 px-4 py-3">
+          <label class="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+            <span class="min-w-0"><span class="font-medium">Pengingat setoran <span class="font-normal text-muted">(opsional)</span></span><span class="block text-[11px] text-muted">Kalau menyetor tidak rutin, biarkan mati. Analisa tidak bergantung pada ini.</span></span>
+            <span class="relative inline-flex h-6 w-11 shrink-0">
+              <input v-model="formPorto.pengingat_setoran" type="checkbox" role="switch" class="peer sr-only" aria-label="Pengingat setoran" />
+              <span class="absolute inset-0 rounded-full bg-garis transition peer-checked:bg-aksen peer-focus-visible:ring-2 peer-focus-visible:ring-aksen"></span>
+              <span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span>
+            </span>
+          </label>
+          <div v-if="formPorto.pengingat_setoran" class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div class="min-w-0"><label class="text-xs text-muted">Setoran per bulan</label>
+              <div class="mt-1 flex items-center rounded-full bg-surface px-4"><span class="text-[13px] text-muted">Rp</span>
+                <input :value="tampilRp(formPorto.setoran_rutin)" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[14px] outline-none" @input="(e) => (formPorto.setoran_rutin = angka(e.target.value))" /></div></div>
+            <div class="min-w-0"><label class="text-xs text-muted">Tanggal setor (1–28)</label>
+              <input v-model.number="formPorto.tanggal_setor" type="number" min="1" max="28" class="mt-1 h-10 w-full rounded-full bg-surface px-4 text-[14px] outline-none" /></div>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <button class="tombol" @click="simpanPorto">Simpan pengaturan</button>
+          <button v-if="!konfirmasiHapusPorto && daftar.length > 1" class="tombol text-turun" @click="konfirmasiHapusPorto = true"><Trash2 class="h-3.5 w-3.5" />Hapus portofolio</button>
+          <span v-if="pesanPorto" class="text-[12px] text-ink-2">{{ pesanPorto }}</span>
+        </div>
+        <div v-if="konfirmasiHapusPorto" class="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-turun-bg px-4 py-3 text-[13px]">
+          <span class="min-w-0 text-ink-2">Hapus <b class="font-medium text-ink">{{ formPorto.nama }}</b> beserta {{ a?.transaksi?.length ?? 0 }} transaksinya? Tidak bisa dibatalkan.</span>
+          <button class="tombol" @click="hapusPorto">Ya, hapus</button>
+          <button class="tombol" @click="konfirmasiHapusPorto = false">Batal</button>
+        </div>
+        <p v-if="daftar.length <= 1" class="m-0 mt-2 text-[11px] text-muted">Portofolio terakhir tidak bisa dihapus; ubah pengaturannya kalau mau memulai dari awal.</p>
       </div>
     </section>
 
@@ -240,9 +279,13 @@ const kalimatRugi = computed(() => {
       <div v-if="!modeContoh" class="panel px-4 py-5 sm:px-6">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2 text-[14px] font-medium"><ListChecks class="h-4 w-4 text-aksen" />Isi dari daftar belanja bulan ini</div>
-          <button class="tombol" @click="isiDariBelanja">Tampilkan draf</button>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center rounded-full bg-surface-2 px-3"><span class="text-[12px] text-muted">Rp</span>
+              <input :value="tampilRp(setoranDraf)" inputmode="numeric" class="h-8 w-28 bg-transparent px-2 text-[13px] outline-none" aria-label="Nominal setoran bulan ini" @input="(e) => (setoranDraf = angka(e.target.value))" /></div>
+            <button class="tombol" @click="isiDariBelanja">Tampilkan draf</button>
+          </div>
         </div>
-        <p class="m-0 mt-1 text-[12px] text-muted">Draf mengikuti daftar belanja Pertumbuhan sesuai setoran rutin portofolio ini. Pilih satu, koreksi dengan angka nyata dari aplikasi, lalu simpan.</p>
+        <p class="m-0 mt-1 text-[12px] text-muted">Draf mengikuti daftar belanja Pertumbuhan untuk nominal setoran bulan ini. Pilih satu, koreksi dengan angka nyata dari aplikasi, lalu simpan.</p>
         <p v-if="draf && !draf.ada" class="m-0 mt-3 text-[13px] text-kuning">{{ draf.alasan }}</p>
         <ul v-else-if="draf?.draf?.length" class="m-0 mt-3 list-none space-y-2 p-0">
           <li v-for="(d, i) in draf.draf" :key="i" class="flex items-center justify-between gap-3 rounded-2xl border border-garis px-4 py-2.5 text-[13px]">

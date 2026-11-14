@@ -239,7 +239,7 @@ def analisis_contoh(kunci, db=None):
         tx = [t for t in tx if t not in akhir_tx] + [{**akhir_tx[0], "nominal": SETORAN}]
     info, harga, kurs = info_harga(tx, keranjang, seri, emas, acuan)
     target = "pertumbuhan_emas" if spec["gaya"] == "emas" else "pertumbuhan_saham"
-    porto = {"_id": PORTO_ID, "nama": f"Contoh: {spec['label']}", "target": target, "tanggal_mulai": ps.tgl_teks(akhir_bulan(spec["mulai"])), "setoran_rutin": SETORAN, "tanggal_setor": 3, "aktif": True}
+    porto = {"_id": PORTO_ID, "nama": f"Contoh: {spec['label']}", "target": target, "tanggal_mulai": ps.tgl_teks(akhir_bulan(spec["mulai"])), "setoran_rutin": SETORAN, "tanggal_setor": 3, "pengingat_setoran": bool(spec.get("henti")), "aktif": True}
     hasil = ps.analisis_dari(porto, tx, acuan, db, info, harga, kurs)
     for p in hasil["produk"]:
         p["basi"] = False

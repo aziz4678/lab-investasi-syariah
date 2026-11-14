@@ -212,11 +212,52 @@ class TesRepo(unittest.TestCase):
         self.assertEqual(t["unit"], 800.0)
         self.assertAlmostEqual(t["nominal"], 800 * 240 + 288)
 
+    def test_hapus_portofolio_beserta_transaksi_dan_log(self):
+        kedua = self.repo.simpan_portofolio({"nama": "Kedua", "target": "bebas"})
+        t1 = self.repo.tambah({**self.isian(), "portofolio_id": kedua["_id"]})
+        t2 = self.repo.tambah({**self.isian(nominal="500000"), "portofolio_id": kedua["_id"]})
+        aman = self.repo.tambah(self.isian())
+        hasil = self.repo.hapus_portofolio(kedua["_id"])
+        self.assertEqual((hasil["nama"], hasil["transaksi_dihapus"]), ("Kedua", 2))
+        self.assertEqual([p["_id"] for p in self.repo.daftar_portofolio()], [self.pid])
+        self.assertEqual(self.repo.transaksi(kedua["_id"]), [])
+        self.assertEqual(len(self.repo.transaksi(self.pid)), 1)
+        for t in (t1, t2):
+            self.assertEqual([x["aksi"] for x in self.repo.riwayat(t["_id"])], ["tambah", "hapus"])
+        self.assertEqual([x["aksi"] for x in self.repo.riwayat(aman["_id"])], ["tambah"])
+
+    def test_portofolio_terakhir_dan_tidak_ada_tidak_bisa_dihapus(self):
+        with self.assertRaises(ValueError):
+            self.repo.hapus_portofolio(self.pid)
+        self.assertEqual(len(self.repo.daftar_portofolio()), 1)
+        self.repo.simpan_portofolio({"nama": "Kedua", "target": "bebas"})
+        with self.assertRaises(KeyError):
+            self.repo.hapus_portofolio("tidak-ada")
+
     def test_portofolio_validasi(self):
         with self.assertRaises(ValueError):
-            self.repo.simpan_portofolio({"nama": "x", "tanggal_setor": 31})
-        dok = self.repo.simpan_portofolio({"nama": "Emas", "target": "pertumbuhan_emas", "setoran_rutin": 500000, "tanggal_setor": 5})
+            self.repo.simpan_portofolio({"nama": "x", "pengingat_setoran": True, "tanggal_setor": 31, "setoran_rutin": 100000})
+        with self.assertRaises(ValueError):
+            self.repo.simpan_portofolio({"nama": "x", "pengingat_setoran": True, "setoran_rutin": 0})
+        dok = self.repo.simpan_portofolio({"nama": "Emas", "target": "pertumbuhan_emas", "pengingat_setoran": True, "setoran_rutin": 500000, "tanggal_setor": 5})
+        self.assertTrue(dok["pengingat_setoran"])
         self.assertEqual(self.repo.simpan_portofolio({"nama": "Emas2", "target": "bebas"}, dok["_id"])["nama"], "Emas2")
+
+    def test_setoran_dan_tanggal_opsional_saat_pengingat_mati(self):
+        dok = self.repo.simpan_portofolio({"nama": "Tidak rutin", "target": "bebas"})
+        self.assertFalse(dok["pengingat_setoran"])
+        dok2 = self.repo.simpan_portofolio({"nama": "Tidak rutin", "target": "bebas", "tanggal_setor": 99, "setoran_rutin": -5})
+        self.assertEqual((dok2["tanggal_setor"], dok2["setoran_rutin"]), (28, 0.0))
+
+    def test_default_dan_migrasi_pengingat_mati(self):
+        self.assertFalse(self.repo.daftar_portofolio()[0]["pengingat_setoran"])
+        db = FakeDb()
+        db["portofolio_saya"].insert_one({"_id": "lama", "nama": "Pertumbuhan", "target": "pertumbuhan_saham", "setoran_rutin": 1_000_000.0, "tanggal_setor": 3, "aktif": True})
+        repo = ps.Repo(db)
+        self.assertEqual(repo.migrasi_pengingat(), 1)
+        self.assertFalse(db["portofolio_saya"].find_one({"_id": "lama"})["pengingat_setoran"])
+        self.assertEqual(repo.migrasi_pengingat(), 0)
+        self.assertEqual(ps.ringkas_untuk_cek(db, "2026-11-20"), [])
 
 
 class TesCekSetoran(unittest.TestCase):
@@ -237,6 +278,12 @@ class TesCekSetoran(unittest.TestCase):
         p[0]["ada_beli_bulan_ini"] = True
         self.assertEqual(ck.cek_setoran_bulan_ini(self.ctx("2026-12-20", p))[0]["status"], "ok")
 
+    def test_pengingat_mati_tidak_menghasilkan_teks_belum_setor(self):
+        p = [{"nama": "Tidak rutin", "tanggal_setor": 5, "setoran_rutin": 1_000_000.0, "ada_beli_bulan_ini": False, "pengingat_setoran": False}]
+        r = ck.cek_setoran_bulan_ini(self.ctx("2026-12-20", p))
+        self.assertEqual((r[0]["nama_cek"], r[0]["status"]), ("setoran_bulan_ini", "ok"))
+        self.assertNotIn("Belum ada transaksi", r[0]["pesan"])
+
     def test_ok_tanpa_setoran_rutin_atau_tanpa_portofolio(self):
         self.assertEqual(ck.cek_setoran_bulan_ini(self.ctx("2026-12-20", []))[0]["status"], "ok")
         p = [{"nama": "x", "tanggal_setor": 1, "setoran_rutin": 0.0, "ada_beli_bulan_ini": False}]
@@ -246,11 +293,43 @@ class TesCekSetoran(unittest.TestCase):
         db = FakeDb()
         repo = ps.Repo(db)
         pid = repo.pastikan_default()[0]["_id"]
-        repo.simpan_portofolio({"nama": "Pertumbuhan", "setoran_rutin": 1_000_000, "tanggal_setor": 5}, pid)
+        self.assertEqual(ps.ringkas_untuk_cek(db, "2026-11-09"), [])
+        repo.simpan_portofolio({"nama": "Pertumbuhan", "pengingat_setoran": True, "setoran_rutin": 1_000_000, "tanggal_setor": 5}, pid)
         self.assertFalse(ps.ringkas_untuk_cek(db, "2026-11-09")[0]["ada_beli_bulan_ini"])
         repo.tambah({"portofolio_id": pid, "tanggal": "2026-11-03", "jenis": "beli", "tipe_produk": "rd", "produk": "1", "nominal": 100000})
         self.assertTrue(ps.ringkas_untuk_cek(db, "2026-11-09")[0]["ada_beli_bulan_ini"])
         self.assertFalse(ps.ringkas_untuk_cek(db, "2026-12-09")[0]["ada_beli_bulan_ini"])
+
+
+class TesAnalisisTanpaSetoranRutin(unittest.TestCase):
+    def test_analisa_lengkap_walau_setoran_dan_tanggal_kosong(self):
+        seri_rd = seri("2026-01-30", [1000.0 + 5 * i for i in range(300)])
+        harga = {("rd", "1"): seri_rd, ("rd", "2"): seri("2026-01-30", [2000.0 + 4 * i for i in range(300)])}
+        info = {("rd", "1"): {"mata_uang": "IDR", "nama": "RD A"}, ("rd", "2"): {"mata_uang": "IDR", "nama": "RD B"}}
+        tx = [{**trx(tanggal="2026-02-02", produk="1", nama="RD A", kaki="lokal"), "_id": "a", "dibuat": "1"},
+              {**trx(tanggal="2026-02-02", produk="2", nama="RD B", kaki="global"), "_id": "b", "dibuat": "2"},
+              {**trx(tanggal="2026-05-04", produk="1", nama="RD A", kaki="lokal", nominal=500_000.0), "_id": "c", "dibuat": "3"}]
+        porto = {"_id": "x", "nama": "Tidak rutin", "target": "pertumbuhan_saham", "tanggal_mulai": "2026-02-01", "pengingat_setoran": False, "setoran_rutin": None, "tanggal_setor": None, "aktif": True}
+        a = ps.analisis_dari(porto, tx, "2026-10-20", FakeDb(), info, harga, seri("2026-01-01", [1.0] * 5))
+        self.assertGreater(a["ringkasan"]["nilai"], 0)
+        self.assertIsNotNone(a["ringkasan"]["xirr"])
+        self.assertEqual(a["ringkasan"]["total_setor"], 2_500_000.0)
+        self.assertGreater(len(a["deret"]), 5)
+        self.assertEqual({k["kaki"] for k in a["alokasi"]["kaki"]}, {"lokal", "global"})
+        self.assertIn("campuran", a["pembanding"])
+        self.assertEqual(len(a["produk"]), 2)
+
+    def test_hasil_sama_dengan_dan_tanpa_pengingat(self):
+        seri_rd = seri("2026-01-30", [1000.0 + 5 * i for i in range(300)])
+        harga = {("rd", "1"): seri_rd}
+        info = {("rd", "1"): {"mata_uang": "IDR", "nama": "RD A"}}
+        tx = [{**trx(tanggal="2026-02-02", produk="1", nama="RD A", kaki="lokal"), "_id": "a", "dibuat": "1"}]
+        dasar = {"_id": "x", "nama": "P", "target": "bebas", "tanggal_mulai": "2026-02-01", "aktif": True}
+        k1 = ps.analisis_dari({**dasar, "pengingat_setoran": False, "setoran_rutin": None, "tanggal_setor": None}, tx, "2026-10-20", FakeDb(), info, harga, seri("2026-01-01", [1.0] * 5))
+        k2 = ps.analisis_dari({**dasar, "pengingat_setoran": True, "setoran_rutin": 1_000_000.0, "tanggal_setor": 3}, tx, "2026-10-20", FakeDb(), info, harga, seri("2026-01-01", [1.0] * 5))
+        self.assertEqual(k1["ringkasan"], k2["ringkasan"])
+        self.assertEqual(k1["deret"], k2["deret"])
+        self.assertEqual(k1["alokasi"], k2["alokasi"])
 
 
 if __name__ == "__main__":

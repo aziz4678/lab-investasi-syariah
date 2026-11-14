@@ -332,7 +332,10 @@ def cek_kalender_libur(c):
 
 def cek_setoran_bulan_ini(c):
     kurang = []
-    for p in c.portofolio_saya:
+    aktif = [p for p in c.portofolio_saya if p.get("pengingat_setoran", True)]
+    if not aktif:
+        return [hasil("setoran_bulan_ini", "ok", "tidak ada portofolio dengan pengingat setoran yang menyala")]
+    for p in aktif:
         hari = int(p.get("tanggal_setor") or 1)
         if not p.get("setoran_rutin") or p.get("ada_beli_bulan_ini"):
             continue

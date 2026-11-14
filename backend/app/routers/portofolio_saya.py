@@ -30,6 +30,11 @@ def simpan_portofolio(data: dict = Body(...)):
     return bersih(_jalan(repo.simpan_portofolio, data, pid))
 
 
+@router.post("/portofolio/{pid}/hapus")
+def hapus_portofolio(pid: str):
+    return bersih(_jalan(ps.Repo().hapus_portofolio, pid))
+
+
 @router.get("/produk")
 def produk(q: str = ""):
     return ps.cari_produk(q)
@@ -51,8 +56,8 @@ def analisis(pid: str):
 
 
 @router.get("/{pid}/isi-belanja")
-def isi_belanja(pid: str, apps: str = "bibit,ajaib,makmur,stockbit"):
-    return _jalan(ps.isi_dari_belanja, pid, apps)
+def isi_belanja(pid: str, apps: str = "bibit,ajaib,makmur,stockbit", setoran: float = 0):
+    return _jalan(ps.isi_dari_belanja, pid, apps, setoran=setoran)
 
 
 @router.post("/transaksi")
