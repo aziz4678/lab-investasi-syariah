@@ -44,15 +44,38 @@ const muatProduk = async () => {
   hasil.value = await ambil(`portofolio-saya/produk?q=${encodeURIComponent(cari.value)}`).catch(() => []);
 };
 let jeda = null;
+const terbuka = ref(false);
+const aktif = ref(-1);
 watch(cari, () => {
+  terbuka.value = true;
+  aktif.value = -1;
   clearTimeout(jeda);
   jeda = setTimeout(muatProduk, 250);
 });
 onMounted(muatProduk);
+const bukaDaftar = () => {
+  terbuka.value = true;
+};
+const tutupDaftar = () => {
+  terbuka.value = false;
+  aktif.value = -1;
+};
+const geser = (n) => {
+  if (!terbuka.value) {
+    bukaDaftar();
+    return;
+  }
+  aktif.value = Math.min(Math.max(aktif.value + n, 0), hasil.value.length - 1);
+};
+const pilihAktif = () => {
+  const p = hasil.value[aktif.value];
+  if (p) pilih(p);
+};
 
 const pilih = (p) => {
   produk.value = p;
   cari.value = "";
+  tutupDaftar();
   if (p.tipe_produk !== "rd" && ["Bibit", "Makmur"].includes(apl.value)) apl.value = "Stockbit";
 };
 
@@ -119,7 +142,7 @@ defineExpose({ kosongkan });
 <template>
   <form class="space-y-4" @submit.prevent="simpan">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="text-[14px] font-medium">{{ idUbah ? "Ubah transaksi" : "Catat transaksi" }}</div>
+      <div class="text-[13px] font-medium text-ink-2">Jenis transaksi</div>
       <Segmen v-model="jenis" :pilihan="PILIHAN_JENIS" kecil />
     </div>
 
@@ -129,21 +152,23 @@ defineExpose({ kosongkan });
         <span class="min-w-0"><span class="chip mr-1.5 bg-aksen-lembut text-aksen">{{ KELOMPOK[produk.tipe_produk] }}</span>{{ produk.nama }}</span>
         <button type="button" class="shrink-0 text-[12px] text-aksen" @click="produk = null">ganti</button>
       </div>
-      <template v-else>
+      <div v-else class="relative">
         <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><Search class="h-4 w-4 shrink-0 text-muted" />
-          <input v-model="cari" placeholder="Cari reksa dana, ETF, atau kode saham" class="h-10 w-full min-w-0 bg-transparent px-2 text-[14px] outline-none" /></div>
-        <ul class="m-0 mt-2 max-h-56 list-none overflow-y-auto rounded-2xl border border-garis p-0">
-          <li v-for="p in hasil" :key="`${p.tipe_produk}-${p.produk}`">
-            <button type="button" class="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] hover:bg-surface-2" @click="pilih(p)">
+          <input v-model="cari" role="combobox" aria-autocomplete="list" aria-controls="daftar-produk" :aria-expanded="terbuka" placeholder="Cari reksa dana, ETF, atau kode saham" autocomplete="off"
+            class="h-10 w-full min-w-0 bg-transparent px-2 text-[14px] outline-none" @focus="bukaDaftar" @blur="tutupDaftar" @keydown.down.prevent="geser(1)" @keydown.up.prevent="geser(-1)"
+            @keydown.enter.prevent="pilihAktif" @keydown.esc="tutupDaftar" /></div>
+        <ul v-if="terbuka" id="daftar-produk" role="listbox" class="absolute z-20 mt-1 max-h-60 w-full list-none overflow-y-auto rounded-2xl border border-garis bg-surface p-1 shadow-lg">
+          <li v-for="(p, i) in hasil" :key="`${p.tipe_produk}-${p.produk}`" role="option" :aria-selected="i === aktif">
+            <button type="button" tabindex="-1" class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] hover:bg-surface-2" :class="i === aktif ? 'bg-surface-2' : ''" @mousedown.prevent="pilih(p)">
               <Star v-if="p.prioritas" class="h-3.5 w-3.5 shrink-0 text-kuning" />
               <span class="min-w-0 flex-1 truncate">{{ p.nama }}</span>
               <span class="shrink-0 text-[11px] text-muted">{{ KELOMPOK[p.tipe_produk] }}<template v-if="p.mata_uang === 'USD'"> · USD</template></span>
             </button>
           </li>
-          <li v-if="!hasil.length" class="px-4 py-3 text-[12px] text-muted">Tidak ada produk yang cocok.</li>
+          <li v-if="!hasil.length" class="px-3 py-3 text-[12px] text-muted">Tidak ada produk yang cocok.</li>
+          <li v-else class="px-3 pt-1 pb-2 text-[11px] text-muted">Bintang = produk di daftar belanja Pertumbuhan.</li>
         </ul>
-        <div class="mt-1 text-[11px] text-muted">Bintang = produk di daftar belanja Pertumbuhan.</div>
-      </template>
+      </div>
     </div>
 
     <div class="grid gap-4 sm:grid-cols-3">

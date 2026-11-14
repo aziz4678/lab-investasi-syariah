@@ -102,6 +102,80 @@ class TesPemilihan(unittest.TestCase):
         self.assertTrue(all(x["kalimat"] and x["label"] for x in pc.daftar_skenario()))
 
 
+class TesProdukAdil(unittest.TestCase):
+    POOL = [{"id": 11, "nama": "Pengganti L", "kaki": "lokal"}, {"id": 12, "nama": "Pengganti L2", "kaki": "lokal"}, {"id": 13, "nama": "Pengganti G", "kaki": "global"}]
+
+    def seri_lengkap(self, mulai="2018-01", n=40, dasar=100.0):
+        return seri_bulan(mulai, [dasar + i for i in range(n)])
+
+    def test_produk_tanpa_data_penuh_diganti_sejenis_berlabel(self):
+        seri = {1: self.seri_lengkap(), 2: self.seri_lengkap("2019-01", 28), 3: self.seri_lengkap(), 11: self.seri_lengkap(), 12: self.seri_lengkap()}
+        tanggal = pc.tanggal_bulanan("2018-06", "2019-06-30")
+        dipilih = pc.pilih_keranjang(KERANJANG, self.POOL, seri, tanggal)
+        lokal = [p for p in dipilih if p["kaki"] == "lokal"]
+        self.assertEqual([p["id"] for p in lokal], [1, 11])
+        self.assertEqual([p["pengganti_dari"] for p in lokal], [None, "Lokal B"])
+        self.assertEqual([p["id"] for p in dipilih if p["kaki"] == "global"], [3])
+
+    def test_semua_produk_dipakai_selama_seluruh_periode(self):
+        seri = {1: self.seri_lengkap(), 2: self.seri_lengkap("2019-01", 28), 3: self.seri_lengkap(), 11: self.seri_lengkap()}
+        tanggal = pc.tanggal_bulanan("2018-06", "2019-12-31")
+        dipilih = pc.pilih_keranjang(KERANJANG, self.POOL, seri, tanggal)
+        tx = pc.bangun_transaksi(tanggal, dipilih, seri, pc.BOBOT["saham"])
+        per_produk = {}
+        for t in tx:
+            per_produk.setdefault(t["produk"], set()).add(t["tanggal"])
+        self.assertTrue(all(len(v) == len(tanggal) for v in per_produk.values()))
+        pengganti = [t for t in tx if t["produk"] == "11"]
+        self.assertTrue(all(pc.LABEL_PENGGANTI_RD in t["catatan"] for t in pengganti))
+
+    def test_tanpa_pengganti_produk_dibuang(self):
+        seri = {1: self.seri_lengkap(), 2: self.seri_lengkap("2019-01", 28), 3: self.seri_lengkap()}
+        dipilih = pc.pilih_keranjang(KERANJANG, [], seri, pc.tanggal_bulanan("2018-06", "2019-06-30"))
+        self.assertEqual([p["id"] for p in dipilih if p["kaki"] == "lokal"], [1])
+
+    def test_pengganti_harus_punya_data_penuh_juga(self):
+        seri = {1: self.seri_lengkap(), 2: self.seri_lengkap("2019-01", 28), 3: self.seri_lengkap(), 11: self.seri_lengkap("2019-03", 20), 12: self.seri_lengkap()}
+        dipilih = pc.pilih_keranjang(KERANJANG, self.POOL, seri, pc.tanggal_bulanan("2018-06", "2019-06-30"))
+        self.assertEqual([p["id"] for p in dipilih if p["kaki"] == "lokal"], [1, 12])
+
+    def test_rebalance_alami_mengarahkan_setoran_ke_bagian_tertinggal(self):
+        lokal = seri_bulan("2018-01", [100 * (1.06 ** i) for i in range(30)])
+        glob = seri_bulan("2018-01", [100.0] * 30)
+        seri = {1: lokal, 2: lokal, 3: glob}
+        tanggal = pc.tanggal_bulanan("2018-01", "2019-12-31")
+        tx = pc.bangun_transaksi_dinamis(tanggal, KERANJANG, seri, pc.BOBOT["saham"])
+        arah = [t for t in tx if pc.CATATAN_ARAH in t["catatan"]]
+        self.assertTrue(arah)
+        for tgl in {t["tanggal"] for t in arah}:
+            bulan = [t for t in tx if t["tanggal"] == tgl]
+            self.assertAlmostEqual(sum(t["nominal"] for t in bulan), 1_000_000.0, delta=5)
+            self.assertGreater(sum(t["nominal"] for t in bulan if t["kaki"] == "global"), 500_000.0)
+        self.assertTrue(all(t["nominal"] > 0 for t in tx))
+        self.assertEqual(len({t["_id"] for t in tx}), len(tx))
+        info, harga, kurs = pc.info_harga(tx, KERANJANG, seri, None, tanggal[-1])
+        _, produk = ps.valuasi(tx, info, harga, kurs, tanggal[-1])
+        nilai = {}
+        for p in produk:
+            nilai[p["kaki"]] = nilai.get(p["kaki"], 0.0) + p["nilai"]
+        porsi_lokal = nilai["lokal"] / sum(nilai.values())
+        tanpa = pc.bangun_transaksi(tanggal, KERANJANG, seri, pc.BOBOT["saham"])
+        i2, h2, k2 = pc.info_harga(tanpa, KERANJANG, seri, None, tanggal[-1])
+        _, p2 = ps.valuasi(tanpa, i2, h2, k2, tanggal[-1])
+        n2 = {}
+        for p in p2:
+            n2[p["kaki"]] = n2.get(p["kaki"], 0.0) + p["nilai"]
+        self.assertLess(abs(porsi_lokal - 0.5), abs(n2["lokal"] / sum(n2.values()) - 0.5))
+
+    def test_tanpa_rebalance_tetap_pembagian_awal(self):
+        lokal = seri_bulan("2018-01", [100 * (1.06 ** i) for i in range(30)])
+        seri = {1: lokal, 2: lokal, 3: seri_bulan("2018-01", [100.0] * 30)}
+        tanggal = pc.tanggal_bulanan("2018-01", "2019-12-31")
+        tx = pc.bangun_transaksi_dinamis(tanggal, KERANJANG, seri, {"lokal": 0.75, "global": 0.25}, rebalance=False)
+        self.assertFalse(any(pc.CATATAN_ARAH in t["catatan"] for t in tx))
+        self.assertEqual({t["nominal"] for t in tx if t["kaki"] == "global"}, {250_000.0})
+
+
 class TesSemuaSkenarioTanpaTulisan(unittest.TestCase):
     KOLEKSI = ("portofolio_saya", "transaksi_saya", "transaksi_saya_log", "cek_kesehatan")
 
@@ -146,6 +220,37 @@ class TesSemuaSkenarioTanpaTulisan(unittest.TestCase):
             self.assertTrue(hasil[k]["contoh"]["pengganti"])
             self.assertTrue(any(p["kaki"] == "emas" for p in hasil[k]["produk"]))
         self.assertGreater(hasil["jelek_emas"]["ringkasan"]["untung_persen"], hasil["jelek"]["ringkasan"]["untung_persen"])
+
+    def test_alokasi_akhir_dekat_target_kecuali_melenceng_dan_produk_penuh(self):
+        try:
+            baris = pc.laporan_alokasi()
+        except Exception as e:
+            self.skipTest(f"data produksi tidak tersedia: {e}")
+        for r in baris:
+            if r["kunci"] == "melenceng":
+                self.assertGreater(r["selisih_maks_poin"], 15)
+            else:
+                self.assertLessEqual(r["selisih_maks_poin"], 5.0, r)
+        jelek = next(r for r in baris if r["kunci"] == "jelek")
+        self.assertTrue(jelek["pengganti"])
+
+    def test_tiap_produk_punya_data_di_seluruh_periode(self):
+        from backend.db import koneksi as kdb
+        try:
+            data = pc.siapkan_data(kdb.koneksi())
+            a = pc.analisis_contoh("jelek", data=data)
+        except Exception as e:
+            self.skipTest(f"data produksi tidak tersedia: {e}")
+        keranjang, pool, seri, emas = data
+        spec = pc.tentukan("jelek", keranjang, seri, emas, pool)
+        tanggal = pc.tanggal_bulanan(spec["mulai"], spec["acuan"])
+        dipilih = pc.pilih_keranjang(keranjang, pool, seri, tanggal)
+        for p in dipilih:
+            self.assertTrue(pc.penuh(seri[p["id"]], tanggal), p["nama"])
+        self.assertLessEqual({t["produk"] for t in a["transaksi"] if t["tipe_produk"] == "rd"}, {str(p["id"]) for p in dipilih})
+        self.assertTrue(any(p.get("catatan_pengganti") for p in a["produk"]))
+        self.assertTrue(a["contoh"]["pengganti_rd"])
+        self.assertTrue(any(pc.LABEL_PENGGANTI_RD in (t["catatan"] or "") for t in a["transaksi"]))
 
     def test_tanggal_acuan_pada_analisis_normal_tidak_mengubah_perilaku(self):
         import inspect

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test tests/heartbeat.test.mjs",
+    "test": "node --test tests/heartbeat.test.mjs tests/portofolioSaya.test.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
