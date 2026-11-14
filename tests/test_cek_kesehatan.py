@@ -272,11 +272,33 @@ class TesPengingat(unittest.TestCase):
 
 
 class TesKalenderLibur(unittest.TestCase):
-    def test_ok_selama_tahun_terisi(self):
-        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2026-12-15")))["status"], "ok")
+    def test_ok_sebelum_1_des_2026(self):
+        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2026-11-30")))["status"], "ok")
+
+    def test_info_2027_sementara_mulai_1_des_2026(self):
+        h = satu(ck.cek_kalender_libur(ctx("2026-12-01")))
+        self.assertEqual(h["status"], "info")
+        self.assertEqual(h["pesan"], "Kalender libur 2027 belum diverifikasi ke kalender resmi IDX.")
+        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2027-06-15")))["status"], "info")
+
+    def test_info_hilang_setelah_status_resmi(self):
+        from backend.core import libur_bursa as lb
+        asli = dict(lb.STATUS)
+        lb.STATUS[2027] = {"status": "resmi", "sumber": "tes"}
+        try:
+            self.assertEqual(lb.tahun_sementara(), [])
+            self.assertEqual(satu(ck.cek_kalender_libur(ctx("2026-12-15")))["status"], "ok")
+        finally:
+            lb.STATUS.clear()
+            lb.STATUS.update(asli)
+
+    def test_status_tahun(self):
+        from backend.core import libur_bursa as lb
+        self.assertEqual((lb.status_tahun(2026), lb.status_tahun(2027), lb.status_tahun(2028)), ("resmi", "sementara", None))
+        self.assertEqual(lb.tahun_sementara(), [2027])
 
     def test_peringatan_mulai_1_des_tahun_sebelumnya(self):
-        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2027-11-30")))["status"], "ok")
+        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2027-11-30")))["status"], "info")
         h = satu(ck.cek_kalender_libur(ctx("2027-12-01")))
         self.assertEqual(h["status"], "peringatan")
         self.assertIn("kalender libur 2028 belum diisi", h["pesan"])

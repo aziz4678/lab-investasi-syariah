@@ -268,8 +268,11 @@ def cek_kalender_libur(c):
     for tahun in (c.tgl.year, c.tgl.year + 1):
         if not lb.tahun_terisi(tahun) and c.tgl >= pd.Timestamp(tahun - 1, 12, 1):
             kurang.append(tahun)
+    sementara = [y for y in lb.tahun_sementara() if y >= c.tgl.year and c.tgl >= pd.Timestamp(y - 1, 12, 1)]
     if kurang:
         return [hasil("kalender_libur", "peringatan", f"kalender libur {', '.join(str(x) for x in kurang)} belum diisi (backend/core/libur_bursa.py); cek hari bursa memakai akhir pekan saja untuk tahun itu")]
+    if sementara:
+        return [hasil("kalender_libur", "info", f"Kalender libur {', '.join(str(y) for y in sementara)} belum diverifikasi ke kalender resmi IDX.")]
     return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
 
 

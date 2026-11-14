@@ -49,6 +49,19 @@ LIBUR = {
     },
 }
 
+STATUS = {
+    2026: {"status": "resmi", "sumber": "Pengumuman BEI Peng-00171/BEI.POP/09-2025, dicocokkan dengan data IHSG Jan-Nov 2026"},
+    2027: {"status": "sementara", "sumber": "ringkasan artikel Setneg tentang SKB 3 Menteri 1205/3/2 Tahun 2026 dan laporan media atas Peng-00169/BEI.POP/09-2026, belum dicocokkan ke kalender resmi IDX"},
+}
+
+
+def status_tahun(tahun):
+    return (STATUS.get(int(tahun)) or {}).get("status")
+
+
+def tahun_sementara():
+    return sorted(t for t in LIBUR if status_tahun(t) != "resmi")
+
 
 def tahun_terisi(tahun):
     return int(tahun) in LIBUR
