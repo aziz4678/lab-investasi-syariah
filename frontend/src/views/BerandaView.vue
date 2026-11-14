@@ -16,6 +16,7 @@ import Kerangka from "@/components/common/Kerangka.vue";
 import PanelPerawatan from "@/components/sistem/PanelPerawatan.vue";
 import PengingatDividen from "@/components/dividen/PengingatDividen.vue";
 import PanelSumberData from "@/components/sistem/PanelSumberData.vue";
+import BannerKesehatan from "@/components/sistem/BannerKesehatan.vue";
 
 const status = inject("status");
 const muatStatus = inject("muatStatus");
@@ -152,6 +153,7 @@ function waktu(s) {
 
 <template>
   <div class="space-y-5">
+    <BannerKesehatan />
 
     <template v-if="!pasar">
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
