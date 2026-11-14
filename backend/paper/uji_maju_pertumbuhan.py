@@ -5,6 +5,7 @@ import pandas as pd
 
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
+from backend.paper import koreksi_mekanisme as km
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import parameter_uji_maju as pu
 
@@ -80,6 +81,7 @@ def harian(hari_ini=None):
         print("aturan belum dikunci, tidak melakukan apa-apa")
         return
     prm = pu.verifikasi(db)
+    km.pastikan(db)
     if sekarang < prm["mulai"] - pd.Timedelta(days=1):
         print(f"{sekarang:%Y-%m-%d}: belum waktunya (pilih ETF emas di hari bursa terakhir Nov 2026, mesin aktif {prm["mulai"]:%Y-%m-%d})")
         return

@@ -62,5 +62,21 @@ class TesParameter(unittest.TestCase):
         self.assertEqual(ck.cek_parameter_mesin(ck.Ctx("2026-11-20"))[0]["status"], "ok")
 
 
+class TesKoreksiMekanisme(unittest.TestCase):
+    def test_entri_unik_dan_lengkap(self):
+        from backend.paper import koreksi_mekanisme as km
+        ids = [x["_id"] for x in km.ENTRI]
+        self.assertEqual(len(ids), len(set(ids)))
+        for x in km.ENTRI:
+            for k in ("tanggal", "commit", "strategi", "isi", "dampak"):
+                self.assertTrue(x.get(k))
+        self.assertIn("a77c0ff", {x["commit"] for x in km.ENTRI})
+
+    def test_catatan_amandemen_menyebut_penggantian(self):
+        from backend.paper import koreksi_mekanisme as km
+        for kata in ("Jan 2027", "31 Des 2026", "a1", "a2", "tidak diubah"):
+            self.assertIn(kata, km.CATATAN_AMANDEMEN)
+
+
 if __name__ == "__main__":
     unittest.main()
