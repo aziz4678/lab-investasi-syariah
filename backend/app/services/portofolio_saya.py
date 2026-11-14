@@ -465,14 +465,18 @@ def pembanding(transaksi, target_kode, nilai_sekarang, hari_ini, db=None):
     return out
 
 
-def analisis(pid, hari_ini=None, db=None, repo=None):
+def analisis(pid, hari_ini=None, db=None, repo=None, tanggal_acuan=None):
     repo = repo or Repo(db)
-    hari_ini = pd.Timestamp(hari_ini or date.today()).normalize()
     porto = repo.db[KOLEKSI_PORTO].find_one({"_id": pid})
     if porto is None:
         raise KeyError("portofolio tidak ditemukan")
-    transaksi = repo.transaksi(pid)
-    info, harga, kurs = info_dan_harga(transaksi, repo.db)
+    return analisis_dari(porto, repo.transaksi(pid), tanggal_acuan or hari_ini, repo.db)
+
+
+def analisis_dari(porto, transaksi, hari_ini=None, db=None, info=None, harga=None, kurs=None):
+    hari_ini = pd.Timestamp(hari_ini or date.today()).normalize()
+    if info is None:
+        info, harga, kurs = info_dan_harga(transaksi, db)
     baris, produk = valuasi(transaksi, info, harga, kurs, hari_ini)
     total = ringkasan_total(produk, transaksi, hari_ini)
     nilai_kaki = {}
@@ -482,7 +486,7 @@ def analisis(pid, hari_ini=None, db=None, repo=None):
     alok = alokasi_vs_target(nilai_kaki, target, hari_ini.month == 12)
     return bersih({"portofolio": porto, "nama_target": NAMA_TARGET.get(porto["target"]), "ringkasan": total, "produk": produk, "alokasi": alok, "transaksi": baris,
                    "menunggu_nav": [b["_id"] for b in baris if b["status_unit"] == "menunggu_nav"], "deret": deret_waktu(baris, harga, kurs, info, hari_ini),
-                   "pembanding": pembanding(transaksi, porto["target"], total["nilai"], hari_ini, repo.db), "hari_ini": tgl_tgl(hari_ini)})
+                   "pembanding": pembanding(transaksi, porto["target"], total["nilai"], hari_ini, db), "hari_ini": tgl_tgl(hari_ini)})
 
 
 def ada_beli_bulan_ini(db, pid, hari_ini):

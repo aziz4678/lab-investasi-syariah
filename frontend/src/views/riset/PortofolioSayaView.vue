@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { Plus, ListChecks, AlertTriangle } from "lucide-vue-next";
+import { Plus, ListChecks, AlertTriangle, FlaskConical } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { rupiahRingkas, rupiahBertanda } from "@/utils/format";
 import Kerangka from "@/components/common/Kerangka.vue";
@@ -25,6 +25,9 @@ const menyimpan = ref(false);
 const galat = ref("");
 const nilaiAwal = ref(null);
 const draf = ref(null);
+const skenario = ref("");
+const daftarContoh = ref([]);
+const modeContoh = computed(() => !!skenario.value);
 const formPorto = ref({ nama: "", target: "pertumbuhan_saham", setoran_rutin: 0, tanggal_setor: 1 });
 const pesanPorto = ref("");
 
@@ -45,16 +48,23 @@ const isiFormPorto = () => {
   if (p) formPorto.value = { nama: p.nama, target: p.target, setoran_rutin: p.setoran_rutin ?? 0, tanggal_setor: p.tanggal_setor ?? 1, tanggal_mulai: p.tanggal_mulai };
 };
 const muatAnalisis = async () => {
-  if (!pid.value) return;
+  if (!modeContoh.value && !pid.value) return;
   memuat.value = true;
-  a.value = await ambil(`portofolio-saya/${pid.value}/analisis`).catch(() => null);
+  const jalur = modeContoh.value ? `portofolio-saya/contoh/${skenario.value}` : `portofolio-saya/${pid.value}/analisis`;
+  a.value = await ambil(jalur).catch(() => null);
   memuat.value = false;
   siap.value = true;
 };
 onMounted(async () => {
+  ambil("portofolio-saya/contoh").then((x) => (daftarContoh.value = x.skenario)).catch(() => {});
   await muatDaftar();
   isiFormPorto();
   await muatAnalisis();
+});
+watch(skenario, () => {
+  nilaiAwal.value = null;
+  galat.value = "";
+  muatAnalisis();
 });
 watch(pid, () => {
   isiFormPorto();
@@ -148,29 +158,54 @@ const peringatanData = computed(() => {
   return out;
 });
 const pb = computed(() => a.value?.pembanding);
+const kalimatRugi = computed(() => {
+  const r = ringkas.value;
+  if (!r || r.untung == null || r.untung >= 0 || r.untung_persen == null) return "";
+  return `Turun ${Math.abs(r.untung_persen * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}% dari yang dibeli. Wajar untuk saham; yang menentukan adalah tetap setor rutin.`;
+});
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="space-y-5" :class="modeContoh ? 'border-l-4 border-s5 pl-3 sm:pl-4' : ''">
     <header class="space-y-3">
       <p class="m-0 text-[13px] leading-relaxed text-ink-2">Catat pembelian nyata yang kamu lakukan sendiri. Aplikasi ini menghitung nilai dan analisanya. Data ini milikmu, terpisah dari paper dan uji maju.</p>
       <div class="flex flex-wrap items-center gap-2">
-        <Segmen v-if="pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
-        <button class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
+        <Segmen v-if="!modeContoh && pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
+        <button v-if="!modeContoh" class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
+        <label v-if="daftarContoh.length" class="inline-flex items-center gap-2 text-[12px] text-muted">Lihat contoh
+          <select v-model="skenario" class="h-8 rounded-full bg-surface-2 px-3 text-[13px] text-ink outline-none" aria-label="Lihat contoh skenario">
+            <option value="">Portofolio saya</option>
+            <option v-for="x in daftarContoh" :key="x.kunci" :value="x.kunci">{{ x.label }}</option>
+          </select>
+        </label>
       </div>
     </header>
+    <section v-if="modeContoh" class="rounded-3xl border-2 border-s5 bg-s5/10 px-4 py-4 sm:px-6" role="status">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 space-y-1.5">
+          <div class="flex items-start gap-2 text-[13px] font-semibold text-s5"><FlaskConical class="mt-0.5 h-4 w-4 shrink-0" />MODE CONTOH — data simulasi dari harga masa lalu, bukan portofoliomu</div>
+          <p v-if="a?.contoh" class="m-0 text-[13px] leading-relaxed text-ink"><b class="font-medium">{{ a.contoh.label }}</b> · {{ a.contoh.periode }} (dilihat {{ new Date(a.contoh.acuan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) }}). {{ a.contoh.kalimat }}</p>
+          <p v-if="a?.contoh?.catatan_periode" class="m-0 text-[12px] leading-relaxed text-ink-2">{{ a.contoh.catatan_periode }}</p>
+          <p v-if="a?.contoh?.pengganti" class="m-0 text-[12px] leading-relaxed text-kuning">{{ a.contoh.pengganti }}</p>
+          <p v-for="(c, i) in a?.contoh?.catatan ?? []" :key="i" class="m-0 text-[11px] leading-relaxed text-muted">{{ c }}</p>
+          <div v-if="a?.contoh?.pengingat" class="rounded-2xl bg-kuning-bg px-4 py-2 text-[12px] text-kuning"><b class="font-medium">Contoh pengingat ({{ a.contoh.pengingat.status }}):</b> {{ a.contoh.pengingat.pesan }}. Hanya tampilan, tidak masuk pemeriksa kesehatan.</div>
+        </div>
+        <button class="tombol shrink-0" @click="skenario = ''">Kembali ke portofolio saya</button>
+      </div>
+    </section>
     <NavLengket :item="NAV" />
 
     <section id="ringkasan" class="scroll-mt-16 space-y-5">
       <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
       <KartuRingkasan v-else-if="!adaTransaksi" judul="Nilai sekarang" besar="Rp0" kalimat="Belum ada transaksi. Catat pembelian pertamamu di bagian Catat, lalu nilai dan analisanya muncul di sini." label="Catatan pribadi, bukan nasihat keuangan." />
       <KartuRingkasan v-else judul="Nilai sekarang" :besar="rupiahRingkas(ringkas.nilai)" :kalimat="`${a.nama_target} · ${a.transaksi.length} transaksi sejak ${a.transaksi[0].tanggal}`" :item="itemRingkas" label="Catatan pribadi dari transaksi yang kamu isi sendiri; bukan nasihat keuangan.">
+        <p v-if="kalimatRugi" class="m-0 mt-3 rounded-2xl bg-turun-bg px-4 py-2 text-[12px] leading-relaxed text-ink-2">{{ kalimatRugi }}</p>
         <ul v-if="peringatanData.length" class="m-0 mt-3 list-none space-y-1 p-0">
           <li v-for="(x, i) in peringatanData" :key="i" class="flex items-start gap-2 rounded-2xl bg-kuning-bg px-4 py-2 text-[12px] text-kuning"><AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />{{ x }}</li>
         </ul>
       </KartuRingkasan>
 
-      <div class="panel px-4 py-5 sm:px-6">
+      <div v-if="!modeContoh" class="panel px-4 py-5 sm:px-6">
         <div class="text-[14px] font-medium">Pengaturan portofolio</div>
         <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="min-w-0"><label class="text-xs text-muted">Nama</label>
@@ -188,10 +223,11 @@ const pb = computed(() => a.value?.pembanding);
     </section>
 
     <section id="catat" class="scroll-mt-16 space-y-5">
-      <div class="panel px-4 py-5 sm:px-6">
+      <div class="panel px-4 py-5 sm:px-6" :class="modeContoh ? 'pointer-events-none opacity-50' : ''" :inert="modeContoh">
+        <p v-if="modeContoh" class="m-0 mb-3 rounded-2xl bg-s5/10 px-4 py-2 text-[12px] text-s5">Dinonaktifkan di mode contoh: transaksi tidak bisa ditambah, diubah, atau dihapus.</p>
         <FormTransaksi :portofolio-id="pid" :aplikasi="meta?.aplikasi ?? []" :fee-default="meta?.fee_default ?? {}" :nilai-awal="nilaiAwal" :menyimpan="menyimpan" :galat="galat" @simpan="simpanTransaksi" @batal="batalUbah" />
       </div>
-      <div class="panel px-4 py-5 sm:px-6">
+      <div v-if="!modeContoh" class="panel px-4 py-5 sm:px-6">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2 text-[14px] font-medium"><ListChecks class="h-4 w-4 text-aksen" />Isi dari daftar belanja bulan ini</div>
           <button class="tombol" @click="isiDariBelanja">Tampilkan draf</button>
@@ -251,7 +287,7 @@ const pb = computed(() => a.value?.pembanding);
     <section id="riwayat" class="panel scroll-mt-16 px-4 py-5 sm:px-6">
       <div class="text-[14px] font-medium">Riwayat transaksi</div>
       <p class="m-0 mt-1 mb-3 text-[12px] text-muted">Tiap tambah, ubah, dan hapus dicatat di log terpisah.</p>
-      <TabelTransaksi :transaksi="a?.transaksi ?? []" @ubah="ubahTransaksi" @hapus="hapusTransaksi" />
+      <TabelTransaksi :transaksi="a?.transaksi ?? []" :baca="modeContoh" @ubah="ubahTransaksi" @hapus="hapusTransaksi" />
     </section>
   </div>
 </template>

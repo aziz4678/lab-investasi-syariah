@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Body, HTTPException
 
+from backend.app.services import belanja as bl
+from backend.app.services import portofolio_contoh as pc
 from backend.app.services import portofolio_saya as ps
 from backend.app.services.reksadana import bersih
 
@@ -31,6 +33,16 @@ def simpan_portofolio(data: dict = Body(...)):
 @router.get("/produk")
 def produk(q: str = ""):
     return ps.cari_produk(q)
+
+
+@router.get("/contoh")
+def daftar_contoh():
+    return {"skenario": pc.daftar_skenario()}
+
+
+@router.get("/contoh/{skenario}")
+def contoh(skenario: str):
+    return _jalan(lambda: bl.dari_cache("contoh", (skenario,), lambda: pc.analisis_contoh(skenario)))
 
 
 @router.get("/{pid}/analisis")

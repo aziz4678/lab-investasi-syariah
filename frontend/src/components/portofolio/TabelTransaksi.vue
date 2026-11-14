@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { Pencil, Trash2, Check, X } from "lucide-vue-next";
 import { rupiahRingkas } from "@/utils/format";
 
-defineProps({ transaksi: { type: Array, default: () => [] } });
+defineProps({ transaksi: { type: Array, default: () => [] }, baca: Boolean });
 const emit = defineEmits(["ubah", "hapus"]);
 const konfirmasi = ref("");
 
@@ -28,7 +28,7 @@ const hapus = (t) => {
             <th class="px-2 text-right font-normal">Nominal</th>
             <th class="px-2 text-right font-normal">Unit</th>
             <th class="px-2 text-right font-normal">Biaya</th>
-            <th class="pl-2 text-right font-normal"></th>
+            <th v-if="!baca" class="pl-2 text-right font-normal"></th>
           </tr>
         </thead>
         <tbody>
@@ -43,7 +43,7 @@ const hapus = (t) => {
               <template v-else>{{ unitTeks(t) }}</template>
             </td>
             <td class="px-2 py-2 text-right tabular-nums">{{ rpLengkap(t.biaya) }}</td>
-            <td class="py-2 pl-2 text-right whitespace-nowrap">
+            <td v-if="!baca" class="py-2 pl-2 text-right whitespace-nowrap">
               <template v-if="konfirmasi === t._id">
                 <span class="mr-1 text-[11px] text-turun">Hapus?</span>
                 <button class="tombol !h-7" aria-label="Ya, hapus" @click="hapus(t)"><Check class="h-3.5 w-3.5" /></button>
