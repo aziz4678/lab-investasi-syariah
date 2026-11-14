@@ -182,7 +182,7 @@ const langkah = computed(() => {
 });
 const risikoKartu = computed(() => [
   { judul: "Penghasilannya kecil", angka: `${rentangAman.value}/th`, kelas: "text-ink", teks: "Yang diambil hanya sebagian kecil modal per tahun supaya daya beli modal tetap terjaga." },
-  { judul: "Pernah turun sedikit", angka: ddKonservatif.value, kelas: "text-turun", teks: "Penurunan terdalam di data masa lalu untuk gaya ini. Bukan jaminan tidak akan turun lebih dalam." },
+  { judul: "Pernah turun sedikit", angka: ddKonservatif.value, kelas: "text-turun", teks: "Penurunan terdalam di data masa lalu untuk pilihan ini. Bukan jaminan tidak akan turun lebih dalam." },
   terkunci.value
     ? { judul: "Sukuk negara tidak bisa dicairkan", angka: "", kelas: "", teks: "Bagian sukuk negara ditahan sampai jatuh tempo. Sisanya reksa dana, bisa dicairkan 1–7 hari kerja." }
     : { judul: "Bukan tabungan", angka: "", kelas: "", teks: "Reksa dana tidak dijamin LPS dan nilainya bisa turun sementara. Dicairkan 1–7 hari kerja." },
@@ -340,7 +340,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               Rata-rata RD saham cenderung terlalu bagus karena {{ profil.lompatan.saham_nov2019_turun }} penurunan tajam di November 2019 dikeluarkan sebagai lompatan data. Moderat/Agresif = RD saham + sisanya RD pendapatan tetap & pasar uang 50/50.
             </p>
           </div>
-          <Panel judul="Atur dan lihat hasil simulasi" :ket="`Modal investasi ${rupiahRingkas(r.sisa)}, gaya ${NAMA_OPSI[opsi]}, mulai sekarang`">
+          <Panel judul="Atur dan lihat hasil simulasi" :ket="`Modal investasi ${rupiahRingkas(r.sisa)}, isi ${NAMA_OPSI[opsi]}, mulai sekarang`">
           <template #aksi><Pemutar v-if="simMemuat" /></template>
           <div class="grid gap-4">
             <div class="min-w-0">
@@ -513,7 +513,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           <section class="panel px-4 py-5 sm:px-6">
             <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
               <li v-if="r.penghasilan != null">Dari modal investasi {{ rupiahRingkas(r.sisa) }}, aman mengambil sekitar <b class="font-medium text-ink">{{ rupiahRingkas(r.penghasilan) }} per bulan</b> ({{ pr(r.aman) }} per tahun), naik ikut inflasi.</li>
-              <li v-else>Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk gaya ini.</li>
+              <li v-else>Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk pilihan ini.</li>
               <li>Setelah 5 tahun, biasanya daya beli modal {{ modalPersen(port?.di_aman_5?.median) }}; di kondisi terburuk {{ modalPersen(port?.di_aman_5?.terburuk) }}. Penurunan terdalam di masa lalu {{ ddKonservatif }}.</li>
               <li>Penghasilannya kecil karena yang dijaga adalah modal. Belum terbukti di masa depan.</li>
             </ul>
@@ -527,7 +527,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
       <section class="space-y-5">
         <div class="panel px-4 py-5 sm:px-6">
           <div class="text-[14px] font-medium">Isi data</div>
-          <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="mt-3 grid gap-4 sm:grid-cols-3">
             <div class="min-w-0">
               <label class="text-xs text-muted">Modal</label>
               <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
@@ -546,16 +546,20 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
                 <input v-model.number="bulanDarurat" type="number" min="0" max="36" class="h-10 w-full min-w-0 bg-transparent text-[15px] outline-none" /><span class="text-[13px] text-muted">bulan</span></div>
               <div class="mt-1 text-[11px] text-muted">= {{ rupiahRingkas(pengeluaran * (bulanDarurat || 0)) }}, dipisah dari modal investasi</div>
             </div>
-            <div class="min-w-0">
-              <div class="text-xs text-muted">Aplikasi yang kamu punya</div>
-              <PilihAplikasi v-model="apps" class="mt-1.5" />
-            </div>
           </div>
-          <div class="mt-4 flex flex-wrap items-center gap-3">
-            <div class="text-xs text-muted">Gaya</div>
-            <Segmen v-model="gaya" :pilihan="PILIHAN_GAYA" kecil />
-            <Segmen v-if="terkunci" v-model="porsiSbn" :pilihan="PILIHAN_SBN" kecil />
-            <span v-if="risikoGaya[gaya]" class="chip" :class="KELAS_RISIKO[risikoGaya[gaya].label]">Risiko {{ risikoGaya[gaya].label.toLowerCase() }}</span>
+          <div class="mt-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+            <div class="min-w-0">
+              <div class="text-xs text-muted">Isi portofolio</div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                <Segmen v-model="gaya" :pilihan="PILIHAN_GAYA" kecil />
+                <Segmen v-if="terkunci" v-model="porsiSbn" :pilihan="PILIHAN_SBN" kecil />
+                <span v-if="risikoGaya[gaya]" class="chip" :class="KELAS_RISIKO[risikoGaya[gaya].label]">Risiko {{ risikoGaya[gaya].label.toLowerCase() }}</span>
+              </div>
+            </div>
+            <div class="min-w-0 sm:text-right">
+              <div class="text-xs text-muted">Aplikasi yang kamu punya</div>
+              <PilihAplikasi v-model="apps" kanan class="mt-1.5" />
+            </div>
           </div>
           <p v-if="r?.darurat_kurang" class="m-0 mt-3 text-xs text-kuning">Dana darurat lebih besar dari modal; seluruh modal dipakai sebagai dana darurat.</p>
         </div>
@@ -565,7 +569,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         <KartuRingkasan v-else-if="modalKecil" judul="Modal masih kecil" :kalimat="belanjaBaru?.label_modal_kecil ?? 'Modal masih kecil — pakai sebagai dana darurat dulu; penghasilan rutin baru berarti di modal besar.'"
           label="Diuji dengan data masa lalu; belum terbukti di masa depan." />
         <KartuRingkasan v-else judul="Penghasilan per bulan, berdasarkan masa lalu" :besar="r.penghasilan != null ? rupiahRingkas(r.penghasilan) : ''" :satuan="r.penghasilan != null ? 'per bulan' : ''"
-          :kalimat="r.penghasilan != null ? `Naik ikut inflasi tiap tahun · modal investasi ${rupiahRingkas(r.sisa)} tetap terjaga daya belinya.` : 'Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk gaya ini.'"
+          :kalimat="r.penghasilan != null ? `Naik ikut inflasi tiap tahun · modal investasi ${rupiahRingkas(r.sisa)} tetap terjaga daya belinya.` : 'Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk pilihan ini.'"
           :item="itemRingkas" :risiko="kalimatRisiko" label="Diuji dengan data masa lalu; belum terbukti di masa depan.">
           <p class="m-0 mt-3 text-[12px] leading-relaxed text-ink-2"><b class="font-medium text-ink">Kapan bisa dicairkan:</b> {{ kapanCair.utama }} · {{ kapanCair.ket }}<template v-if="terkunci && r.terkunci"> · uang terkunci di sukuk negara {{ rupiahRingkas(r.terkunci) }} ({{ pr(r.terkunci_porsi, 0) }})</template>.</p>
         </KartuRingkasan>

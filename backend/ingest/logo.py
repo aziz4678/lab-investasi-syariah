@@ -21,6 +21,7 @@ MI_DOMAIN = {
     "samuel": "samuel.co.id", "insight": "insightinvestments.co.id", "uob": "uobam.co.id", "phillip": "phillip.co.id",
     "pinnacle": "pinnacleinvestment.co.id", "danareksa": "danareksa.co.id",
 }
+MEREK_TAMBAHAN = {"stockbit": {"nama": "Stockbit", "situs": "https://stockbit.com", "url": "https://web-assets.stockbit.com/apple-touch-icon.png"}}
 PENERBIT_DOMAIN = {
     "ishares": "ishares.com", "blackrock": "ishares.com", "vanguard": "vanguard.com", "state street": "ssga.com", "sp funds": "spfunds.com",
     "vaneck": "vaneck.com", "wahed": "wahedinvest.com", "invesco": "invesco.com", "hsbc": "hsbc.com", "schwab": "schwab.com",
@@ -138,6 +139,24 @@ def merek(paksa=False):
             print(f"Logo merek {p['nama']}: tidak ditemukan di halaman utama (alt '{p['logo_alt']}'), memakai ikon")
 
 
+def merek_tambahan(paksa=False):
+    db = dt.db()
+    batas = datetime.now() - timedelta(days=UMUR_HARI)
+    for k, p in MEREK_TAMBAHAN.items():
+        kunci = f"merek/{k}"
+        lama = db.logo_info.find_one({"_id": kunci}) or {}
+        if not paksa and lama.get("ada") and lama.get("dicek", datetime.min) > batas:
+            continue
+        x = ambil(p["url"])
+        if x:
+            dt.simpan_arsip(f"logo/{kunci}", x[0], "logo")
+            db.logo_info.replace_one({"_id": kunci}, {"_id": kunci, "domain": domain(p["situs"]), "ada": True, "sumber": p["url"], "dicek": datetime.now()}, upsert=True)
+            print(f"Logo merek {p['nama']}: {len(x[0])} byte dari {p['url']}")
+        else:
+            db.logo_info.update_one({"_id": kunci}, {"$set": {"dicek": datetime.now(), "ada": bool(lama.get("ada"))}}, upsert=True)
+            print(f"Logo merek {p['nama']}: gagal diunduh dari {p['url']}")
+
+
 def target():
     db = d.koneksi()
     hasil = {}
@@ -193,6 +212,7 @@ def jalan(paksa=False):
             if (i + 1) % 50 == 0:
                 print(f"  {i + 1}/{len(antre)} diproses ({ok} ada, {gagal} tanpa logo)")
     merek(paksa)
+    merek_tambahan(paksa)
     total = db.logo_info.count_documents({"ada": True})
     print(f"SELESAI: {ok} logo baru, {gagal} tidak ketemu (pakai inisial). Total logo tersimpan: {total}")
 

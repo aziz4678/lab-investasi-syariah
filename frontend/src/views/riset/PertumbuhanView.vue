@@ -199,7 +199,7 @@ const risiko = computed(() => {
       <section class="space-y-5">
         <div class="panel px-4 py-5 sm:px-6">
           <div class="text-[14px] font-medium">Isi data</div>
-          <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div class="min-w-0">
               <label class="text-xs text-muted">Setoran per bulan</label>
               <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
@@ -210,14 +210,16 @@ const risiko = computed(() => {
               <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
                 <input :value="tampilRp(modalAwal)" inputmode="numeric" placeholder="0" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" @input="(e) => (modalAwal = angka(e.target.value))" /></div>
             </div>
+          </div>
+          <div class="mt-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <div class="min-w-0">
-              <div class="text-xs text-muted">Aplikasi yang kamu punya</div>
-              <PilihAplikasi v-model="apps" class="mt-1.5" />
-            </div>
-            <div class="min-w-0">
-              <div class="text-xs text-muted">Gaya</div>
+              <div class="text-xs text-muted">Campuran</div>
               <Segmen v-model="gaya" :pilihan="PILIHAN_GAYA" kecil class="mt-1.5" />
-              <div class="mt-1 text-[11px] text-muted">{{ gaya === "saham" ? "50% Indonesia + 50% global" : "40% Indonesia + 40% global + 20% emas" }}</div>
+              <div class="mt-1.5 text-[11px] text-muted">{{ gaya === "saham" ? "50% Indonesia + 50% global" : "40% Indonesia + 40% global + 20% emas" }}</div>
+            </div>
+            <div class="min-w-0 sm:text-right">
+              <div class="text-xs text-muted">Aplikasi yang kamu punya</div>
+              <PilihAplikasi v-model="apps" kanan class="mt-1.5" />
             </div>
           </div>
         </div>
