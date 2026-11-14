@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { Plus, ListChecks, AlertTriangle, FlaskConical } from "lucide-vue-next";
+import { Plus, ListChecks, AlertTriangle, FlaskConical, Bell } from "lucide-vue-next";
 import { ambil, kirim } from "@/api/client";
 import { rupiahRingkas, rupiahBertanda } from "@/utils/format";
 import Kerangka from "@/components/common/Kerangka.vue";
@@ -166,31 +166,34 @@ const kalimatRugi = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-5" :class="modeContoh ? 'border-l-4 border-s5 pl-3 sm:pl-4' : ''">
+  <div class="space-y-5">
     <header class="space-y-3">
       <p class="m-0 text-[13px] leading-relaxed text-ink-2">Catat pembelian nyata yang kamu lakukan sendiri. Aplikasi ini menghitung nilai dan analisanya. Data ini milikmu, terpisah dari paper dan uji maju.</p>
-      <div class="flex flex-wrap items-center gap-2">
-        <Segmen v-if="!modeContoh && pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
-        <button v-if="!modeContoh" class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
-        <label v-if="daftarContoh.length" class="inline-flex items-center gap-2 text-[12px] text-muted">Lihat contoh
-          <select v-model="skenario" class="h-8 rounded-full bg-surface-2 px-3 text-[13px] text-ink outline-none" aria-label="Lihat contoh skenario">
-            <option value="">Portofolio saya</option>
-            <option v-for="x in daftarContoh" :key="x.kunci" :value="x.kunci">{{ x.label }}</option>
-          </select>
-        </label>
+      <div v-if="!modeContoh" class="flex flex-wrap items-center gap-2">
+        <Segmen v-if="pilihanPorto.length > 1" v-model="pid" :pilihan="pilihanPorto" kecil />
+        <button class="tombol" @click="baruPorto"><Plus class="h-3.5 w-3.5" />Portofolio baru</button>
+        <button v-if="daftarContoh.length" class="tombol sm:ml-auto" @click="skenario = daftarContoh[0].kunci"><FlaskConical class="h-3.5 w-3.5 text-s5" />Lihat contoh tampilan</button>
       </div>
     </header>
-    <section v-if="modeContoh" class="rounded-3xl border-2 border-s5 bg-s5/10 px-4 py-4 sm:px-6" role="status">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0 space-y-1.5">
-          <div class="flex items-start gap-2 text-[13px] font-semibold text-s5"><FlaskConical class="mt-0.5 h-4 w-4 shrink-0" />MODE CONTOH — data simulasi dari harga masa lalu, bukan portofoliomu</div>
-          <p v-if="a?.contoh" class="m-0 text-[13px] leading-relaxed text-ink"><b class="font-medium">{{ a.contoh.label }}</b> · {{ a.contoh.periode }} (dilihat {{ new Date(a.contoh.acuan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) }}). {{ a.contoh.kalimat }}</p>
-          <p v-if="a?.contoh?.catatan_periode" class="m-0 text-[12px] leading-relaxed text-ink-2">{{ a.contoh.catatan_periode }}</p>
-          <p v-if="a?.contoh?.pengganti" class="m-0 text-[12px] leading-relaxed text-kuning">{{ a.contoh.pengganti }}</p>
-          <p v-for="(c, i) in a?.contoh?.catatan ?? []" :key="i" class="m-0 text-[11px] leading-relaxed text-muted">{{ c }}</p>
-          <div v-if="a?.contoh?.pengingat" class="rounded-2xl bg-kuning-bg px-4 py-2 text-[12px] text-kuning"><b class="font-medium">Contoh pengingat ({{ a.contoh.pengingat.status }}):</b> {{ a.contoh.pengingat.pesan }}. Hanya tampilan, tidak masuk pemeriksa kesehatan.</div>
+    <section v-if="modeContoh" class="space-y-3 rounded-3xl border-2 border-s5 bg-s5/10 px-4 py-4 sm:px-6 sm:py-5" role="status">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-s5 px-3 py-1 text-[11px] font-semibold tracking-wide text-white"><FlaskConical class="h-3.5 w-3.5" />MODE CONTOH</span>
+          <span class="text-[13px] text-ink-2">Data simulasi dari harga masa lalu, bukan portofoliomu.</span>
         </div>
         <button class="tombol shrink-0" @click="skenario = ''">Kembali ke portofolio saya</button>
+      </div>
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Pilih skenario contoh">
+        <button v-for="x in daftarContoh" :key="x.kunci" type="button" :aria-pressed="skenario === x.kunci" class="h-8 shrink-0 rounded-full border px-3.5 text-[13px] font-medium whitespace-nowrap transition"
+          :class="skenario === x.kunci ? 'border-s5 bg-s5 text-white' : 'border-garis bg-surface text-ink-2 hover:border-s5'" @click="skenario = x.kunci">{{ x.label }}</button>
+      </div>
+      <div v-if="a?.contoh" class="space-y-2">
+        <div class="text-[15px] font-semibold">{{ a.contoh.label }} <span class="font-normal text-ink-2">· {{ a.contoh.periode }}</span></div>
+        <p class="m-0 text-[13px] leading-relaxed text-ink">{{ a.contoh.kalimat }}</p>
+        <p v-if="a.contoh.catatan_periode" class="m-0 text-[12px] leading-relaxed text-ink-2">{{ a.contoh.catatan_periode }}</p>
+        <div v-if="a.contoh.pengganti" class="flex items-start gap-2 rounded-2xl bg-kuning-bg px-3 py-2 text-[12px] leading-relaxed text-kuning"><AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />{{ a.contoh.pengganti }}</div>
+        <div v-if="a.contoh.pengingat" class="flex items-start gap-2 rounded-2xl bg-kuning-bg px-3 py-2 text-[12px] leading-relaxed text-kuning"><Bell class="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><b class="font-medium">Pengingat yang akan muncul:</b> belum ada setoran bulan ini, padahal sudah lewat tanggal setor (tanggal 3). Hanya tampilan; tidak masuk pemeriksa kesehatan.</span></div>
+        <details class="text-[12px] text-muted"><summary class="cursor-pointer">Tentang data contoh</summary><p v-for="(c, i) in a.contoh.catatan" :key="i" class="m-0 mt-1 leading-relaxed">{{ c }} Tanggal acuan {{ new Date(a.contoh.acuan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) }}.</p></details>
       </div>
     </section>
     <NavLengket :item="NAV" />
