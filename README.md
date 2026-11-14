@@ -32,7 +32,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | **Syariah Global + Emas** (H37) | Lolos dev dan holdout (pasca hasil); **uji maju mulai 1 Des 2026**, aturan dikunci 12 Nov 2026, evaluasi pertama Jan 2028 | 40% JII / 40% global syariah / 20% emas (ETF emas syariah), rebalance Desember. Dev 2001-2013: CAGR 14,6%, DD -34,2% (H35 14,1%, -42,6%). Holdout 2014-Okt 2026: 6,7%, -13,4% (H35 5,1%, -19,0%); margin DD holdout 5,6 poin (batas 5) dan sebagian besar keunggulan dari emas 2024-2025. Sensitivitas: bobot 45/45/10 gagal K1 (2/3) di dev dan holdout, 35/35/30 juga gagal K1 di holdout; spread emas 1% dan 6% lolos 3/3. Uji maju menilai pelaksanaan produk nyata, bukan bukti edge. |
 | PEAD / kejutan laba (H36) | Gagal di holdout | Dev 2020-2023 lulus (CAGR 17,1%) hanya karena strategi berada di kas saat jatuhnya pasar 2020 dan satu trade BYAN. Holdout 2024-2026: CAGR 3,0% vs bobot sama 7,8%; excess per event -0,76%; tanpa saham batu bara 1,4% vs 5,3%. |
 | Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan 25 Okt 2026 (keputusan user). |
-| Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
+| Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Edge kotor hampir nol; biaya (±0,9–1,3%) memperjelas kegagalan, bukan penyebab utama (diagnostik 14 Nov 2026). Biaya model ±1,2% pulang-pergi; lihat [RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md) Standar seragam butir f. |
 | Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |
 | Screener swing "bottom reversal" di saham bertren naik (H27) | Gagal di dev 2010-2019 | Sebelum biaya pun hasilnya nol, kalah dari beli saham acak. |
 | Gap up yang celahnya belum ditutup (H28) | Gagal di dev 2010-2019 | Jarang terjadi (29 kali dalam 10 tahun) dan setelahnya harga rata-rata turun. |
@@ -45,7 +45,7 @@ Katalog lengkap **53 hipotesis** (per sub-ID, = 37 ID induk H0-H37 tanpa H24; st
 
 - Hipotesis dan kriteria lulus ditulis **sebelum** uji dijalankan; tidak ada varian baru setelah melihat hasil.
 - Data dibagi **dev** (untuk menguji) dan **holdout** (dibuka sekali, hanya kalau dev lulus).
-- Biaya transaksi model ±1,2% pulang-pergi (fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi).
+- Biaya transaksi model ±1,2% pulang-pergi (fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi) (model konservatif; biaya realistis saham likuid ±0,9%, lihat [RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md) Standar seragam butir f). Hipotesis baru memakai fee 0,4% + setengah spread sebagai dasar, 1 tick penuh sebagai sensitivitas.
 - Hasil backtest Follow Tren dilaporkan sebagai median dan rentang p5-p95 dari 100 simulasi Monte Carlo, karena pemilihan saham saat sinyal melebihi slot dilakukan acak.
 - Uji yang dibuat setelah melihat data diberi lencana "dibuat setelah lihat hasil" dan tidak dihitung sebagai bukti.
 - Saat beberapa varian diuji sekaligus, pemenang harus mengalahkan persentil 95 dari "terbaik di antara portofolio acak" dengan jumlah varian yang sama (uji anti-kebetulan).

@@ -33,7 +33,7 @@ LENCANA = {
     "pasca_hasil": "Dibuat setelah lihat hasil",
 }
 
-BIAYA = "Fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi (±1,2% pulang-pergi)."
+BIAYA = "Fee beli 0,15% + jual 0,25% + selisih 1 tick per sisi (±1,2% pulang-pergi; model konservatif, biaya realistis saham likuid ±0,9%, lihat Standar seragam f)."
 LIKUID = "Lolos likuiditas di hari sinyal: nilai transaksi rata-rata 20 hari ≥ Rp5 M, ATR% 1,5-5, harga ≥ Rp50, tanpa hari volume nol dalam 5 hari."
 U217 = "217 saham syariah dari daftar saat ini (syariah_tickers.txt): bias survivorship dan status syariah diketahui dari masa depan."
 UDES = "Saham syariah menurut DES OJK pada tanggal sinyal (point-in-time)."
@@ -146,7 +146,7 @@ HIPOTESIS = [
      "periode": [p("Dev", "2010-2021", "217 saham", True, "gagal", "1/6"), p("Holdout", "2022+", "217 saham", False)],
      "kriteria": k6([("-0,45%", False), ("kotor +0,87% vs +0,28%", True), (TT, False), ("33% tahun", False), (TT, False), (TT, False)]),
      "angka": [a("Dev 2010-2021", cagr=-4, dd=-48, trade=1114, net=-0.45, kotor=0.87, pemb=0.28, utama=True, ket=LAP_BULANAN)],
-     "kenapa": "Kotor +0,87% di atas acak, tapi tidak menutup biaya ±1,2%; hanya 33% tahun positif.",
+     "kenapa": "Kotor +0,87% di atas acak tapi tipis; biaya (±0,9–1,3%) memperjelas kegagalan, bukan penyebab utama; hanya 33% tahun positif.",
      "kelemahan": ["Empat hipotesis (H3-H6) diuji sekaligus, peluang lulus kebetulan naik.", "Universe 217."],
      "pelajaran": "Pantulan jangka pendek ada, tapi kecil.", "terkait": ["H4", "H19d"], "sumber": "RENCANA_SCREENER.md:76"},
 
@@ -598,7 +598,7 @@ def h19(kode, nama, awam, masuk, keluar, trade, wr, untung, rugi, exp, kotor, pf
                         ket=f"Rata-rata untung +{untung}% vs rugi {rugi}%, profit factor {pf}, bulan positif {bulan}%.")],
             "kenapa": kenapa,
             "kelemahan": ["Tujuh hipotesis sekaligus (uji ke ±18-24): risiko lulus kebetulan tinggi, karena itu ada kriteria ke-8.", "Universe 217 (bias survivorship)."],
-            "pelajaran": "Indikator klasik di saham individual IDX tidak menutup biaya ±1,2%.",
+            "pelajaran": "Edge kotor indikator klasik di saham individual IDX hampir nol; biaya (±0,9–1,3%) memperjelas kegagalan, bukan penyebab utama (diagnostik 14 Nov 2026).",
             "terkait": [x for x in ["H19a", "H19b", "H19c", "H19d", "H19e", "H19f", "H19g"] if x != kode],
             "sumber": "RENCANA_SCREENER.md:435"}
 
@@ -620,7 +620,7 @@ HIPOTESIS += [
     h19("H19d", "RSI(2) < 10 + MA200 (Connors)", "Beli saham tren naik yang baru turun tajam 1-2 hari (RSI 2 hari sangat rendah), jual setelah memantul.",
         "RSI2 < 10 dan close > MA200.", "RSI2 > 70, atau batas 10 hari.", 1983, 50.8, 3.0, -4.4, -0.64, 0.61, 0.70, -11.6, -68.9, 44, "1/8",
         [("-0,64%", False), ("di atas", True), (TT, False), (TT, False), (TT, False), (TT, False), ("-11,6%", False), (TT, False)],
-        "Kotor +0,61% (winrate sebelum biaya 63%), tapi biaya ±1,25% membalik jadi rugi. Dengan fee saja +0,21% (laporan, putusan tidak berubah)."),
+        "Kotor +0,61% (winrate sebelum biaya 63%), tapi biaya ±1,25% (model konservatif) membalik jadi rugi. Diagnostik 14 Nov 2026: impas di biaya ±0,6%, positif hanya di 0,4% (fee saja +0,21%); laporan, putusan tidak berubah."),
     h19("H19e", "Bollinger squeeze breakout", "Beli saat pita Bollinger paling sempit dalam 6 bulan lalu harga menembus pita atas dengan volume besar.",
         "Lebar band kemarin = terendah 120 hari, close > band atas, volume ≥ 1,5× rata-rata.", "Close < MA20, atau batas 500 hari.", 115, 37.4, 12.1, -5.3, 1.21, 2.61, 1.37, 1.4, -11.9, 21, "2/8",
         [("+1,21%", True), (TT, None), (TT, None), ("50% tahun", False), ("-1,93%", False), (TT, None), ("1,4% < 8,1%", False), (TT, None)],
@@ -889,7 +889,7 @@ HIPOTESIS.append({
                         ["Tahun dengan rata-rata trade positif", "2012 saja (+0,17%)"],
                         ["Eksplorasi, bukan bukti: + syarat close > MA50, 2010-2019", "782 trade, bersih -1,21%, kotor 0,00%, CAGR -7,0%, 0/9"],
                         ["Eksplorasi, bukan bukti: + syarat close > MA50, 2015-2019 (open bagus)", "378 trade, bersih -1,61%, kotor -0,44% (acak +0,13%), CAGR -7,7%, 0/9"]]},
-    "kenapa": "Sebelum biaya pun hasilnya nol (kotor -0,02% per trade), lebih buruk dari membeli saham acak dengan lama tahan sama (+0,60%). Pantulan di atas MA20 sering hanya sehari-dua lalu harga turun lagi ke bawah MA50 (65% trade keluar karena itu). Setelah biaya ±1,2%, rugi di 9 dari 10 tahun.",
+    "kenapa": "Sebelum biaya pun hasilnya nol (kotor -0,02% per trade), lebih buruk dari membeli saham acak dengan lama tahan sama (+0,60%). Pantulan di atas MA20 sering hanya sehari-dua lalu harga turun lagi ke bawah MA50 (65% trade keluar karena itu). Setelah biaya ±1,2% (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f), rugi di 9 dari 10 tahun.",
     "kelemahan": ["Cacat rancangan (ditemukan setelah uji): syarat masuk tidak mewajibkan close > MA50, padahal aturan jual close < MA50. 23% trade dibeli sudah di bawah MA50 lalu dijual 2-3 hari kemudian. Trade sisanya juga minus (-1,25%).",
                   "Data open Yahoo 2010-2012 rusak (open = close hari itu di 96-99% hari), jadi harga beli/jual di open untuk tahun itu sebenarnya harga close.",
                   "Mirip H19c/H19d (pantulan + filter MA200) yang gagal karena biaya.",
@@ -936,8 +936,8 @@ HIPOTESIS.append({
 })
 
 PELAJARAN = [
-    {"judul": "Biaya ±1,2% memakan edge kecil",
-     "isi": "Banyak pola punya return kotor di atas acak, tapi lebih kecil dari biaya pulang-pergi. Contoh: H2 kotor +0,40% → bersih -0,77%; H8 +1,32% → -0,02%; H19 kotor 0 s/d +0,6% per trade.",
+    {"judul": "Edge kotor kecil; biaya memperjelas kegagalan",
+     "isi": "Banyak pola punya return kotor di atas acak, tapi tipis dan lebih kecil dari biaya pulang-pergi model. Biaya (±0,9–1,3%) memperjelas kegagalan, bukan penyebab utama (diagnostik 14 Nov 2026). Contoh: H2 kotor +0,40% → bersih -0,77%; H8 +1,32% → -0,02%; H19 kotor 0 s/d +0,6% per trade.",
      "bukti": ["H0", "H2", "H3", "H5", "H6", "H8", "H10", "H19d", "H19g"]},
     {"judul": "Bagus di data lama tidak menjamin apa pun",
      "isi": "H4 positif di 2010-2021 dan 2020-2023 (+1,23% / trade), lalu rugi di semua tahun 2024+ (-1,46%). Holdout yang benar-benar baru adalah hakim terakhir.",
@@ -1049,7 +1049,7 @@ GRAFIK = {
     "H28": [batang("Rata-rata bersih per trade per tahun masuk, dev", ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2018", "2019"],
                    [("H28", [2.09, 1.27, -3.93, -6.81, -3.72, -5.51, -8.67, -8.54, -4.87])], "2017 tanpa sinyal. Jumlah trade per tahun 1-7.")],
     "H27": [batang("Rata-rata bersih per trade per tahun masuk, dev", [str(y) for y in range(2010, 2020)],
-                   [("H27", [-2.45, -1.80, 0.17, -1.56, -1.01, -2.80, -1.08, -0.18, -2.07, -1.55])], "Hanya 2012 positif (+0,17%). Biaya ±1,2% per trade.")],
+                   [("H27", [-2.45, -1.80, 0.17, -1.56, -1.01, -2.80, -1.08, -0.18, -2.07, -1.55])], "Hanya 2012 positif (+0,17%). Biaya ±1,2% per trade (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f).")],
     "H26": [batang("CAGR dev 2010-2019 per skenario (median 100 simulasi Monte Carlo)", ["H11a", "H26", "+20%·1,5×", "+20%·2,5×", "+40%·1,5×", "+40%·2,5×"],
                    [("CAGR", [9.1, 6.1, 5.1, 7.8, 6.2, 7.2])], "H26 = +30% · 2×ATR. Empat lainnya = cek sensitivitas (ambang untung · jarak batas jual). Semuanya di bawah H11a (9,1%)."),
             batang("H11a vs H26 per periode (median CAGR)", ["Dev 2010-2019", "Tanpa 5 terbesar", "2020+"],

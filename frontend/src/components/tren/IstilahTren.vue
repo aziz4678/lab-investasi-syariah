@@ -23,7 +23,7 @@ const DASAR = [
   ["Gap", "Lompatan harga antara close kemarin dan open hari ini, misalnya karena berita semalam. Bisa membuat rugi lebih besar dari batas jual."],
   ["ARA / ARB", "Auto Rejection Atas / Bawah: batas naik / turun maksimal sehari dari bursa. 'Terkunci' = harga mentok di batas itu sepanjang hari, jadi hampir tidak bisa beli (ARA) atau jual (ARB)."],
   ["Tick", "Kenaikan harga terkecil yang diizinkan bursa: Rp1 (harga < 200), Rp2 (200-499), Rp5 (500-1.999), Rp10 (2.000-4.999), Rp25 (≥ 5.000). Model biaya menghitung beli 1 tick lebih mahal dan jual 1 tick lebih murah."],
-  ["Fee", "Biaya broker + pajak: beli 0,15%, jual 0,25%. Ditambah selisih 1 tick per sisi, totalnya ±1,2% pulang-pergi."],
+  ["Fee", "Biaya broker + pajak: beli 0,15%, jual 0,25%. Ditambah selisih 1 tick per sisi, totalnya ±1,2% pulang-pergi (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f)."],
   ["Lot", "Satuan beli saham di BEI = 100 lembar."],
   ["Ekuitas", "Total nilai akun: kas + nilai semua saham yang sedang dipegang dengan harga close terakhir."],
   ["Posisi / slot", "Satu saham yang sedang dipegang = satu posisi. Follow Tren punya 10 slot; kalau penuh, sinyal baru dilewati."],

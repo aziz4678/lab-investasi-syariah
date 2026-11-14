@@ -28,7 +28,7 @@ Tidak ada sumber gratis untuk:
 ## Cara uji
 - **Hipotesis dan kriteria ditulis sebelum uji** (`RENCANA_SCREENER.md`). Tidak ada penyesuaian setelah lihat hasil.
 - **Dev dan holdout.** Holdout cuma dibuka kalau dev lulus. Pengecualian H4 diputuskan terbuka dan dicatat sebelum dijalankan.
-- **Biaya**: fee beli 0.15% + jual 0.25% + slip 1 tick per sisi, pakai fraksi harga IDX. Rata-rata sekitar 1.2% per round trip.
+- **Biaya**: fee beli 0.15% + jual 0.25% + slip 1 tick per sisi, pakai fraksi harga IDX. Rata-rata sekitar 1.2% per round trip (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f).
 - **Entry di open hari berikutnya.** Kalau TP dan SL sama-sama mungkin kena di satu candle, dianggap SL. Candle ARB terkunci tidak bisa jual.
 - **Kriteria lulus** (semuanya wajib):
   - expectancy net > 0
@@ -66,7 +66,7 @@ H8-H10 (tahap 2, 21 Okt 2026) memakai universe saham yang syariah menurut DES OJ
 Hasil lama `swing_target3.py` (sebelum tahap ini) sejalan: sinyal komposit lebih baik dari acak, tapi dengan slip 0.5% expectancy sekitar 0, dan 88% untung berasal dari 5 saham gorengan.
 
 ## Temuan penting
-1. **Biaya adalah pembunuh utama.** Sinyal terbaik sebelum biaya cuma +0.4% s/d +1% per trade (kecuali breakout), sedangkan biaya sekitar 1.2%. Trading sering dengan target kecil secara matematis berat. TP3/SL3 butuh hit sekitar 60%, model cuma mencapai 49%.
+1. **Edge kotor hampir nol; biaya memperjelas kegagalan, bukan penyebab utama** (diagnostik 14 Nov 2026, biaya ±0,9–1,3%). Sinyal terbaik sebelum biaya cuma +0.4% s/d +1% per trade (kecuali breakout), sedangkan biaya model sekitar 1.2%. Trading sering dengan target kecil secara matematis berat. TP3/SL3 butuh hit sekitar 60%, model cuma mencapai 49%.
 2. **Ranking saham itu nyata tapi lemah.** Skor walk-forward konsisten menaikkan peluang kena TP dari 43% ke 49% (spearman 0.93). Tidak cukup untuk menutup biaya.
 3. **Efek dividen nyata tapi kecil.** Kenaikan menjelang cum date di atas acak, dan lebih kuat kalau yield tinggi, tapi lebih kecil dari biaya.
 4. **Foreign flow tidak punya daya prediksi.** Saham yang diakumulasi asing tidak lebih baik dari saham acak (+0.08% vs +0.09%). Digabung dengan breakout pun cuma beda 0.1%.

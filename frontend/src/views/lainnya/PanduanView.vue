@@ -50,7 +50,7 @@ const ISTILAH = [
   ["Paper trade / uji maju", "Menjalankan aturan ke depan dengan uang pura-pura. Datanya belum terjadi saat aturan dikunci, jadi hasilnya paling jujur."],
   ["Zona normal", "Rentang hasil wajar paper trade dari ribuan simulasi ulang backtest. Dikunci sebelum paper berjalan."],
   ["Beli-tahan", "Pembanding: beli semua saham syariah likuid lalu didiamkan."],
-  ["Biaya transaksi", "Fee beli 0,15% + jual 0,25% + selisih harga 1 tick per sisi. Rata-rata ±1,2% pulang-pergi."],
+  ["Biaya transaksi", "Fee beli 0,15% + jual 0,25% + selisih harga 1 tick per sisi. Rata-rata ±1,2% pulang-pergi (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f)."],
   ["Lot", "Satuan transaksi IDX = 100 lembar saham."],
 ];
 const buka = ref(new Set());

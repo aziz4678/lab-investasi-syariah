@@ -151,7 +151,7 @@ const keluarga = computed(() => {
   const grafik = edge.length >= 2 ? {
     jenis: "batang", judul: "Kotor vs bersih per trade", satuan: "%", label: edge.map((e) => e[0]),
     seri: [{ nama: "Kotor (sebelum biaya)", data: edge.map((e) => e[1].kotor) }, { nama: "Bersih (setelah biaya)", data: edge.map((e) => e[1].net) }],
-    ket: "Jarak antara dua batang = biaya ±1,2% per trade.",
+    ket: "Jarak antara dua batang = biaya ±1,2% per trade (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f).",
   } : null;
   return { kode: h.keluarga, info, anggota, grafik };
 });

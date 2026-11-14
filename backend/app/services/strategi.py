@@ -85,7 +85,7 @@ TREN52 = {
         {"grup": "Eksekusi", "isi": [
             {"nama": "Waktu beli", "nilai": "Harga open hari bursa berikutnya", "ket": "Batal kalau saham terkunci ARA (high = low dan open di atas close kemarin)."},
             {"nama": "Ukuran posisi", "nilai": f"{th.BOBOT * 100:.0f}% ekuitas saat beli, kelipatan {th.LOT} lembar, dibatasi kas", "ket": "Kalau 1 lot melebihi jatah, sinyal batal (makanya modal kecil sering batal)."},
-            {"nama": "Biaya", "nilai": f"Fee beli {sc.FEE_BELI:g}% + jual {sc.FEE_JUAL:g}% + selisih 1 tick per sisi".replace(".", ","), "ket": "Rata-rata ±1,2% pulang-pergi. Ini yang membuat swing pendek gagal."},
+            {"nama": "Biaya", "nilai": f"Fee beli {sc.FEE_BELI:g}% + jual {sc.FEE_JUAL:g}% + selisih 1 tick per sisi".replace(".", ","), "ket": "Rata-rata ±1,2% pulang-pergi (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f). Edge kotor swing pendek hampir nol; biaya memperjelas kegagalan, bukan penyebab utama."},
         ]},
         {"grup": "Keluar (stop)", "isi": [
             {"nama": "Stop awal", "nilai": f"Harga beli − {th.MULT_ATR:g}×ATR14 hari sinyal", "ket": "Rata-rata ±10% di bawah harga beli."},

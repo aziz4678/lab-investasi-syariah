@@ -145,7 +145,7 @@ ISTILAH = {
     "cagr": ("Return per tahun (CAGR)", "Rata-rata pertumbuhan modal per tahun. 10% berarti Rp100 jt menjadi ±Rp110 jt setelah setahun."),
     "dd": ("Penurunan terdalam (max drawdown)", "Turun paling dalam dari puncak modal sebelum pulih. -30% berarti modal Rp100 jt sempat tinggal Rp70 jt."),
     "mar": ("Return per risiko (MAR)", "Return per tahun dibagi penurunan terdalam. Makin besar makin baik: untung lebih banyak untuk tiap persen risiko yang ditanggung."),
-    "net": ("Untung bersih per transaksi", "Rata-rata hasil tiap beli-jual setelah dipotong biaya ±1,2%."),
+    "net": ("Untung bersih per transaksi", "Rata-rata hasil tiap beli-jual setelah dipotong biaya ±1,2% (model konservatif; biaya realistis saham likuid ±0,9%, lihat Standar seragam f)."),
     "trade": ("Jumlah transaksi", "Makin sedikit transaksi, makin besar peluang hasilnya kebetulan: 2-3 transaksi untung besar sudah bisa mengubah rata-rata."),
     "set_a": ("Set A (non-syariah likuid)", "Saham non-syariah yang ramai diperdagangkan. Dipakai sebagai data segar karena belum pernah dipakai menyusun strategi."),
     "des": ("DES (Daftar Efek Syariah)", "Daftar saham syariah dari OJK. Yang dipakai adalah daftar yang berlaku pada tanggal itu, bukan daftar hari ini."),
