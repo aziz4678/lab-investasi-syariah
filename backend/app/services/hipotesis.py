@@ -1450,7 +1450,7 @@ HIPOTESIS.append({
 
 HIPOTESIS.append({
     "kode": "H37", "keluarga": "H37", "nama": "Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas", "kategori": "rezim", "status": "uji_maju", "lencana": ["pasca_hasil"],
-    "tgl_kunci": "2026-11-12", "skor": "dev 3/3 + holdout 3/3, sensitivitas 4/4 di keduanya (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026)",
+    "tgl_kunci": "2026-11-12", "skor": "dev 3/3 + holdout 3/3, sensitivitas: semua varian ≥2/3, K1 gagal di 3 dari 8 jalur (45/45/10 dev dan holdout, 35/35/30 holdout) (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026)",
     "awam": "Campuran 50/50 saham syariah Indonesia dan global (H35) ditambah emas: 40% JII, 40% global syariah, 20% emas, semuanya dalam rupiah. Diuji apakah emas membuat penurunan terdalam lebih dangkal tanpa mengorbankan hasil.",
     "aturan": {"Data": "JII dan global syariah persis H35 (dividen JII 2,5%/th, biaya 0,5%/th; ^IMXL s/d Jan 2008 dengan dividen 1,8%/th lalu ISDW.L adj_close). Emas rupiah = GC=F akhir bulan x kurs akhir bulan yang sama dengan porsi saham global (FRED s/d Des 2023, lalu Yahoo), biaya kepemilikan 0,5%/th. Bulan bolong = error.",
                "Portofolio": "40/40/20 mulai Jun 2001, rebalance tiap akhir Desember. Biaya JII & global = cara H35 (0,5% dari nilai dijual). Spread emas 3% pulang-pergi: 1,5% dari nilai emas yang dibeli atau dijual, termasuk pembelian awal. Pembanding: H35 50/50 dihitung ulang dengan kode dan data yang sama di periode yang sama.",

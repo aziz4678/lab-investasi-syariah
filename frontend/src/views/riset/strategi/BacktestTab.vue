@@ -44,7 +44,7 @@ async function isi(v) {
     if (!blend.value) ambil(`tren52/contoh/${v}`).then((c) => { if (versi.value === v) contohTrade.value = c; }).catch(() => { if (versi.value === v) contohTrade.value = null; });
     [ringkasan.value, ekuitas.value, trade.value] = await Promise.all([ambil(`ringkasan/${v}`), ambil(`ekuitas/${v}`), ambil(`trade/${v}`)]);
   } catch (e) {
-    galat.value = `Gagal memuat data: ${e.message}. Pastikan API jalan (python -m uvicorn backend.api.main:app --port 8765).`;
+    galat.value = `Gagal memuat data: ${e.message}. Pastikan API jalan (python -m uvicorn backend.app.main:app --port 8765).`;
   } finally {
     muat.value = false;
   }

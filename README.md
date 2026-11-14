@@ -86,6 +86,7 @@ Pengembangan:
 - Backend: `venv\Scripts\python -m uvicorn backend.app.main:app --reload --port 8765`
 - Frontend: `cd frontend; npm run dev` (port 5173, API diteruskan ke 8765)
 - Modul Python selalu dijalankan dari root sebagai modul, misalnya `python -m backend.paper.tren_harian`.
+- Tes Python (unittest, tanpa pytest): `venv\Scripts\python -m unittest discover -s tests -t .`; satu modul: `venv\Scripts\python -m unittest tests.test_mesin_pertumbuhan`. Tes frontend: `cd frontend; npm test`.
 
 Jadwal otomatis (Task Scheduler, Senin-Jumat 17:30) dipasang lewat tombol di panel Perawatan.
 

@@ -25,6 +25,12 @@ ENTRI = [
     {"_id": "2026-11-14|ef46f57|b4", "tanggal": "2026-11-14", "commit": "ef46f57", "strategi": "H35/H37",
      "isi": "B4: AUM untuk seleksi ETF dibaca per tanggal seleksi (hari bursa terakhir Nov 2026), tidak lagi memakai tanggal hari job atau AUM terbaru bila data historisnya ada.",
      "dampak": "Mencegah AUM masa depan masuk seleksi. Kriteria seleksi (AUM >= Rp10 M, nilai transaksi 60 hari >= Rp10 jt) tidak berubah."},
+    {"_id": "2026-11-14|66f61b6|e4", "tanggal": "2026-11-14", "commit": "66f61b6", "strategi": "H11a/H29/H35/H37",
+     "isi": "Batas kejar ketinggalan: job paper H11a, paper H22, dan uji maju H35/H37 menolak memproses otomatis bila tertinggal lebih dari 10 hari bursa (berhenti dengan error, tidak ada data yang ditulis); sampai 10 hari tetap diproses berurutan per tanggal seperti biasa. Pemeriksa mencatat gagal untuk kasus >10 hari.",
+     "dampak": "Nol pada hasil: pemrosesan hari terlewat sudah berurutan per tanggal sebelumnya (paper_cek memutar ulang dari nol dan cocok tiap hari; tes simulasi 3 dan 10 hari terlewat identik dengan jalan harian). Hanya menambah penolakan di atas 10 hari."},
+    {"_id": "2026-11-14|fef2101|d", "tanggal": "2026-11-14", "commit": "fef2101", "strategi": "H11a/H29/H35/H37",
+     "isi": "Jejak paper: snapshot harian posisi/status ke paper_riwayat (append-only) dan sidik per dokumen koleksi paper append-only ke paper_sidik; pemeriksa gagal bila dokumen lama berubah atau hilang.",
+     "dampak": "Nol: hanya menambah koleksi baru, tidak mengubah koleksi paper yang ada."},
 ]
 
 
