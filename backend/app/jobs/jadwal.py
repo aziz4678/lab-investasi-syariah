@@ -109,7 +109,7 @@ URUTAN_HARIAN = [
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
     "5. Cek ulang paper (paper_cek, paper_h22_cek), lalu pantau_paper (jejak posisi H11a, banding dengan mesin backtest, insiden, catatan zona harian), lalu paper_jejak (snapshot harian posisi/status ke paper_riwayat, sidik dokumen append-only ke paper_sidik)",
     "6. Sumber data browser lain (termasuk NAB bulanan OJK bila sudah terbit), impor NAB OJK dibatalkan bila bulan lama tidak cocok dengan arsip; keranjang_cek (keranjang produk konservatif dibentuk ulang tiap Januari atau bila isinya bubar/gagal saringan), pertumbuhan_hitung --bila-perlu (keranjang pertumbuhan dicek tiap hari, simulasi dihitung ulang bila NAB OJK/keranjang/H35 berubah), lalu penarikan_hitung (portofolio konservatif) bila NAB OJK/inflasi/BI-Rate/sbsn_ritel.csv/keranjang berubah; tulis ringkasan jadwal_harian, lalu cadangan (+ mingguan cadangan_data, logo); ringkasan dilengkapi lagi setelah cadangan",
-    "7. cek_kesehatan_uji_maju (hanya membaca): emas telat, job jadwal, kesegaran seri, aturan uji maju H35 & H37 per tanggal, pengingat evaluasi; hasil di koleksi cek_kesehatan, banner di Beranda",
+    "7. cek_kesehatan_uji_maju (hanya membaca): emas telat, job jadwal (job kritis wajib tercatat), kesegaran seri, ketertinggalan paper/uji maju (>10 hari bursa = gagal, tidak diproses otomatis), sidik paper, aturan uji maju H35 & H37 per tanggal, pengingat evaluasi; hasil di koleksi cek_kesehatan, banner di Beranda",
 ]
 
 

@@ -40,5 +40,5 @@ def cek_kesehatan():
     c = d.koneksi()[KOLEKSI]
     awal = str(date.today() - timedelta(days=30))
     semua = list(c.find({"tanggal": {"$gte": awal}}))
-    terakhir = c.find_one({}, {"dibuat": 1}, sort=[("dibuat", -1)])
+    terakhir = c.find_one({"sumber": "jadwal"}, {"dibuat": 1}, sort=[("dibuat", -1)])
     return susun(semua, (terakhir or {}).get("dibuat"))

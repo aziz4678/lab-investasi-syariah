@@ -5,6 +5,7 @@ import pandas as pd
 
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
+from backend.paper import ketertinggalan as kt
 from backend.paper import koreksi_mekanisme as km
 from backend.paper import laporan_emas as lem
 from backend.paper import mesin_pertumbuhan as mp
@@ -87,6 +88,12 @@ def harian(hari_ini=None):
         print(f"{sekarang:%Y-%m-%d}: belum waktunya (pilih ETF emas di hari bursa terakhir Nov 2026, mesin aktif {prm["mulai"]:%Y-%m-%d})")
         return
     data = mp.DataNyata()
+    for kode in KONFIG:
+        st0 = dok[kode].get("mesin") or {}
+        akhir0 = pd.Timestamp(st0["terakhir"]) if st0.get("terakhir") else prm["mulai"] - pd.Timedelta(days=1)
+        tunggakan = kt.hari_tertinggal([x for x in data.hari if x >= prm["mulai"]], akhir0, sekarang - pd.Timedelta(days=1))
+        if kt.terlalu_jauh(tunggakan):
+            raise SystemExit(kt.pesan_tolak(f"uji maju {kode.upper()}", tunggakan))
     for kode in KONFIG:
         st = dok[kode].get("mesin") or mp.keadaan_baru()
         if kode == "h37" and (st["pilih_awal"] is None or not st["pilih_awal"].get("terpilih")):

@@ -8,6 +8,7 @@ from backend.core import libur_bursa as lb
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
 from backend.paper import jejak_paper as jp
+from backend.paper import ketertinggalan as kt
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import parameter_uji_maju as pu
 
@@ -74,12 +75,13 @@ def pengingat_dari_status(db):
 
 
 class Ctx:
-    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None, parameter=None, beda_parameter=None, sidik=None):
+    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None, parameter=None, beda_parameter=None, sidik=None, terakhir_proses=None):
         self.tgl = pd.Timestamp(tgl).normalize()
         prm = parameter or {"mulai": MULAI, "tgl_pilih": TGL_PILIH, "batas_awal": BATAS_AWAL}
         self.mulai, self.tgl_pilih, self.batas_awal = prm["mulai"], prm["tgl_pilih"], prm["batas_awal"]
         self.beda_parameter = beda_parameter or []
         self.sidik = sidik
+        self.terakhir_proses = terakhir_proses or []
         if kalender is None:
             kalender = lb.hari_bursa_antara(MULAI_KALENDER, self.tgl)
         self.kalender = sorted(pd.Timestamp(x).normalize() for x in kalender)
@@ -125,6 +127,10 @@ def cek_job_jadwal(c):
         if c.sekarang.hour < JAM_JADWAL:
             return [hasil("job_jadwal", "ok", "jadwal 17:30 belum jalan")]
         return [hasil("job_jadwal", "gagal", "tidak ada catatan putaran jadwal hari ini")]
+    tercatat = {x["jenis"] for x in c.langkah} | {p["jenis"] for p in c.pekerjaan}
+    hilang = sorted(KRITIS - tercatat)
+    if hilang:
+        return [hasil("job_jadwal", "gagal", f"job kritis tidak tercatat di jadwal hari ini: {', '.join(hilang)}")]
     terakhir = {}
     for p in sorted(c.pekerjaan, key=lambda x: str(x.get("mulai"))):
         terakhir[p["jenis"]] = p.get("status")
@@ -173,6 +179,25 @@ def cek_sidik_paper(c):
     return [hasil("sidik_paper", "ok", f"{x['dokumen']} dokumen di {x['koleksi']} koleksi append-only tidak berubah (snapshot {x['snapshot']})")]
 
 
+def cek_ketertinggalan(c):
+    sampai = c.tgl - pd.Timedelta(days=1)
+    aliran = []
+    for nama, terakhir, mulai in c.terakhir_proses:
+        if mulai is not None and c.tgl <= mulai:
+            continue
+        awal = terakhir if terakhir is not None else (mulai - pd.Timedelta(days=1) if mulai is not None else None)
+        aliran.append((nama, kt.hari_tertinggal(c.kalender, awal, sampai) if awal is not None else []))
+    if not aliran:
+        return []
+    jauh = [(n, h) for n, h in aliran if kt.terlalu_jauh(h)]
+    if jauh:
+        return [hasil("ketertinggalan", "gagal", "; ".join(f"{n} tertinggal {len(h)} hari bursa (> {kt.BATAS_HARI}), tidak diproses otomatis" for n, h in jauh))]
+    telat = [(n, h) for n, h in aliran if h]
+    if telat:
+        return [hasil("ketertinggalan", "peringatan", "; ".join(f"{n} belum memproses {len(h)} hari bursa ({h[0].date()} s/d {h[-1].date()}), akan dikejar berurutan oleh jadwal" for n, h in telat))]
+    return [hasil("ketertinggalan", "ok", "paper H11a, H22, dan uji maju H35/H37 sudah memproses semua hari bursa sampai kemarin")]
+
+
 def cek_belum_mulai(c):
     if c.tgl >= c.mulai:
         return []
@@ -204,7 +229,9 @@ def cek_pilih_etf(c):
         return [hasil("pilih_etf_awal", "gagal", "pilih_awal kosong atau terpilih=None; kaki emas tidak boleh default ke kas")]
     if not st.get("pilih_etf_alasan"):
         return [hasil("pilih_etf_awal", "gagal", f"ETF {awal['terpilih']} terpilih tapi pilih_etf_alasan tidak tercatat")]
-    return [hasil("pilih_etf_awal", "ok", f"ETF emas awal {awal['terpilih']} ({st.get('pilih_etf_tier')}): {st['pilih_etf_alasan'][:120]}")]
+    tier = st.get("pilih_etf_tier") or (awal.get("tier"))
+    status = "ok" if tier == "normal" else "peringatan"
+    return [hasil("pilih_etf_awal", status, f"ETF emas awal {awal['terpilih']} (tingkat {tier}): {st['pilih_etf_alasan'][:120]}")]
 
 
 def cek_transaksi_pertama(c):
@@ -302,7 +329,7 @@ def cek_kalender_libur(c):
     return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
 
 
-CEK = [cek_parameter_mesin, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
+CEK = [cek_parameter_mesin, cek_ketertinggalan, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
 
 
 def jalankan_cek(c):
@@ -313,6 +340,10 @@ def jalankan_cek(c):
         except Exception as e:
             keluar.append(hasil(f.__name__.replace("cek_", ""), "gagal", f"pemeriksa error: {type(e).__name__}: {str(e)[:120]}"))
     return keluar
+
+
+def tgl_atau_none(x):
+    return pd.Timestamp(x) if x else None
 
 
 def tgl_terakhir(df):
@@ -370,20 +401,29 @@ def bangun_ctx(db, tgl=None, sekarang=None):
             "ekuitas": [x["_id"] for x in db[f"paper_{k}_ekuitas"].find({}, {"_id": 1})],
         }
     ctx.koleksi = koleksi
+    ctx.terakhir_proses = [("paper H11a", tgl_atau_none((db.paper_status.find_one({"_id": "status"}) or {}).get("tgl_terakhir")), None),
+                           ("paper H22", tgl_atau_none((db.paper_h22_status.find_one({"_id": "status"}) or {}).get("tgl_terakhir")), None),
+                           ("uji maju H37", tgl_atau_none((((koleksi["h37"]["status"] or {}).get("mesin")) or {}).get("terakhir")), ctx.mulai),
+                           ("uji maju H35", tgl_atau_none((((koleksi["h35"]["status"] or {}).get("mesin")) or {}).get("terakhir")), ctx.mulai)]
     return ctx
 
 
-def simpan(db, tgl, daftar):
+def simpan(db, tgl, daftar, sumber="manual"):
     for x in daftar:
         t = str(pd.Timestamp(tgl).date())
-        db[KOLEKSI].replace_one({"_id": f"{t}|{x['nama_cek']}"}, {"_id": f"{t}|{x['nama_cek']}", "tanggal": t, "dibuat": datetime.now(), **x}, upsert=True)
+        db[KOLEKSI].replace_one({"_id": f"{t}|{x['nama_cek']}"}, {"_id": f"{t}|{x['nama_cek']}", "tanggal": t, "dibuat": datetime.now(), "sumber": sumber, **x}, upsert=True)
+
+
+def sumber_jalan(db):
+    p = db.pekerjaan.find_one({"jenis": "cek_kesehatan_uji_maju", "status": "berjalan"}, sort=[("mulai", -1)])
+    return "jadwal" if p and p.get("oleh") == "jadwal" else "manual"
 
 
 def jalan():
     db = d.koneksi()
     ctx = bangun_ctx(db)
     daftar = jalankan_cek(ctx)
-    simpan(db, ctx.tgl, daftar)
+    simpan(db, ctx.tgl, daftar, sumber_jalan(db))
     for x in daftar:
         print(f"[{x['status'].upper():10}] {x['nama_cek']}: {x['pesan']}")
     print("SELESAI")

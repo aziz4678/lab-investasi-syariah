@@ -16,6 +16,7 @@ from backend.paper.tren_harian import PAJAK_DIVIDEN, ke_mongo, unduh
 from backend.research import uji_h21_h22 as m
 from backend.ingest.harian_paper import unduh_jii
 from backend.paper import sumber_idx
+from backend.paper import ketertinggalan as kt
 from backend.research.swing_target3 import rapikan_index
 
 MULAI = pd.Timestamp("2026-11-01")
@@ -294,6 +295,7 @@ def utama():
     a = ap.parse_args()
     mulai = pd.Timestamp(a.mulai) if a.mulai else MULAI
     st, pos = muat()
+    ada_sebelumnya = st is not None
     des = des_ojk.baca()
     hari_ini = pd.Timestamp.today().normalize()
     if not a.tanpa_unduh:
@@ -320,6 +322,8 @@ def utama():
         print(f"paper H29 bagian H22 dimulai: modal Rp{MODAL:,.0f}, titik awal {awal.date()}, rebalance pertama di open hari bursa pertama {mulai:%B %Y}")
     terakhir = pd.Timestamp(st["tgl_terakhir"])
     hari = kal[(kal > terakhir) & (kal <= akhir)]
+    if ada_sebelumnya and kt.terlalu_jauh(hari):
+        raise SystemExit(kt.pesan_tolak("paper H22", list(hari)))
     log = []
     prev = terakhir
     for d in hari:

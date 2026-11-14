@@ -15,6 +15,7 @@ from backend.ingest import koreksi_harga as kh
 from backend.ingest.final import buang_belum_final
 from backend.ingest.harian_paper import unduh
 from backend.paper import sumber_idx
+from backend.paper import ketertinggalan as kt
 from backend.research import screener as sc
 from backend.research.swing_target3 import rapikan_index
 
@@ -371,6 +372,8 @@ def utama():
     else:
         awal = pd.Timestamp(status["tgl_terakhir"]) + pd.Timedelta(days=1)
     hari = kalender[(kalender >= awal) & (kalender <= akhir)]
+    if status["tgl_terakhir"] is not None and kt.terlalu_jauh(hari):
+        raise SystemExit(kt.pesan_tolak("paper H11a", list(hari)))
     peringatan = []
     kandidat, terpilih = [], []
     for tgl in hari:

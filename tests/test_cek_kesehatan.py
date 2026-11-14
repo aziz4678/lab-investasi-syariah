@@ -27,6 +27,9 @@ def ctx(tgl, kal=KAL, **kw):
     return ck.Ctx(tgl, kal, **kw)
 
 
+SEMUA_KRITIS = [{"jenis": j, "status": "selesai", "mulai": "0"} for j in sorted(ck.KRITIS)]
+
+
 def satu(daftar):
     assert len(daftar) == 1, daftar
     return daftar[0]
@@ -42,7 +45,17 @@ class TesEmas(unittest.TestCase):
 
 class TesJob(unittest.TestCase):
     def test_ok(self):
-        c = ctx("2026-11-16", langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=[{"jenis": "uji_maju_harian", "status": "selesai", "mulai": "1"}])
+        c = ctx("2026-11-16", langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=SEMUA_KRITIS)
+        self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "ok")
+
+    def test_job_kritis_tidak_tercatat_gagal(self):
+        c = ctx("2026-11-16", pekerjaan=[x for x in SEMUA_KRITIS if x["jenis"] != "uji_maju_harian"])
+        h = satu(ck.cek_job_jadwal(c))
+        self.assertEqual(h["status"], "gagal")
+        self.assertIn("uji_maju_harian", h["pesan"])
+
+    def test_job_kritis_tercatat_lewat_langkah_saja_ok(self):
+        c = ctx("2026-11-16", langkah=[{"jenis": j, "status": "selesai"} for j in sorted(ck.KRITIS)])
         self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "ok")
 
     def test_job_kritis_gagal(self):
@@ -50,11 +63,11 @@ class TesJob(unittest.TestCase):
         self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "gagal")
 
     def test_job_lain_peringatan(self):
-        c = ctx("2026-11-16", pekerjaan=[{"jenis": "logo_perbarui", "status": "gagal", "mulai": "1"}, {"jenis": "uji_maju_harian", "status": "selesai", "mulai": "2"}])
+        c = ctx("2026-11-16", pekerjaan=SEMUA_KRITIS + [{"jenis": "logo_perbarui", "status": "gagal", "mulai": "1"}])
         self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "peringatan")
 
     def test_ulang_berhasil_menimpa_gagal(self):
-        c = ctx("2026-11-16", pekerjaan=[{"jenis": "uji_maju_harian", "status": "gagal", "mulai": "1"}, {"jenis": "uji_maju_harian", "status": "selesai", "mulai": "2"}])
+        c = ctx("2026-11-16", pekerjaan=[{"jenis": "uji_maju_harian", "status": "gagal", "mulai": "-1"}] + SEMUA_KRITIS)
         self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "ok")
 
     def test_tanpa_catatan_sore_gagal_pagi_ok(self):
@@ -103,6 +116,54 @@ class TesBelumMulai(unittest.TestCase):
 
     def test_tidak_aktif_setelah_mulai(self):
         self.assertEqual(ck.cek_belum_mulai(ctx("2026-12-01", koleksi=koleksi())), [])
+
+
+class TesTingkatPilih(unittest.TestCase):
+    def st(self, tier):
+        st = status_ok(awal={"terpilih": "XGLD", "tier": tier})
+        st["pilih_etf_tier"] = tier
+        st["pilih_etf_alasan"] = "alasan"
+        return koleksi(st37=st)
+
+    def test_normal_ok(self):
+        self.assertEqual(satu(ck.cek_pilih_etf(ctx("2026-11-30", koleksi=self.st("normal"))))["status"], "ok")
+
+    def test_selain_normal_peringatan(self):
+        for tier in ("riwayat_terpanjang", "riwayat_terpanjang_tanpa_filter"):
+            self.assertEqual(satu(ck.cek_pilih_etf(ctx("2026-11-30", koleksi=self.st(tier))))["status"], "peringatan")
+
+
+class TesKetertinggalan(unittest.TestCase):
+    KAL2 = list(pd.bdate_range("2026-12-01", "2027-01-29"))
+
+    def c(self, tgl, terakhir, mulai=None):
+        return ctx(tgl, kal=[x for x in self.KAL2 if x <= pd.Timestamp(tgl)], terakhir_proses=[("uji maju H37", pd.Timestamp(terakhir) if terakhir else None, mulai)])
+
+    def test_tanpa_aliran_kosong(self):
+        self.assertEqual(ck.cek_ketertinggalan(ctx("2026-12-10")), [])
+
+    def test_sampai_kemarin_ok(self):
+        self.assertEqual(satu(ck.cek_ketertinggalan(self.c("2026-12-10", "2026-12-09", pd.Timestamp("2026-12-01"))))["status"], "ok")
+
+    def test_tertinggal_3_peringatan(self):
+        h = satu(ck.cek_ketertinggalan(self.c("2026-12-10", "2026-12-04", pd.Timestamp("2026-12-01"))))
+        self.assertEqual(h["status"], "peringatan")
+        self.assertIn("belum memproses", h["pesan"])
+
+    def test_tertinggal_lebih_10_gagal(self):
+        h = satu(ck.cek_ketertinggalan(self.c("2026-12-30", "2026-12-04", pd.Timestamp("2026-12-01"))))
+        self.assertEqual(h["status"], "gagal")
+
+    def test_tepat_10_masih_peringatan(self):
+        h = satu(ck.cek_ketertinggalan(self.c("2026-12-16", "2026-12-02", pd.Timestamp("2026-12-01"))))
+        self.assertEqual(h["status"], "peringatan")
+
+    def test_belum_pernah_proses_dihitung_dari_mulai(self):
+        h = satu(ck.cek_ketertinggalan(self.c("2026-12-30", None, pd.Timestamp("2026-12-01"))))
+        self.assertEqual(h["status"], "gagal")
+
+    def test_sebelum_mulai_dilewati(self):
+        self.assertEqual(ck.cek_ketertinggalan(self.c("2026-12-01", None, pd.Timestamp("2026-12-01"))), [])
 
 
 class TesPilih(unittest.TestCase):
@@ -336,7 +397,7 @@ class TesRunner(unittest.TestCase):
 
     def test_jalankan_semua_tanpa_menulis(self):
         c = ctx("2026-11-16", telat_emas=0, seri={"NAV RD": pd.Timestamp("2026-11-16")}, koleksi=koleksi(),
-                langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=[{"jenis": "uji_maju_harian", "status": "selesai", "mulai": "1"}])
+                langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=SEMUA_KRITIS)
         nama = {x["nama_cek"]: x["status"] for x in ck.jalankan_cek(c)}
         self.assertEqual(nama, {"parameter_mesin": "ok", "sidik_paper": "peringatan", "emas_telat": "ok", "job_jadwal": "ok", "seri_data": "ok", "belum_mulai": "ok", "kalender_libur": "ok"})
 
