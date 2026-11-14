@@ -206,18 +206,97 @@ class TesBolong(unittest.TestCase):
         self.assertEqual(ck.cek_hari_bolong(ctx("2026-12-01", koleksi=koleksi())), [])
 
 
+def peng(kode, teks):
+    w = ck.parse_waktu(teks)
+    return {"kode": kode, "sumber": "tes", "teks": teks, **w}
+
+
 class TesPengingat(unittest.TestCase):
-    def test_dalam_30_hari(self):
-        h = ck.cek_pengingat(ctx("2027-09-25"))
-        self.assertEqual([x["nama_cek"] for x in h], ["pengingat_H11a"])
-        self.assertEqual(h[0]["status"], "info")
+    def test_parse_bulan_saja_tidak_menebak_hari(self):
+        w = ck.parse_waktu("Jan 2028")
+        self.assertEqual((w["presisi"], w["label"]), ("bulan", "Jan 2028"))
+        self.assertEqual((str(w["awal"].date()), str(w["akhir"].date())), ("2028-01-01", "2028-01-31"))
+
+    def test_parse_rentang_bulan(self):
+        w = ck.parse_waktu("Okt/Nov 2027 = keputusan MANUAL user")
+        self.assertEqual((w["presisi"], w["label"]), ("bulan", "Okt/Nov 2027"))
+        self.assertEqual((str(w["awal"].date()), str(w["akhir"].date())), ("2027-10-01", "2027-11-30"))
+
+    def test_parse_tanggal_pasti(self):
+        self.assertEqual(ck.parse_waktu("evaluasi 2027-11-01")["presisi"], "hari")
+        w = ck.parse_waktu("evaluasi 21 Okt 2027")
+        self.assertEqual((w["presisi"], w["label"]), ("hari", "2027-10-21"))
+
+    def test_parse_tidak_ada_tanggal(self):
+        self.assertIsNone(ck.parse_waktu("tidak ada waktu di sini"))
+        self.assertIsNone(ck.parse_waktu(None))
+
+    def test_bulan_dalam_jendela_30_hari_sebelum_awal_bulan(self):
+        c = ctx("2027-12-05", pengingat=[peng("H35", "Jan 2028")])
+        h = satu(ck.cek_pengingat(c))
+        self.assertEqual(h["status"], "info")
+        self.assertIn("Jan 2028", h["pesan"])
+        self.assertIn("mulai 27 hari lagi", h["pesan"])
 
     def test_di_luar_jendela(self):
-        self.assertEqual(ck.cek_pengingat(ctx("2027-08-01")), [])
+        self.assertEqual(ck.cek_pengingat(ctx("2027-11-20", pengingat=[peng("H35", "Jan 2028")])), [])
+        self.assertEqual(ck.cek_pengingat(ctx("2028-02-01", pengingat=[peng("H35", "Jan 2028")])), [])
 
-    def test_tiga_pengingat(self):
-        self.assertEqual([x["nama_cek"] for x in ck.cek_pengingat(ctx("2027-12-20"))], ["pengingat_H35_H37"])
-        self.assertEqual([x["nama_cek"] for x in ck.cek_pengingat(ctx("2027-10-15"))], ["pengingat_H11a", "pengingat_H29"])
+    def test_di_dalam_bulan_evaluasi(self):
+        h = satu(ck.cek_pengingat(ctx("2028-01-10", pengingat=[peng("H35", "Jan 2028")])))
+        self.assertIn("bulan evaluasi berjalan", h["pesan"])
+
+    def test_tanggal_pasti_menampilkan_sisa_hari(self):
+        h = satu(ck.cek_pengingat(ctx("2027-10-10", pengingat=[peng("H11a", "21 Okt 2027")])))
+        self.assertIn("11 hari lagi", h["pesan"])
+
+    def test_tanggal_tidak_ditemukan_peringatan(self):
+        kosong = {"kode": "H29", "sumber": "x", "awal": None, "akhir": None, "presisi": None, "label": None}
+        h = satu(ck.cek_pengingat(ctx("2027-10-10", pengingat=[kosong])))
+        self.assertEqual(h["status"], "peringatan")
+
+    def test_dari_status_terkunci(self):
+        class Koleksi:
+            def __init__(self, dok):
+                self.dok = dok
+
+            def find_one(self, q):
+                return self.dok
+
+        db = {"batas_paper": Koleksi({"keputusan_2027": ["x", "Okt/Nov 2027 = keputusan MANUAL user"]}),
+              "pantau_batas": Koleksi({"keputusan_2027": ["Okt/Nov 2027 = keputusan MANUAL user"]}),
+              "paper_h35_status": Koleksi({"evaluasi_pertama": "Jan 2028"}),
+              "paper_h37_status": Koleksi({"evaluasi_pertama": "Jan 2028"})}
+        hasil = {x["kode"]: x["label"] for x in ck.pengingat_dari_status(db)}
+        self.assertEqual(hasil, {"H11a": "Okt/Nov 2027", "H29": "Okt/Nov 2027", "H35": "Jan 2028", "H37": "Jan 2028"})
+
+
+class TesKalenderLibur(unittest.TestCase):
+    def test_ok_selama_tahun_terisi(self):
+        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2026-12-15")))["status"], "ok")
+
+    def test_peringatan_mulai_1_des_tahun_sebelumnya(self):
+        self.assertEqual(satu(ck.cek_kalender_libur(ctx("2027-11-30")))["status"], "ok")
+        h = satu(ck.cek_kalender_libur(ctx("2027-12-01")))
+        self.assertEqual(h["status"], "peringatan")
+        self.assertIn("kalender libur 2028 belum diisi", h["pesan"])
+
+    def test_tahun_berjalan_belum_ada(self):
+        h = satu(ck.cek_kalender_libur(ctx("2028-03-01")))
+        self.assertEqual(h["status"], "peringatan")
+        self.assertIn("2028", h["pesan"])
+
+    def test_cek_hari_bursa_memakai_kalender_libur_statis(self):
+        self.assertFalse(ck.Ctx("2026-12-24").bursa())
+        self.assertTrue(ck.Ctx("2026-12-23").bursa())
+        self.assertFalse(ck.Ctx("2027-03-10").bursa())
+
+    def test_30_nov_bursa_dan_hari_ke_dari_kalender_statis(self):
+        self.assertTrue(ck.Ctx("2026-11-30").bursa())
+        self.assertEqual(ck.Ctx("2026-12-02").hari_ke(pd.Timestamp("2026-12-01")), 2)
+
+    def test_seri_telat_tidak_menghitung_libur(self):
+        self.assertEqual(ck.Ctx("2026-12-28").telat(pd.Timestamp("2026-12-23")), 1)
 
 
 class TesRunner(unittest.TestCase):
@@ -237,7 +316,7 @@ class TesRunner(unittest.TestCase):
         c = ctx("2026-11-16", telat_emas=0, seri={"NAV RD": pd.Timestamp("2026-11-16")}, koleksi=koleksi(),
                 langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=[{"jenis": "uji_maju_harian", "status": "selesai", "mulai": "1"}])
         nama = {x["nama_cek"]: x["status"] for x in ck.jalankan_cek(c)}
-        self.assertEqual(nama, {"emas_telat": "ok", "job_jadwal": "ok", "seri_data": "ok", "belum_mulai": "ok"})
+        self.assertEqual(nama, {"emas_telat": "ok", "job_jadwal": "ok", "seri_data": "ok", "belum_mulai": "ok", "kalender_libur": "ok"})
 
 
 if __name__ == "__main__":

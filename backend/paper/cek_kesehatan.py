@@ -1,8 +1,10 @@
+import re
 import sys
 from datetime import datetime
 
 import pandas as pd
 
+from backend.core import libur_bursa as lb
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
 from backend.paper import mesin_pertumbuhan as mp
@@ -19,18 +21,63 @@ HARI_MASUK_MAKS = 2
 HARI_REM = 15
 JAM_JADWAL = 17
 KRITIS = {"uji_maju_harian", "etf_emas_perbarui", "emas_panjang_perbarui", "rd_perbarui", "pasar_perbarui"}
-PENGINGAT = [
-    ("H11a", "2027-10-21", "keputusan manual Okt 2027, porsi awal maks 10%, peringatan keras H33 berlaku"),
-    ("H29", "2027-11-01", "evaluasi 12 bulan, bukan bukti edge"),
-    ("H35_H37", "2028-01-14", "evaluasi pertama uji maju (13 bulan data)"),
-]
+KET_PENGINGAT = {
+    "H11a": "keputusan manual, porsi awal maks 10%, peringatan keras H33 berlaku",
+    "H29": "evaluasi 12 bulan, bukan bukti edge",
+    "H35": "evaluasi pertama uji maju",
+    "H37": "evaluasi pertama uji maju",
+}
+BULAN = {"jan": 1, "januari": 1, "feb": 2, "februari": 2, "mar": 3, "maret": 3, "apr": 4, "april": 4, "mei": 5, "jun": 6, "juni": 6, "jul": 7, "juli": 7,
+         "agu": 8, "agt": 8, "agustus": 8, "sep": 9, "sept": 9, "september": 9, "okt": 10, "oktober": 10, "nov": 11, "november": 11, "des": 12, "desember": 12}
+MULAI_KALENDER = pd.Timestamp("2026-01-01")
 HARI_PENGINGAT = 30
 
 
+def parse_waktu(teks):
+    teks = str(teks or "")
+    m = re.search(r"(20\d{2})-(\d{2})-(\d{2})", teks)
+    if m:
+        t = pd.Timestamp(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return {"awal": t, "akhir": t, "presisi": "hari", "label": str(t.date())}
+    for m in re.finditer(r"\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})\b", teks):
+        bln = BULAN.get(m.group(2).lower())
+        if bln:
+            t = pd.Timestamp(int(m.group(3)), bln, int(m.group(1)))
+            return {"awal": t, "akhir": t, "presisi": "hari", "label": str(t.date())}
+    m = re.search(r"\b([A-Za-z]{3,9})(?:/([A-Za-z]{3,9}))?\s+(20\d{2})\b", teks)
+    if m:
+        b1 = BULAN.get(m.group(1).lower())
+        b2 = BULAN.get(m.group(2).lower()) if m.group(2) else b1
+        if b1 and b2:
+            th = int(m.group(3))
+            label = f"{m.group(1)}/{m.group(2)} {th}" if m.group(2) else f"{m.group(1)} {th}"
+            return {"awal": pd.Timestamp(th, b1, 1), "akhir": pd.Timestamp(th, b2, 1) + pd.offsets.MonthEnd(0), "presisi": "bulan", "label": label}
+    return None
+
+
+def pengingat_dari_status(db):
+    sumber = []
+    for kode, koleksi in (("H11a", "batas_paper"), ("H29", "pantau_batas")):
+        dok = db[koleksi].find_one({"_id": "h11a_v2" if kode == "H11a" else "h29_v2"}) or {}
+        teks = next((x for x in dok.get("keputusan_2027") or [] if "keputusan MANUAL" in x), None)
+        sumber.append((kode, f"{koleksi}/{'h11a_v2' if kode == 'H11a' else 'h29_v2'}.keputusan_2027", teks))
+    for kode in ("h35", "h37"):
+        dok = db[f"paper_{kode}_status"].find_one({"_id": "status"}) or {}
+        sumber.append((kode.upper(), f"paper_{kode}_status.evaluasi_pertama", dok.get("evaluasi_pertama")))
+    keluar = []
+    for kode, asal, teks in sumber:
+        w = parse_waktu(teks)
+        keluar.append({"kode": kode, "sumber": asal, "teks": teks, **(w or {"awal": None, "akhir": None, "presisi": None, "label": None})})
+    return keluar
+
+
 class Ctx:
-    def __init__(self, tgl, kalender, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None):
+    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None):
         self.tgl = pd.Timestamp(tgl).normalize()
+        if kalender is None:
+            kalender = lb.hari_bursa_antara(MULAI_KALENDER, self.tgl)
         self.kalender = sorted(pd.Timestamp(x).normalize() for x in kalender)
+        self.pengingat = pengingat or []
         self.sekarang = sekarang or datetime.combine(self.tgl.date(), datetime.min.time()).replace(hour=18)
         self.telat_emas = telat_emas
         self.langkah = langkah or []
@@ -198,14 +245,35 @@ def cek_hari_bolong(c):
 
 def cek_pengingat(c):
     keluar = []
-    for kode, tgl, ket in PENGINGAT:
-        sisa = (pd.Timestamp(tgl) - c.tgl).days
-        if 0 <= sisa <= HARI_PENGINGAT:
-            keluar.append(hasil(f"pengingat_{kode}", "info", f"{kode}: evaluasi {tgl} ({sisa} hari lagi), {ket}"))
+    for x in c.pengingat:
+        nama = f"pengingat_{x['kode']}"
+        if not x.get("awal"):
+            keluar.append(hasil(nama, "peringatan", f"{x['kode']}: tanggal evaluasi tidak ditemukan di status terkunci ({x.get('sumber')})"))
+            continue
+        sisa = (x["awal"] - c.tgl).days
+        if c.tgl < x["awal"] - pd.Timedelta(days=HARI_PENGINGAT) or c.tgl > x["akhir"]:
+            continue
+        ket = KET_PENGINGAT.get(x["kode"], "")
+        if x["presisi"] == "hari":
+            keluar.append(hasil(nama, "info", f"{x['kode']}: evaluasi {x['label']} ({sisa} hari lagi), {ket}"))
+        elif sisa > 0:
+            keluar.append(hasil(nama, "info", f"{x['kode']}: evaluasi {x['label']} (mulai {sisa} hari lagi), {ket}"))
+        else:
+            keluar.append(hasil(nama, "info", f"{x['kode']}: evaluasi {x['label']} (bulan evaluasi berjalan), {ket}"))
     return keluar
 
 
-CEK = [cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat]
+def cek_kalender_libur(c):
+    kurang = []
+    for tahun in (c.tgl.year, c.tgl.year + 1):
+        if not lb.tahun_terisi(tahun) and c.tgl >= pd.Timestamp(tahun - 1, 12, 1):
+            kurang.append(tahun)
+    if kurang:
+        return [hasil("kalender_libur", "peringatan", f"kalender libur {', '.join(str(x) for x in kurang)} belum diisi (backend/core/libur_bursa.py); cek hari bursa memakai akhir pekan saja untuk tahun itu")]
+    return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
+
+
+CEK = [cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
 
 
 def jalankan_cek(c):
@@ -228,7 +296,7 @@ def bangun_ctx(db, tgl=None, sekarang=None):
     sekarang = sekarang or datetime.now()
     tgl = pd.Timestamp(tgl or sekarang).normalize()
     data = mp.DataNyata()
-    ctx = Ctx(tgl, data.hari, sekarang=sekarang)
+    ctx = Ctx(tgl, sekarang=sekarang, pengingat=pengingat_dari_status(db))
     ctx.telat_emas = ctx.telat(data.emas_usd.index.max())
     seri = {}
     try:
