@@ -3,10 +3,11 @@ import unittest
 import numpy as np
 import pandas as pd
 
+from backend.core import libur_bursa as lb
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import sintetis_pertumbuhan as sp
 
-HARI = sp.hari_kerja("2026-12-01", "2027-01-29")
+HARI = sp.hari_kerja("2026-12-01", "2027-01-29", libur=lb.libur_set())
 PRA = [pd.Timestamp("2026-11-27"), pd.Timestamp("2026-11-30")]
 HARI_X = PRA + HARI
 
@@ -112,7 +113,6 @@ class TesMesin(unittest.TestCase):
         df = sp.seri_etf(HARI_X)
         df.loc[HARI[2], "nav"] = np.nan
         df.loc[HARI[2], "premium"] = np.nan
-        df.loc[HARI[1], "premium_sejajar"] = np.nan
         m, _ = self.jalan("h37", etf={"AAA": df})
         tgl_beli = {t["tgl"] for t in m.transaksi if t["kaki"] == "emas"}
         self.assertIn(str(HARI[2].date()), tgl_beli)
@@ -157,7 +157,7 @@ class TesMesin(unittest.TestCase):
 
 
 class TesRebalance(unittest.TestCase):
-    HARI = sp.hari_kerja("2026-12-01", "2028-01-14")
+    HARI = sp.hari_kerja("2026-12-01", "2028-01-14", libur=lb.libur_set())
     NAIK = {1: 0.0006, 2: 0.0006, 3: 0.0001}
 
     def jalan(self, strategi, hari, **kw):
@@ -169,7 +169,7 @@ class TesRebalance(unittest.TestCase):
     def test_rebalance_pertama_desember_2027_bukan_2026(self):
         m = self.jalan("h35", self.HARI)
         r = jenis(m, "rebalance")
-        self.assertEqual([k["tgl"] for k in r], ["2027-12-31"])
+        self.assertEqual([k["tgl"] for k in r], ["2027-12-30"])
 
     def test_desember_2026_dilewati(self):
         hari = [h for h in self.HARI if h <= pd.Timestamp("2027-01-29")]
@@ -179,12 +179,12 @@ class TesRebalance(unittest.TestCase):
     def test_rebalance_dihidupkan_bila_pertama_2026(self):
         hari = [h for h in self.HARI if h <= pd.Timestamp("2027-01-29")]
         m = self.jalan("h37", hari, rebalance_pertama=2026)
-        self.assertEqual([k["tgl"] for k in jenis(m, "rebalance")], ["2026-12-31"])
+        self.assertEqual([k["tgl"] for k in jenis(m, "rebalance")], ["2026-12-30"])
 
     def test_rebalance_mengembalikan_bobot_h35(self):
         m = self.jalan("h35", self.HARI)
-        sebelum = [e for e in m.ekuitas if e["tgl"] == "2027-12-30"][0]
-        sesudah = [e for e in m.ekuitas if e["tgl"] == "2027-12-31"][0]
+        sebelum = [e for e in m.ekuitas if e["tgl"] == "2027-12-29"][0]
+        sesudah = [e for e in m.ekuitas if e["tgl"] == "2027-12-30"][0]
         bobot = lambda e: e["lokal"] / (e["lokal"] + e["global"])
         self.assertGreater(abs(bobot(sebelum) - 0.5), 0.02)
         self.assertAlmostEqual(bobot(sesudah), 0.5, delta=0.005)
@@ -195,7 +195,7 @@ class TesRebalance(unittest.TestCase):
         self.assertAlmostEqual(akhir["emas"] / akhir["nilai"], 0.20, delta=0.01)
         self.assertAlmostEqual(akhir["lokal"] / akhir["nilai"], 0.40, delta=0.01)
         self.assertEqual(len(jenis(m, "rebalance")), 1)
-        beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["tgl"] >= "2027-12-31"]
+        beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["tgl"] >= "2027-12-30"]
         self.assertTrue(beli)
 
     def test_rebalance_h37_menjual_emas_dicicil_tanpa_syarat_premium(self):
@@ -203,7 +203,7 @@ class TesRebalance(unittest.TestCase):
         etf = {"AAA": sp.seri_etf(hari, premium=0.08, close=240.0, nilai=30e6)}
         data = sp.bangun(hari, etf=etf, rd_naik=0.0)
         m = sp.mesin("h37", data, hari[0], rebalance_pertama=2026)
-        m.jalan([h for h in hari if h <= pd.Timestamp("2026-12-30")])
+        m.jalan([h for h in hari if h <= pd.Timestamp("2026-12-29")])
         m.st["unit"]["etf:AAA"] = m.st["unit"].get("etf:AAA", 0) + 300000
         m.jalan([h for h in hari if h <= pd.Timestamp("2027-02-26")])
         jual = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "jual"]
@@ -215,6 +215,12 @@ class TesRebalance(unittest.TestCase):
 
 
 class TesMasuk(unittest.TestCase):
+    def jalan(self, strategi="h37", hari=HARI, etf=None, aum=None, rd_naik=0.0001, **kw):
+        data = sp.bangun(PRA + list(hari), etf=etf, aum=aum, rd_naik=rd_naik)
+        m = sp.mesin(strategi, data, hari[0], **kw)
+        m.jalan(hari)
+        return m, data
+
     def test_masuk_ditunda_bila_harga_rd_kosong(self):
         data = sp.bangun(HARI[:5])
         data.rd_seri[3] = data.rd_seri[3].drop(HARI[0])
@@ -229,6 +235,49 @@ class TesMasuk(unittest.TestCase):
         m.jalan(HARI[:5])
         self.assertEqual(m.st["masuk"], "2026-12-03")
         self.assertEqual(len(m.ekuitas), 3)
+
+    def test_hari_bolong_di_etf_tidak_membeli_dan_dihitung_ke_rem(self):
+        df = sp.seri_etf(HARI_X)
+        df = df.drop(index=HARI[2])
+        m, _ = self.jalan("h37", etf={"AAA": df})
+        tgl_beli = {t["tgl"] for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"}
+        self.assertNotIn(str(HARI[3].date()), tgl_beli)
+        self.assertNotIn(str(HARI[2].date()), tgl_beli)
+        self.assertEqual(sorted(k["tgl"] for k in jenis(m, "data_kosong_emas"))[:2], [str(HARI[2].date()), str(HARI[3].date())])
+
+    def test_hari_bolong_tidak_memakai_nav_hari_sesudahnya(self):
+        df = sp.seri_etf(HARI_X, premium=lambda idx: np.where(idx == HARI[3], 0.05, 0.0))
+        df = df.drop(index=HARI[2])
+        m, _ = self.jalan("h37", etf={"AAA": df})
+        for t in m.transaksi:
+            if t["kaki"] == "emas" and t["sisi"] == "beli":
+                self.assertLess(abs(t["premium_keputusan"]), 0.02)
+
+    def test_laporan_pembelian_mencatat_nav_sejajar_dan_rem(self):
+        etf = {"AAA": sp.seri_etf(HARI_X, premium=0.05)}
+        m, _ = self.jalan("h37", etf=etf)
+        beli = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"]
+        self.assertTrue(beli)
+        self.assertTrue(all("nav_sejajar" in t and "lewat_rem" in t for t in beli))
+        self.assertTrue(beli[0]["lewat_rem"])
+        self.assertAlmostEqual(beli[0]["close_keputusan"] / beli[0]["nav_sejajar"] - 1, 0.05)
+
+    def test_akhir_bulan_memakai_kalender_libur(self):
+        m = sp.mesin("h37", sp.bangun(HARI[:5]), HARI[0])
+        for tahun in (2026, 2027):
+            self.assertTrue(m.akhir_bulan(pd.Timestamp(f"{tahun}-12-30"), 12))
+            self.assertFalse(m.akhir_bulan(pd.Timestamp(f"{tahun}-12-31"), 12))
+            self.assertFalse(m.akhir_bulan(pd.Timestamp(f"{tahun}-12-29"), 12))
+        self.assertFalse(m.akhir_bulan(pd.Timestamp("2027-11-30"), 12))
+
+    def test_aum_tanggal_seleksi_tidak_memakai_aum_masa_depan(self):
+        from backend.paper.mesin_pertumbuhan import DataNyata
+        d = DataNyata.__new__(DataNyata)
+        df = pd.DataFrame({"aum": [np.nan, 5e9, 12e9]}, index=pd.to_datetime(["2026-11-26", "2026-11-27", "2026-12-04"]))
+        d.etf_df = {"AAA": df}
+        d.aum_akhir = {"AAA": 99e9}
+        self.assertEqual(d.aum("AAA", pd.Timestamp("2026-11-30")), 5e9)
+        self.assertIsNone(d.aum("AAA", pd.Timestamp("2026-11-25")))
 
     def test_premium_naif_lama_hanya_dicatat(self):
         etf = {"AAA": sp.seri_etf(HARI_X, premium=0.005)}

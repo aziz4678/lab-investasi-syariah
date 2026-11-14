@@ -6,6 +6,7 @@ import pandas as pd
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
 from backend.paper import mesin_pertumbuhan as mp
+from backend.paper import parameter_uji_maju as pu
 
 MODAL = 100_000_000
 ATURAN = 'ATURAN UJI MAJU H35 & H37 (dikunci 12 Nov 2026)\n\nUMUM\n- Mulai hari bursa pertama Jan 2027. Modal paper Rp100 jt masing-masing, sekali masuk.\n- Kaki lokal & global = produk yang sama dengan halaman Portofolio Pertumbuhan.\n- Rebalance tiap Desember ke target: H35 50/50, H37 40/40/20.\n- Biaya: komisi broker + pajak jual sesuai konvensi proyek, harga pasar (bukan NAV).\n\nKAKI EMAS (H37)\n1. Pemilihan ETF (per 31 Des 2026, dan setiap rebalance Desember):\n   dari ETF emas syariah dengan AUM >= Rp10 M DAN median nilai transaksi 60 hari >= Rp10 jt,\n   pilih median |premium| 60 hari terendah. Seri: AUM terbesar.\n   (Data sekarang: XGLD. Kode XMES & XBGS wajib diverifikasi sebelum 31 Des.)\n2. Aturan beli/jual emas:\n   - Order per hari maks 20% dari nilai transaksi ETF hari itu (dicicil).\n   - Beli hanya pada hari dengan premium <= +2%. Kalau lebih, hari itu dilewati.\n   - Batas 15 hari bursa: sisa yang belum terbeli dibeli di hari ke-15 di harga mana pun\n     (tetap maks 20% nilai transaksi; sisanya lagi dibeli hari-hari berikutnya), dicatat\n     sebagai kejadian.\n   - Jual saat rebalance: dicicil dengan batas 20% yang sama, tanpa syarat premium.\n   - Dana yang belum terbelanjakan menunggu sebagai kas (tanpa imbal hasil).\n3. Ganti ETF di luar Desember hanya kalau: delisting, AUM < Rp10 M, atau 5 hari bursa\n   berturut tanpa transaksi. Dicatat sebagai kejadian.\n\nYANG DINILAI (uji pelaksanaan, BUKAN bukti edge). Evaluasi pertama Jan 2028.\n1. Selisih return paper vs model backtest periode sama <= 1,5 poin/th (H35 & H37 masing-masing).\n2. Premium bersih emas (rata-rata premium saat beli - rata-rata premium saat jual, tertimbang\n   nilai) <= 1 poin. Selama belum ada jual, laporkan premium saat beli vs premium terkini.\n3. Biaya nyata total vs asumsi backtest (spread 3% pulang-pergi, 0,5%/th): laporkan angkanya.\n4. Laporkan juga: hari tertunda, jumlah kejadian, tracking ETF vs GC=F x kurs.\nGagal 1 atau 2 -> asumsi backtest H37 dinilai terlalu optimistis; H37 tidak dipakai untuk\nuang nyata sampai diuji ulang dengan biaya nyata.\n'
@@ -78,25 +79,26 @@ def harian(hari_ini=None):
     if not all(x and x.get("dikunci") for x in dok.values()):
         print("aturan belum dikunci, tidak melakukan apa-apa")
         return
-    if sekarang < mp.MULAI - pd.Timedelta(days=1):
-        print(f"{sekarang:%Y-%m-%d}: belum waktunya (pilih ETF emas di hari bursa terakhir Nov 2026, mesin aktif {mp.MULAI:%Y-%m-%d})")
+    prm = pu.verifikasi(db)
+    if sekarang < prm["mulai"] - pd.Timedelta(days=1):
+        print(f"{sekarang:%Y-%m-%d}: belum waktunya (pilih ETF emas di hari bursa terakhir Nov 2026, mesin aktif {prm["mulai"]:%Y-%m-%d})")
         return
     data = mp.DataNyata()
     for kode in KONFIG:
         st = dok[kode].get("mesin") or mp.keadaan_baru()
         if kode == "h37" and (st["pilih_awal"] is None or not st["pilih_awal"].get("terpilih")):
-            sel = ee.pilih_awal(ee.seleksi(data.frames(), {k: data.aum(k, sekarang) for k in data.frames()}, data.nama, sampai=mp.MULAI - pd.Timedelta(days=1)))
+            sel = ee.pilih_awal(ee.seleksi(data.frames(), {k: data.aum(k, prm["tgl_pilih"]) for k in data.frames()}, data.nama, sampai=prm["tgl_pilih"]))
             sel["dibuat"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             st["pilih_awal"] = sel
             db[f"paper_{kode}_status"].update_one({"_id": "status"}, {"$set": {"pilih_etf_awal": sel["terpilih"], "pilih_etf_tier": sel["tier"], "pilih_etf_alasan": sel["alasan_pilih"]}})
             print(f"{kode.upper()} pilih ETF emas awal: {sel['terpilih']} ({sel['tier']}): {sel['alasan_pilih']}")
-        if sekarang <= mp.MULAI:
+        if sekarang <= prm["mulai"]:
             db[f"paper_{kode}_status"].update_one({"_id": "status"}, {"$set": {"mesin": st}})
             continue
         if st["produk"] is None:
             st["produk"] = produk_halaman()
-        m = mp.Mesin(kode, data, state=st, mulai=mp.MULAI)
-        m.jalan([x for x in data.hari if x < sekarang and x >= mp.MULAI and (not st["terakhir"] or x > pd.Timestamp(st["terakhir"]))])
+        m = mp.Mesin(kode, data, state=st, mulai=prm["mulai"], rebalance_pertama=prm["rebalance_pertama"])
+        m.jalan([x for x in data.hari if x < sekarang and x >= prm["mulai"] and (not st["terakhir"] or x > pd.Timestamp(st["terakhir"]))])
         simpan(db, kode, m)
         print(f"{kode.upper()}: {len(m.transaksi)} transaksi, {len(m.kejadian)} kejadian, {len(m.ekuitas)} hari baru, terakhir {st['terakhir']}")
 

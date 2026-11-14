@@ -2,6 +2,7 @@ import math
 
 import pandas as pd
 
+from backend.core import libur_bursa as lb
 from backend.db import data as dt
 from backend.db import harga
 from backend.db import koneksi as d
@@ -10,6 +11,7 @@ from backend.ingest import etf_emas as ee
 MODAL = 100_000_000
 MULAI = pd.Timestamp("2026-12-01")
 REBALANCE_PERTAMA = 2027
+TGL_PILIH = pd.Timestamp("2026-11-30")
 BATAS_NILAI = 0.20
 PREMIUM_MAKS_BELI = 0.02
 HARI_BATAS = 15
@@ -42,8 +44,6 @@ class DataNyata:
         ring = (dt.baca_hasil("etf_emas_ringkas") or {}).get("etf") or {}
         self.nama = {k: r["nama"] for k, r in ring.items()}
         self.etf_df = {k: dt.baca(f"{ee.KOLEKSI}/{k}") for k in ring if dt.ada(f"{ee.KOLEKSI}/{k}")}
-        for df in self.etf_df.values():
-            df["premium_sejajar"] = df["close"] / df["nav"].shift(-1) - 1
         self.aum_akhir = {k: r.get("aum") for k, r in ring.items()}
         self.hari = list(harga.ihsg().index)
         self.kurs = harga.indeks("kurs/USD")["close"].dropna().sort_index()
@@ -79,7 +79,7 @@ class DataNyata:
             return None
         r = df.loc[D]
         g = lambda k: float(r[k]) if ada(r.get(k)) else None
-        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium"), "premium_sejajar": g("premium_sejajar")}
+        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium")}
 
     def telat_emas(self, D):
         akhir = self.emas_usd.index.max()
@@ -89,8 +89,7 @@ class DataNyata:
         df = self.etf_df.get(kode)
         if df is not None and "aum" in df:
             x = df.loc[:D, "aum"].dropna()
-            if len(x):
-                return float(x.iloc[-1])
+            return float(x.iloc[-1]) if len(x) else None
         return self.aum_akhir.get(kode)
 
     def frames(self):
@@ -169,10 +168,10 @@ class Mesin:
         return sum(self.nilai_kaki(D).values()) + self.st["kas"]
 
     def akhir_bulan(self, D, bulan):
-        if D.month != bulan:
+        D = pd.Timestamp(D).normalize()
+        if D.month != bulan or not lb.hari_bursa(D):
             return False
-        hari = [h for h in self.data.hari if h.year == D.year and h.month == bulan]
-        return bool(hari) and D == hari[-1]
+        return not lb.hari_bursa_antara(D + pd.Timedelta(days=1), D + pd.offsets.MonthEnd(0))
 
     def sebelum(self, D):
         h = [x for x in self.data.hari if x < D]
@@ -263,7 +262,9 @@ class Mesin:
             lusa = self.sebelum(kemarin) if kemarin is not None else None
             baris_lusa = self.data.etf(kode, lusa) if lusa is not None else None
             baris_kemarin = self.data.etf(kode, kemarin) if kemarin is not None else None
-            prem_k = baris_lusa["premium_sejajar"] if baris_lusa and ada(baris_lusa.get("premium_sejajar")) else None
+            nav_sejajar = baris_kemarin["nav"] if baris_kemarin and ada(baris_kemarin.get("nav")) else None
+            close_lusa = baris_lusa["close"] if baris_lusa and ada(baris_lusa.get("close")) else None
+            prem_k = close_lusa / nav_sejajar - 1 if nav_sejajar and close_lusa else None
             prem_lama = baris_kemarin["premium"] if baris_kemarin and ada(baris_kemarin["premium"]) else None
             if prem_k is None:
                 self.cat(D, "data_kosong_emas", f"harga/NAV {kode} dua hari bursa sebelumnya kosong (premium sejajar), tidak ada pembelian emas hari ini", kode=kode, hari_order=o["hari"])
@@ -292,7 +293,7 @@ class Mesin:
             st["unit"][o["kunci"]] = st["unit"].get(o["kunci"], 0.0) + unit
             o["sisa"] -= biaya + fee
             self.trx(D, "emas", o["kunci"], "beli", unit, harga_, fee, premium=prem_e, premium_keputusan=prem_k, premium_keputusan_naif=prem_lama, premium_eksekusi=prem_e, hari_order=o["hari"], nilai_transaksi_etf=row["nilai"],
-                     batas=cap, pakai_batas=biaya / cap)
+                     batas=cap, pakai_batas=biaya / cap, nav_sejajar=nav_sejajar, close_keputusan=close_lusa, lewat_rem=bool(paksa and prem_k > PREMIUM_MAKS_BELI), lewati_sebelumnya=o["lewati"])
             if paksa and prem_k > PREMIUM_MAKS_BELI:
                 self.cat(D, "batas_hari_15", f"hari ke-{o['hari']}: beli di premium keputusan {prem_k * 100:+.2f}% karena batas hari", kode=kode, premium_keputusan=prem_k, premium_eksekusi=prem_e)
             if o["sisa"] < per_lot or st["kas"] < per_lot:

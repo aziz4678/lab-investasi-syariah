@@ -8,11 +8,12 @@ from backend.core import libur_bursa as lb
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
 from backend.paper import mesin_pertumbuhan as mp
+from backend.paper import parameter_uji_maju as pu
 
 KOLEKSI = "cek_kesehatan"
 MULAI = mp.MULAI
-TGL_PILIH = pd.Timestamp("2026-11-30")
-BATAS_AWAL = pd.Timestamp("2026-12-10")
+TGL_PILIH = mp.TGL_PILIH
+BATAS_AWAL = mp.MULAI + pd.Timedelta(days=pu.HARI_BATAS_AWAL)
 KODE = ("h35", "h37")
 TELAT_EMAS_MAKS = 2
 TELAT_SERI_MAKS = 3
@@ -72,8 +73,11 @@ def pengingat_dari_status(db):
 
 
 class Ctx:
-    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None):
+    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None, parameter=None, beda_parameter=None):
         self.tgl = pd.Timestamp(tgl).normalize()
+        prm = parameter or {"mulai": MULAI, "tgl_pilih": TGL_PILIH, "batas_awal": BATAS_AWAL}
+        self.mulai, self.tgl_pilih, self.batas_awal = prm["mulai"], prm["tgl_pilih"], prm["batas_awal"]
+        self.beda_parameter = beda_parameter or []
         if kalender is None:
             kalender = lb.hari_bursa_antara(MULAI_KALENDER, self.tgl)
         self.kalender = sorted(pd.Timestamp(x).normalize() for x in kalender)
@@ -147,8 +151,14 @@ def cek_seri_data(c):
     return [hasil("seri_data", "ok", f"{len(lag)} seri data uji maju segar (telat maks {max(lag.values()) if lag else 0} hari bursa)")]
 
 
+def cek_parameter_mesin(c):
+    if c.beda_parameter:
+        return [hasil("parameter_mesin", "gagal", "parameter kode tidak sama dengan status terkunci: " + "; ".join(c.beda_parameter))]
+    return [hasil("parameter_mesin", "ok", f"MULAI {c.mulai.date()}, pilih ETF {c.tgl_pilih.date()}, batas awal {c.batas_awal.date()} dibaca dari status terkunci dan sama dengan kode")]
+
+
 def cek_belum_mulai(c):
-    if c.tgl >= MULAI:
+    if c.tgl >= c.mulai:
         return []
     masalah = []
     for k in KODE:
@@ -170,7 +180,7 @@ def cek_belum_mulai(c):
 
 
 def cek_pilih_etf(c):
-    if c.tgl < TGL_PILIH or not c.bursa():
+    if c.tgl < c.tgl_pilih or not c.bursa():
         return []
     st = (c.koleksi.get("h37") or {}).get("status") or {}
     awal = (st.get("mesin") or {}).get("pilih_awal") or {}
@@ -182,9 +192,9 @@ def cek_pilih_etf(c):
 
 
 def cek_transaksi_pertama(c):
-    if not (MULAI <= c.tgl <= BATAS_AWAL) or not c.bursa():
+    if not (c.mulai <= c.tgl <= c.batas_awal) or not c.bursa():
         return []
-    n = c.hari_ke(MULAI)
+    n = c.hari_ke(c.mulai)
     if n < HARI_MASUK_MAKS:
         return [hasil("transaksi_pertama", "ok", f"hari bursa ke-{n} sejak 1 Des, belum jatuh tempo (maks hari ke-{HARI_MASUK_MAKS})")]
     kosong = [k.upper() for k in KODE if not (c.koleksi.get(k) or {}).get("transaksi")]
@@ -194,7 +204,7 @@ def cek_transaksi_pertama(c):
 
 
 def cek_batas_20(c):
-    if c.tgl < MULAI:
+    if c.tgl < c.mulai:
         return []
     lebih = []
     n = 0
@@ -210,7 +220,7 @@ def cek_batas_20(c):
 
 
 def cek_rem_15(c):
-    if c.tgl < MULAI:
+    if c.tgl < c.mulai:
         return []
     st = (c.koleksi.get("h37") or {}).get("status") or {}
     mesin = st.get("mesin") or {}
@@ -226,10 +236,10 @@ def cek_rem_15(c):
 
 
 def cek_hari_bolong(c):
-    if c.tgl <= MULAI:
+    if c.tgl <= c.mulai:
         return []
     ref = c.acuan()
-    wajib = [h for h in c.kalender if MULAI <= h < ref]
+    wajib = [h for h in c.kalender if c.mulai <= h < ref]
     if not wajib:
         return [hasil("hari_bolong", "ok", "belum ada hari yang wajib tercatat")]
     masalah = []
@@ -276,7 +286,7 @@ def cek_kalender_libur(c):
     return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
 
 
-CEK = [cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
+CEK = [cek_parameter_mesin, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
 
 
 def jalankan_cek(c):
@@ -299,7 +309,12 @@ def bangun_ctx(db, tgl=None, sekarang=None):
     sekarang = sekarang or datetime.now()
     tgl = pd.Timestamp(tgl or sekarang).normalize()
     data = mp.DataNyata()
-    ctx = Ctx(tgl, sekarang=sekarang, pengingat=pengingat_dari_status(db))
+    try:
+        prm = pu.baca(db)
+        beda = pu.selisih(prm)
+    except Exception as e:
+        prm, beda = None, [f"status tidak terbaca: {type(e).__name__}: {str(e)[:100]}"]
+    ctx = Ctx(tgl, sekarang=sekarang, pengingat=pengingat_dari_status(db), parameter=prm, beda_parameter=beda)
     ctx.telat_emas = ctx.telat(data.emas_usd.index.max())
     seri = {}
     try:
