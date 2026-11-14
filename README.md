@@ -14,7 +14,11 @@ Mencari cara mendapat penghasilan rutin dari investasi syariah, dengan target be
 | Pendapatan | Saham dividen syariah | Kosong: strategi dividen gagal diuji |
 | Apresiasi modal | Strategi saham yang lulus uji (Follow Tren) | Total return > beli-tahan JII, penurunan sampai -40% |
 
-Fokus riset: saham syariah IDX. Paper trade Follow Tren dinilai 12 bulan (keputusan utama Okt 2027) sebelum uang nyata, dimulai kecil dan bertahap.
+Fokus riset: saham syariah IDX. Paper trade Follow Tren dinilai 12 bulan (keputusan manual Okt 2027, porsi awal maks 10%, bukan bukti edge) sebelum uang nyata, dimulai kecil dan bertahap.
+
+## Fase saat ini: eksekusi dan menunggu
+
+Tidak ada hipotesis baru di data 2010-2026 sampai evaluasi Okt/Nov 2027, kecuali memakai data baru dan kriteria ditulis sebelum melihat data. Yang berjalan: paper H11a dan H29, dan uji maju H35 dan H37 (mulai 1 Des 2026).
 
 Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yang berlaku **pada tanggal itu**, bukan daftar hari ini.
 
@@ -24,7 +28,10 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 |---|---|---|
 | **Follow Tren** (H11a) | Paper trade sejak 21 Okt 2026, modal Rp100 jt | Beli saham syariah likuid yang menembus harga tertinggi 250 hari, maks 10 posisi @10%, stop 3×ATR14. Backtest 2020-2026 (median 100 simulasi Monte Carlo, sesudah koreksi data harga 2 Nov 2026): CAGR +20,9%, penurunan maks -41,9%. Audit 2026-11-01: gagal standar seragam di dev, kapasitas kecil (universe Rp20 M ±separuh). Belum terbukti di uang nyata. |
 | **Momentum Blend** (H29) | Paper trade sejak 1 Nov 2026, modal Rp100 jt | Breakout 52W + RS 12-1: 50% Follow Tren + 50% RS 12-1 (momentum 12-1, H22), dikembalikan ke 50/50 tiap akhir bulan. Ditemukan setelah melihat data, jadi angka historisnya bukan bukti; evaluasi 1 Nov 2027. |
-| Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan. |
+| **Syariah Global** (H35) | Lolos pasca hasil (K1-K4 4/4); **uji maju mulai 1 Des 2026**, modal paper Rp100 jt | 50% JII + 50% saham syariah global, rupiah, rebalance Desember. Indeks Jun 2001-Okt 2026: CAGR +9,5%, DD -42,6%, jendela 10 th terburuk +2,8% (100% IDX: +8,3%, -61,4%, -7,2%). Arah umum data sudah diketahui sebelum uji (kontaminasi tercatat). |
+| **Syariah Global + Emas** (H37) | Lolos dev dan holdout (pasca hasil); **uji maju mulai 1 Des 2026**, aturan dikunci 12 Nov 2026, evaluasi pertama Jan 2028 | 40% JII / 40% global syariah / 20% emas (ETF emas syariah), rebalance Desember. Dev 2001-2013: CAGR 14,6%, DD -34,2% (H35 14,1%, -42,6%). Holdout 2014-Okt 2026: 6,7%, -13,4% (H35 5,1%, -19,0%); margin DD holdout 5,6 poin (batas 5) dan sebagian besar keunggulan dari emas 2024-2025. Sensitivitas: bobot 45/45/10 gagal K1 (2/3) di dev dan holdout, 35/35/30 juga gagal K1 di holdout; spread emas 1% dan 6% lolos 3/3. Uji maju menilai pelaksanaan produk nyata, bukan bukti edge. |
+| PEAD / kejutan laba (H36) | Gagal di holdout | Dev 2020-2023 lulus (CAGR 17,1%) hanya karena strategi berada di kas saat jatuhnya pasar 2020 dan satu trade BYAN. Holdout 2024-2026: CAGR 3,0% vs bobot sama 7,8%; excess per event -0,76%; tanpa saham batu bara 1,4% vs 5,3%. |
+| Pemburu Dividen (H17) | Gagal | 10 yield tertinggi yang rutin bayar 3 tahun: penghasilan tinggi hanya saat boom batu bara. Uji maju 2027 dihentikan 25 Okt 2026 (keputusan user). |
 | Swing pendek, indikator klasik, fundamental/valuasi, aliran dana asing/KSEI | Gagal | Biaya ±1,2% pulang-pergi memakan keuntungan kecil. |
 | Filter rezim JII, low volatility, momentum bulanan, dual momentum JII/emas/kas | Gagal | Lihat halaman Hipotesis. |
 | Screener swing "bottom reversal" di saham bertren naik (H27) | Gagal di dev 2010-2019 | Sebelum biaya pun hasilnya nol, kalah dari beli saham acak. |
@@ -32,7 +39,7 @@ Hanya instrumen syariah. Saham disaring dengan Daftar Efek Syariah (DES) OJK yan
 | Ikut pembelian saham oleh direksi/komisaris (H25) | Gagal di dev 2023-2024 | Rata-rata terlihat bagus, tapi separuh lebih trade kalah dari pasar; hasil ditarik beberapa saham yang melonjak di 2024. |
 | Faktor kualitas ala Buffett (ROE, utang, harga wajar), seri K | Gagal di dev 2011-2019 | Semua varian kalah dari memegang semua saham syariah likuid secara rata. Kolam saham syariah likuid terlalu kecil (28-62 saham) untuk membedakan keunggulan faktor dari kebetulan. Lihat [docs/RISET_KUALITAS.md](docs/RISET_KUALITAS.md). |
 
-Katalog lengkap 49 hipotesis (H0-H33 tanpa H24) beserta kriteria, hasil, dan grafiknya ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
+Katalog lengkap **53 hipotesis** (per sub-ID, = 37 ID induk H0-H37 tanpa H24; status: Gagal 42, Tidak diadopsi 6, Paper 2, Uji maju 2, Belum dikunci 1) ada di [docs/KATALOG_HIPOTESIS.md](docs/KATALOG_HIPOTESIS.md), dengan aturan hitungnya. Kriteria, hasil, dan grafik ada di menu **Hipotesis** dan di [docs/RENCANA_SCREENER.md](docs/RENCANA_SCREENER.md).
 
 ## Cara riset
 
