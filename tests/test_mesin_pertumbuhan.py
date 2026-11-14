@@ -7,7 +7,8 @@ from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import sintetis_pertumbuhan as sp
 
 HARI = sp.hari_kerja("2026-12-01", "2027-01-29")
-HARI_X = [pd.Timestamp("2026-11-30")] + HARI
+PRA = [pd.Timestamp("2026-11-27"), pd.Timestamp("2026-11-30")]
+HARI_X = PRA + HARI
 
 
 def jenis(m, j):
@@ -16,7 +17,7 @@ def jenis(m, j):
 
 class TesMesin(unittest.TestCase):
     def jalan(self, strategi="h37", hari=HARI, etf=None, aum=None, rd_naik=0.0001, **kw):
-        data = sp.bangun([pd.Timestamp("2026-11-30")] + list(hari), etf=etf, aum=aum, rd_naik=rd_naik)
+        data = sp.bangun(PRA + list(hari), etf=etf, aum=aum, rd_naik=rd_naik)
         m = sp.mesin(strategi, data, hari[0], **kw)
         m.jalan(hari)
         return m, data
@@ -90,17 +91,18 @@ class TesMesin(unittest.TestCase):
         self.assertEqual(len(jenis(m, "data_kosong_emas")), 4)
         self.assertEqual(m.ekuitas[1]["tgl"], str(HARI[1].date()))
 
-    def test_keputusan_memakai_premium_kemarin_bukan_hari_ini(self):
+    def test_keputusan_memakai_premium_sejajar_dua_hari_sebelumnya(self):
         prem = lambda idx: np.where(idx <= HARI[2], 0.05, 0.005)
         etf = {"AAA": sp.seri_etf(HARI_X, premium=prem)}
         m, _ = self.jalan("h37", etf=etf)
         tgl_beli = sorted({t["tgl"] for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"})
-        self.assertEqual(tgl_beli[0], str(HARI[4].date()))
-        self.assertNotIn(str(HARI[3].date()), tgl_beli)
+        self.assertEqual(tgl_beli[0], str(HARI[5].date()))
+        for i in range(5):
+            self.assertNotIn(str(HARI[i].date()), tgl_beli)
         lewat = [k for k in jenis(m, "lewati_premium") if k["tgl"] == str(HARI[3].date())]
         self.assertEqual(len(lewat), 1)
-        self.assertGreater(lewat[0]["premium_keputusan"], mp.PREMIUM_MAKS_BELI)
-        self.assertLess(lewat[0]["premium_eksekusi"], mp.PREMIUM_MAKS_BELI)
+        self.assertAlmostEqual(lewat[0]["premium_keputusan"], 0.05)
+        self.assertEqual(len(jenis(m, "lewati_premium")), 5)
         pertama = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"][0]
         self.assertAlmostEqual(pertama["premium_keputusan"], 0.005)
         self.assertAlmostEqual(pertama["premium_eksekusi"], 0.005)
@@ -110,6 +112,7 @@ class TesMesin(unittest.TestCase):
         df = sp.seri_etf(HARI_X)
         df.loc[HARI[2], "nav"] = np.nan
         df.loc[HARI[2], "premium"] = np.nan
+        df.loc[HARI[1], "premium_sejajar"] = np.nan
         m, _ = self.jalan("h37", etf={"AAA": df})
         tgl_beli = {t["tgl"] for t in m.transaksi if t["kaki"] == "emas"}
         self.assertIn(str(HARI[2].date()), tgl_beli)
@@ -227,6 +230,43 @@ class TesMasuk(unittest.TestCase):
         self.assertEqual(m.st["masuk"], "2026-12-03")
         self.assertEqual(len(m.ekuitas), 3)
 
+    def test_premium_naif_lama_hanya_dicatat(self):
+        etf = {"AAA": sp.seri_etf(HARI_X, premium=0.005)}
+        data = sp.bangun(PRA + list(HARI), etf=etf)
+        m = sp.mesin("h37", data, HARI[0])
+        m.jalan(HARI)
+        pertama = [t for t in m.transaksi if t["kaki"] == "emas" and t["sisi"] == "beli"][0]
+        self.assertIn("premium_keputusan_naif", pertama)
+
+    def test_pilih_awal_normal_bila_ada_data_60_hari(self):
+        from backend.ingest import etf_emas as ee
+        kand = [{"kode": "A", "aum": 20e9, "nilai_median": 30e6, "premium_mutlak_median": 0.01, "hari_data": 60, "hari_premium": 60, "lolos": True, "alasan": []},
+                {"kode": "B", "aum": 30e9, "nilai_median": 30e6, "premium_mutlak_median": 0.005, "hari_data": 20, "hari_premium": 20, "lolos": True, "alasan": []}]
+        r = ee.pilih_awal({"kandidat": kand, "hari": 60, "terpilih": "A"})
+        self.assertEqual((r["terpilih"], r["tier"]), ("A", "normal"))
+
+    def test_pilih_awal_fallback_riwayat_terpanjang_bukan_kas(self):
+        from backend.ingest import etf_emas as ee
+        kand = [{"kode": "A", "aum": 20e9, "nilai_median": 30e6, "premium_mutlak_median": 0.01, "hari_data": 14, "hari_premium": 13, "lolos": True, "alasan": []},
+                {"kode": "B", "aum": 18e9, "nilai_median": 26e6, "premium_mutlak_median": 0.012, "hari_data": 20, "hari_premium": 19, "lolos": True, "alasan": []},
+                {"kode": "C", "aum": 5e9, "nilai_median": 14e6, "premium_mutlak_median": 0.02, "hari_data": 60, "hari_premium": 60, "lolos": False, "alasan": ["AUM < Rp10 M"]}]
+        r = ee.pilih_awal({"kandidat": kand, "hari": 60, "terpilih": "A"})
+        self.assertEqual((r["terpilih"], r["tier"]), ("B", "riwayat_terpanjang"))
+        self.assertIn("a2", r["alasan_pilih"])
+
+    def test_pilih_awal_tanpa_yang_lolos_tetap_memilih_etf(self):
+        from backend.ingest import etf_emas as ee
+        kand = [{"kode": "C", "aum": 5e9, "nilai_median": 14e6, "premium_mutlak_median": 0.02, "hari_data": 60, "hari_premium": 60, "lolos": False, "alasan": ["AUM < Rp10 M"]},
+                {"kode": "D", "aum": 1e9, "nilai_median": 0.0, "premium_mutlak_median": 0.07, "hari_data": 13, "hari_premium": 13, "lolos": False, "alasan": ["AUM < Rp10 M"]}]
+        r = ee.pilih_awal({"kandidat": kand, "hari": 60, "terpilih": None})
+        self.assertEqual((r["terpilih"], r["tier"]), ("C", "riwayat_terpanjang_tanpa_filter"))
+    def test_telat_emas_dihitung_dalam_hari_bursa(self):
+        d = mp.DataNyata.__new__(mp.DataNyata)
+        d.hari = [pd.Timestamp(x) for x in ("2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06")]
+        d.emas_usd = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-11-02", "2026-11-03"]))
+        self.assertEqual(d.telat_emas(pd.Timestamp("2026-11-03")), 0)
+        self.assertEqual(d.telat_emas(pd.Timestamp("2026-11-05")), 2)
+        self.assertEqual(d.telat_emas(pd.Timestamp("2026-11-06")), 3)
 
 if __name__ == "__main__":
     unittest.main()

@@ -84,11 +84,12 @@ def harian(hari_ini=None):
     data = mp.DataNyata()
     for kode in KONFIG:
         st = dok[kode].get("mesin") or mp.keadaan_baru()
-        if kode == "h37" and st["pilih_awal"] is None:
-            sel = ee.seleksi(data.frames(), {k: data.aum(k, sekarang) for k in data.frames()}, data.nama, sampai=mp.MULAI - pd.Timedelta(days=1))
+        if kode == "h37" and (st["pilih_awal"] is None or not st["pilih_awal"].get("terpilih")):
+            sel = ee.pilih_awal(ee.seleksi(data.frames(), {k: data.aum(k, sekarang) for k in data.frames()}, data.nama, sampai=mp.MULAI - pd.Timedelta(days=1)))
             sel["dibuat"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             st["pilih_awal"] = sel
-            print(f"{kode.upper()} pilih ETF emas awal: {sel['terpilih']}")
+            db[f"paper_{kode}_status"].update_one({"_id": "status"}, {"$set": {"pilih_etf_awal": sel["terpilih"], "pilih_etf_tier": sel["tier"], "pilih_etf_alasan": sel["alasan_pilih"]}})
+            print(f"{kode.upper()} pilih ETF emas awal: {sel['terpilih']} ({sel['tier']}): {sel['alasan_pilih']}")
         if sekarang <= mp.MULAI:
             db[f"paper_{kode}_status"].update_one({"_id": "status"}, {"$set": {"mesin": st}})
             continue
@@ -107,20 +108,38 @@ AMANDEMEN_1 = {"id": "a1", "tgl": "2026-11-12", "mulai": "2026-12-01",
                        "Setelah amandemen ini teks aturan tidak boleh diubah lagi; hasil uji kering (simulasi mulai 2 Nov) hanya untuk memperbaiki bug mesin, bukan mengubah aturan."}
 
 
+AMANDEMEN_2 = {"id": "a2", "tgl": "2026-11-14", "mulai": "2026-12-01",
+               "teks": "Amandemen a2 (hanya mekanisme eksekusi dan data; bobot, strategi, batas 20% nilai transaksi, batas premium +2%, rem 15 hari tidak berubah). "
+                       "(a) Premium keputusan beli emas = premium sejajar: close ETF dua hari bursa sebelum hari eksekusi (T-2) dibanding NAV berlabel T-1, yaitu NAV yang mencerminkan hari harga yang sama "
+                       "(NAV berlabel T mencerminkan emas T-1 dan baru terbit setelah penutupan T, sehingga NAV berlabel T tidak dipakai untuk keputusan hari T: itu look-ahead). Batas tetap +2%. "
+                       "Premium naif lama (close T-1 / NAV berlabel T-1) hanya dicatat sebagai premium_keputusan_naif. "
+                       "(b) Batas order 20% nilai transaksi ETF dan rem 15 hari tetap. "
+                       "(c) Pemilihan ETF emas awal (hari bursa terakhir Nov 2026): aturan normal bila ada kandidat lolos AUM dan nilai transaksi dengan data premium 60 hari; bila tidak ada, dipilih ETF emas syariah "
+                       "lolos filter dengan riwayat data premium terpanjang; bila tidak ada yang lolos filter, riwayat terpanjang tanpa filter. Kaki emas tidak pernah default ke kas. Alasan dicatat di status (pilih_etf_*). "
+                       "Pemilihan awal yang gagal diulang tiap hari, tidak macet. "
+                       "(d) Data: seri emas GC=F (pasar_panjang/emas_usd, futures bukan spot) masuk jadwal harian; bila seri pembanding model telat lebih dari 2 hari bursa, selisih paper vs model ditandai tidak_valid dan tidak dihitung. "
+                       "DITOLAK: batas premium dinamis median 20 hari + 1 poin (mengubah semantik aturan, bukan sekadar mekanisme eksekusi). "
+                       "Alasan: investigasi XGLD 2026-11-14 (NAV terlambat satu hari, premium ±1,4% rata-rata dan 40% hari di atas +2%, likuiditas median Rp26 jt/hari, seri emas pembanding berhenti 6 Nov). "
+                       "Dibuat sebelum ada transaksi atau hasil uji maju apa pun."}
+
+
 def amandemen():
     db = d.koneksi()
     for kode in KONFIG:
         st = db[f"paper_{kode}_status"]
-        dok = st.find_one({"_id": "status"})
-        if any(a.get("id") == AMANDEMEN_1["id"] for a in dok.get("amandemen") or []):
-            print(f"{kode.upper()} amandemen a1 sudah tercatat.")
-            continue
-        if db[f"paper_{kode}_transaksi"].count_documents({}) or db[f"paper_{kode}_posisi"].count_documents({}):
-            raise SystemExit(f"{kode.upper()} sudah ada transaksi/posisi, amandemen pra-mulai ditolak")
-        st.update_one({"_id": "status"}, {"$push": {"amandemen": {**AMANDEMEN_1, "dicatat": datetime.now()}},
-                                           "$set": {"mulai_rencana": "hari bursa pertama Des 2026 (1 Des 2026)", "aktif_otomatis": "hari bursa pertama Des 2026 (1 Des 2026)",
-                                                    "rebalance_pertama": "Desember 2027", "pilih_etf_pertama": "hari bursa terakhir Nov 2026"}})
-        print(f"{kode.upper()} amandemen a1 dicatat")
+        for am in (AMANDEMEN_1, AMANDEMEN_2):
+            dok = st.find_one({"_id": "status"})
+            if any(a.get("id") == am["id"] for a in dok.get("amandemen") or []):
+                print(f"{kode.upper()} amandemen {am['id']} sudah tercatat.")
+                continue
+            if db[f"paper_{kode}_transaksi"].count_documents({}) or db[f"paper_{kode}_posisi"].count_documents({}):
+                raise SystemExit(f"{kode.upper()} sudah ada transaksi/posisi, amandemen pra-mulai ditolak")
+            perintah = {"$push": {"amandemen": {**am, "dicatat": datetime.now()}}}
+            if am["id"] == "a1":
+                perintah["$set"] = {"mulai_rencana": "hari bursa pertama Des 2026 (1 Des 2026)", "aktif_otomatis": "hari bursa pertama Des 2026 (1 Des 2026)",
+                                    "rebalance_pertama": "Desember 2027", "pilih_etf_pertama": "hari bursa terakhir Nov 2026"}
+            st.update_one({"_id": "status"}, perintah)
+            print(f"{kode.upper()} amandemen {am['id']} dicatat")
 
 
 if __name__ == "__main__":

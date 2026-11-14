@@ -103,7 +103,7 @@ def perlu_cek_des(hari_ini=None):
 
 
 URUTAN_HARIAN = [
-    "1. Unduh Yahoo: DES (musimnya), paper_unduh (harian paper + JII, dikoreksi), harga_perbarui, pasar_perbarui, reksa dana, ETF, ETF emas syariah harian (etf_emas_perbarui: harga, volume, NAV, premium; juga di jadwal pagi setelah NAV terbit), uji_maju_harian (mesin uji maju H35 & H37, menunggu 30 Nov/1 Des 2026), makro",
+    "1. Unduh Yahoo: DES (musimnya), paper_unduh (harian paper + JII, dikoreksi), harga_perbarui, pasar_perbarui, emas_panjang_perbarui (GC=F futures untuk pembanding model uji maju), reksa dana, ETF, ETF emas syariah harian (etf_emas_perbarui: harga, volume, NAV, premium; juga di jadwal pagi setelah NAV terbit), uji_maju_harian (mesin uji maju H35 & H37, menunggu 30 Nov/1 Des 2026), makro",
     "2. Ambil idx_harian (Chrome Lab); kalau gagal, langkah berikutnya tetap jalan dengan cadangan Yahoo dan ditandai",
     "3. kualitas_data: perbarui_otomatis (aksi korporasi IDX) + cek_kualitas_data; ADA TEMUAN tidak memblokir paper; lalu koreksi_ekspor (registry ke data/koreksi_harga.jsonl)",
     "4. Paper H11a (paper_harian) + H22 (paper_h22), sumber IDX resmi",
@@ -157,6 +157,7 @@ def jalan():
         langkah(db, "paper_unduh", catatan=log)
     langkah(db, "harga_perbarui", catatan=log)
     langkah(db, "pasar_perbarui", catatan=log)
+    langkah(db, "emas_panjang_perbarui", catatan=log)
     langkah(db, "rd_perbarui", catatan=log)
     from backend.app.services import sumber_data as sd
     if sd.platform_perlu(db):

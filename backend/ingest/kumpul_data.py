@@ -224,21 +224,29 @@ def indeks_panjang():
     if len(jkii):
         dt.tulis("indeks/JKII", jkii)
         print(f"indeks/JKII: {len(jkii)} hari s/d {jkii.index.max().date()}")
+    emas_panjang()
+
+
+def emas_panjang():
+    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
     g = yf.Ticker("GC=F").history(period="max", auto_adjust=False)
     g.index = g.index.tz_localize(None).normalize()
     emas = buang_belum_final(g[["Close"]].rename(columns={"Close": "close"}).dropna(), "GC=F")
     if len(emas):
         dt.tulis("pasar_panjang/emas_usd", emas)
-        print(f"pasar_panjang/emas_usd: {len(emas)} hari s/d {emas.index.max().date()}")
+        print(f"pasar_panjang/emas_usd (GC=F, futures bukan spot): {len(emas)} hari s/d {emas.index.max().date()}")
+    print("SELESAI")
 
 
 def utama():
     p = argparse.ArgumentParser()
-    p.add_argument("perintah", choices=["harga", "pasar", "penuh", "info", "indeks_panjang"])
+    p.add_argument("perintah", choices=["harga", "pasar", "penuh", "info", "indeks_panjang", "emas_panjang"])
     a = p.parse_args()
     logging.getLogger("yfinance").setLevel(logging.CRITICAL)
     if a.perintah == "indeks_panjang":
         indeks_panjang()
+    elif a.perintah == "emas_panjang":
+        emas_panjang()
     elif a.perintah == "harga":
         perbarui_harga()
     elif a.perintah == "pasar":

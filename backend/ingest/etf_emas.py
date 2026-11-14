@@ -135,6 +135,32 @@ def seleksi(frames, aum, nama=None, sampai=None, hari=HARI_PILIH, kecuali=()):
     return {"terpilih": lolos[0]["kode"] if lolos else None, "kandidat": kandidat, "hari": hari}
 
 
+def pilih_awal(sel):
+    kand = sel["kandidat"]
+    lolos = [k for k in kand if k["lolos"]]
+    cukup = [k for k in lolos if k["hari_premium"] >= sel["hari"]]
+    if cukup:
+        k = sorted(cukup, key=lambda x: (x["premium_mutlak_median"], -(x["aum"] or 0)))[0]
+        tier = "normal"
+        alasan = f"aturan normal: lolos AUM dan nilai transaksi, data premium {sel['hari']} hari, median |premium| terendah ({k['premium_mutlak_median'] * 100:.2f}%)"
+    elif lolos:
+        k = sorted(lolos, key=lambda x: (-x["hari_premium"], x["premium_mutlak_median"], -(x["aum"] or 0)))[0]
+        tier = "riwayat_terpanjang"
+        alasan = (f"amandemen a2: tidak ada kandidat lolos dengan data premium >= {sel['hari']} hari; dipilih riwayat data premium terpanjang di antara yang lolos "
+                  f"AUM dan nilai transaksi ({k['hari_premium']} hari)")
+    else:
+        ada = [x for x in kand if x["hari_premium"] > 0]
+        k = sorted(ada, key=lambda x: (-x["hari_premium"], -x["nilai_median"]))[0] if ada else None
+        tier = "riwayat_terpanjang_tanpa_filter"
+        alasan = ("amandemen a2: tidak ada kandidat lolos filter AUM/nilai transaksi; dipilih riwayat data premium terpanjang tanpa filter, kaki emas tidak boleh default ke kas"
+                  if k else "tidak ada ETF emas dengan data premium")
+    hasil = dict(sel)
+    hasil["terpilih"] = k["kode"] if k else None
+    hasil["tier"] = tier
+    hasil["alasan_pilih"] = alasan
+    return hasil
+
+
 def pilih(hari=HARI_PILIH):
     ring = (dt.baca_hasil("etf_emas_ringkas") or {}).get("etf") or {}
     frames = {k: dt.baca(f"{KOLEKSI}/{k}") for k in ring if dt.ada(f"{KOLEKSI}/{k}")}

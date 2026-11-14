@@ -7,6 +7,7 @@ import pandas as pd
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import sintetis_pertumbuhan as sp
 
+TELAT_EMAS_MAKS = 2
 SPREAD_MODEL = 0.03
 BIAYA_TAHUN_MODEL = 0.005
 BIAYA_REBAL_MODEL = 0.005
@@ -97,16 +98,20 @@ def laporan_nyata(mulai):
     for s, m in (("H35", m35), ("H37", m37)):
         v = m.ekuitas[-1]["nilai"]
         print(f"Ekuitas {s} {m.ekuitas[-1]['tgl']}: Rp{v:,.0f} ({(v / mp.MODAL - 1) * 100:+.2f}%), kas Rp{m.ekuitas[-1]['kas']:,.0f}")
+    telat = data.telat_emas(akhir)
     akhir_emas = min(akhir, data.emas_usd.index.max())
     hari_model = [h for h in hari if h <= akhir_emas and h >= pd.Timestamp(m37.st["masuk"])]
     for s, m in (("H35", m35), ("H37", m37)):
+        if telat > TELAT_EMAS_MAKS:
+            print(f"Selisih paper vs model {s}: tidak_valid (seri emas pembanding telat {telat} hari bursa > {TELAT_EMAS_MAKS}, terakhir {data.emas_usd.index.max().date()}), tidak dihitung")
+            continue
         model = model_nilai(data, s.lower(), produk, hari_model, mp.MODAL, mp.REBALANCE_PERTAMA)
         eq = pd.Series({x["tgl"]: x["nilai"] for x in m.ekuitas})
         D = hari_model[-1]
         r_paper = eq.loc[str(D.date())] / mp.MODAL - 1
         r_model = model.iloc[-1] / mp.MODAL - 1
-        print(f"Selisih paper vs model {s} s/d {D.date()} (emas = GC=F x kurs): paper {r_paper * 100:+.2f}%, model {r_model * 100:+.2f}%, selisih {(r_paper - r_model) * 100:+.2f} poin ({len(hari_model)} hari, belum setahun)")
-    if m37.st["etf"]:
+        print(f"Selisih paper vs model {s} s/d {D.date()} (emas = GC=F futures x kurs, bukan spot; telat {telat} hari bursa): paper {r_paper * 100:+.2f}%, model {r_model * 100:+.2f}%, selisih {(r_paper - r_model) * 100:+.2f} poin ({len(hari_model)} hari, belum setahun)")
+    if m37.st["etf"] and telat <= TELAT_EMAS_MAKS:
         kode = m37.st["etf"]
         c = data.etf_df[kode]["close"]
         c = c.loc[(c.index >= hari_model[0]) & (c.index <= hari_model[-1])]

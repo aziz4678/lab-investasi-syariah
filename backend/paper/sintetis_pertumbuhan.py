@@ -28,7 +28,7 @@ class DataSintetis:
             return None
         r = df.loc[D]
         g = lambda k: None if pd.isna(r[k]) else float(r[k])
-        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium")}
+        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium"), "premium_sejajar": g("premium_sejajar")}
 
     def aum(self, kode, D):
         return self.aum_nilai.get(kode)
@@ -47,7 +47,9 @@ def seri_etf(hari, close=240.0, premium=0.0, nilai=30e6, volume=None):
     p = premium(idx) if callable(premium) else np.full(len(idx), premium, dtype=float)
     c = np.full(len(idx), close, dtype=float)
     v = np.full(len(idx), nilai / close) if volume is None else np.asarray(volume(idx) if callable(volume) else volume, dtype=float)
-    df = pd.DataFrame({"close": c, "volume": v, "nilai": c * v, "nav": c / (1 + p), "premium": p}, index=idx)
+    nav_asli = pd.Series(c / (1 + p), index=idx)
+    nav = nav_asli.shift(1).fillna(nav_asli)
+    df = pd.DataFrame({"close": c, "volume": v, "nilai": c * v, "nav": nav, "premium": c / nav - 1, "premium_sejajar": p}, index=idx)
     return df
 
 

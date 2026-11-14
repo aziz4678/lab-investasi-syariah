@@ -42,6 +42,8 @@ class DataNyata:
         ring = (dt.baca_hasil("etf_emas_ringkas") or {}).get("etf") or {}
         self.nama = {k: r["nama"] for k, r in ring.items()}
         self.etf_df = {k: dt.baca(f"{ee.KOLEKSI}/{k}") for k in ring if dt.ada(f"{ee.KOLEKSI}/{k}")}
+        for df in self.etf_df.values():
+            df["premium_sejajar"] = df["close"] / df["nav"].shift(-1) - 1
         self.aum_akhir = {k: r.get("aum") for k, r in ring.items()}
         self.hari = list(harga.ihsg().index)
         self.kurs = harga.indeks("kurs/USD")["close"].dropna().sort_index()
@@ -77,7 +79,11 @@ class DataNyata:
             return None
         r = df.loc[D]
         g = lambda k: float(r[k]) if ada(r.get(k)) else None
-        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium")}
+        return {"close": g("close"), "volume": g("volume"), "nilai": g("nilai"), "nav": g("nav"), "premium": g("premium"), "premium_sejajar": g("premium_sejajar")}
+
+    def telat_emas(self, D):
+        akhir = self.emas_usd.index.max()
+        return len([h for h in self.hari if akhir < h <= D])
 
     def aum(self, kode, D):
         df = self.etf_df.get(kode)
@@ -181,7 +187,8 @@ class Mesin:
             self.cat(D, "masuk_ditunda", "harga RD belum lengkap, masuk ditunda")
             return False
         if "emas" in self.bobot and st["etf"] is None:
-            awal = st["pilih_awal"] or self.pilih_etf(self.sebelum(D) or D)
+            awal = st["pilih_awal"] if st["pilih_awal"] and st["pilih_awal"].get("terpilih") else ee.pilih_awal(self.pilih_etf(self.sebelum(D) or D))
+            st["pilih_awal"] = awal
             if not awal.get("terpilih"):
                 self.cat(D, "pilih_gagal", "tidak ada ETF emas yang memenuhi syarat, masuk ditunda")
                 return False
@@ -253,16 +260,19 @@ class Mesin:
         cap = BATAS_NILAI * row["nilai"]
         if beli:
             kemarin = self.sebelum(D)
+            lusa = self.sebelum(kemarin) if kemarin is not None else None
+            baris_lusa = self.data.etf(kode, lusa) if lusa is not None else None
             baris_kemarin = self.data.etf(kode, kemarin) if kemarin is not None else None
-            prem_k = baris_kemarin["premium"] if baris_kemarin and ada(baris_kemarin["premium"]) else None
+            prem_k = baris_lusa["premium_sejajar"] if baris_lusa and ada(baris_lusa.get("premium_sejajar")) else None
+            prem_lama = baris_kemarin["premium"] if baris_kemarin and ada(baris_kemarin["premium"]) else None
             if prem_k is None:
-                self.cat(D, "data_kosong_emas", f"harga/NAV {kode} hari bursa sebelumnya kosong, tidak ada pembelian emas hari ini", kode=kode, hari_order=o["hari"])
+                self.cat(D, "data_kosong_emas", f"harga/NAV {kode} dua hari bursa sebelumnya kosong (premium sejajar), tidak ada pembelian emas hari ini", kode=kode, hari_order=o["hari"])
                 return
             prem_e = row["premium"] if ada(row["premium"]) else None
             paksa = o["hari"] >= HARI_BATAS
             if prem_k > PREMIUM_MAKS_BELI and not paksa:
                 o["lewati"] += 1
-                self.cat(D, "lewati_premium", f"premium keputusan {prem_k * 100:+.2f}% > +2%, hari dilewati", kode=kode, premium_keputusan=prem_k, premium_eksekusi=prem_e, hari_order=o["hari"])
+                self.cat(D, "lewati_premium", f"premium keputusan {prem_k * 100:+.2f}% > +2%, hari dilewati", kode=kode, premium_keputusan=prem_k, premium_keputusan_naif=prem_lama, premium_eksekusi=prem_e, hari_order=o["hari"])
                 return
             harga_ = row["close"] + TICK
             per_lot = harga_ * LOT * (1 + FEE_BELI)
@@ -281,7 +291,7 @@ class Mesin:
             st["kas"] -= biaya + fee
             st["unit"][o["kunci"]] = st["unit"].get(o["kunci"], 0.0) + unit
             o["sisa"] -= biaya + fee
-            self.trx(D, "emas", o["kunci"], "beli", unit, harga_, fee, premium=prem_e, premium_keputusan=prem_k, premium_eksekusi=prem_e, hari_order=o["hari"], nilai_transaksi_etf=row["nilai"],
+            self.trx(D, "emas", o["kunci"], "beli", unit, harga_, fee, premium=prem_e, premium_keputusan=prem_k, premium_keputusan_naif=prem_lama, premium_eksekusi=prem_e, hari_order=o["hari"], nilai_transaksi_etf=row["nilai"],
                      batas=cap, pakai_batas=biaya / cap)
             if paksa and prem_k > PREMIUM_MAKS_BELI:
                 self.cat(D, "batas_hari_15", f"hari ke-{o['hari']}: beli di premium keputusan {prem_k * 100:+.2f}% karena batas hari", kode=kode, premium_keputusan=prem_k, premium_eksekusi=prem_e)
