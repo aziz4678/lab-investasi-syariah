@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hariBursaTelat, statusHeartbeat } from "../src/utils/heartbeat.js";
+import { hariBursaTelat, statusHeartbeat, jadwalPertama } from "../src/utils/heartbeat.js";
 
 const libur = ["2026-12-24", "2026-12-25", "2026-12-31"];
 const w = (s) => new Date(s);
@@ -41,6 +41,27 @@ test("hari libur bursa tidak dihitung", () => {
   const s = statusHeartbeat("2026-12-23T17:45:00", w("2026-12-28T18:30:00"), libur);
   assert.equal(s.telat, 1);
   assert.equal(s.mati, false);
+});
+
+test("belum pernah jalan, jadwal pertama belum lewat = info", () => {
+  const s = statusHeartbeat(null, w("2026-11-16T10:00:00"), libur, w("2026-11-14T12:00:00"));
+  assert.equal(s.mati, false);
+  assert.equal(s.belum, true);
+  assert.match(s.pesan, /^Pemeriksa otomatis belum pernah jalan\. Jadwal pertama: .*16.*, 17:30\.$/);
+});
+
+test("pemasangan Jumat setelah jam jadwal: jadwal pertama Senin", () => {
+  assert.equal(jadwalPertama(w("2026-11-13T19:00:00"), libur).getDate(), 16);
+});
+
+test("belum pernah jalan, jadwal pertama sudah lewat = gagal", () => {
+  const s = statusHeartbeat(null, w("2026-11-16T18:30:00"), libur, w("2026-11-14T12:00:00"));
+  assert.equal(s.mati, true);
+  assert.equal(s.belum, false);
+});
+
+test("jadwal pertama melewati hari libur", () => {
+  assert.equal(jadwalPertama(w("2026-12-23T19:00:00"), libur).getDate(), 28);
 });
 
 test("belum pernah jalan = mati", () => {

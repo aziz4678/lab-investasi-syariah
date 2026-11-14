@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter
 
@@ -13,6 +13,18 @@ URUT = {"gagal": 0, "peringatan": 1, "info": 2, "ok": 3}
 
 def bersih(x):
     return {"tanggal": x["tanggal"], "nama_cek": x["nama_cek"], "status": x["status"], "pesan": x["pesan"]}
+
+
+def pemasangan(db):
+    c = db[KOLEKSI]
+    awal = c.find_one({}, {"dibuat": 1}, sort=[("dibuat", 1)])
+    m = db["cek_kesehatan_meta"]
+    tersimpan = m.find_one({"_id": "pemasangan"})
+    if tersimpan:
+        return tersimpan["waktu"]
+    waktu = (awal or {}).get("dibuat") or datetime.now()
+    m.insert_one({"_id": "pemasangan", "waktu": waktu})
+    return waktu
 
 
 def libur_daftar():
@@ -37,8 +49,11 @@ def susun(semua, terakhir_dibuat=None):
 
 @router.get("/cek-kesehatan")
 def cek_kesehatan():
-    c = d.koneksi()[KOLEKSI]
+    db = d.koneksi()
+    c = db[KOLEKSI]
     awal = str(date.today() - timedelta(days=30))
     semua = list(c.find({"tanggal": {"$gte": awal}}))
     terakhir = c.find_one({"sumber": "jadwal"}, {"dibuat": 1}, sort=[("dibuat", -1)])
-    return susun(semua, (terakhir or {}).get("dibuat"))
+    hasil = susun(semua, (terakhir or {}).get("dibuat"))
+    hasil["pemasangan"] = pemasangan(db).isoformat(timespec="seconds")
+    return hasil

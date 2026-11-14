@@ -25,12 +25,33 @@ export function hariBursaTelat(waktuCek, sekarang, libur = []) {
   return n;
 }
 
-export function statusHeartbeat(waktuCek, sekarang, libur = []) {
+export function jadwalPertama(pemasangan, libur = []) {
+  const set = new Set(libur);
+  const d = new Date(pemasangan);
+  d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 60; i++, d.setDate(d.getDate() + 1)) {
+    const hari = d.getDay();
+    if (hari === 0 || hari === 6 || set.has(kunci(d))) continue;
+    const slot = new Date(d);
+    slot.setHours(Math.floor(JAM_CEK), Math.round((JAM_CEK % 1) * 60), 0, 0);
+    if (slot > new Date(pemasangan)) return slot;
+  }
+  return null;
+}
+
+export function statusHeartbeat(waktuCek, sekarang, libur = [], pemasangan = null) {
   const telat = hariBursaTelat(waktuCek, sekarang, libur);
   const sejak = waktuCek ? kunci(new Date(waktuCek)) : null;
+  if (!waktuCek && pemasangan) {
+    const pertama = jadwalPertama(pemasangan, libur);
+    if (pertama && sekarang < pertama) {
+      const teks = pertama.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+      return { mati: false, belum: true, telat, sejak, jadwalPertama: pertama, pesan: `Pemeriksa otomatis belum pernah jalan. Jadwal pertama: ${teks}, 17:30.` };
+    }
+  }
   const mati = telat > MAKS_TELAT;
   const pesan = !waktuCek
     ? "Pemeriksa belum pernah jalan — jadwal mungkin mati."
     : `Pemeriksa tidak jalan sejak ${sejak} — jadwal mungkin mati.`;
-  return { mati, telat, sejak, pesan };
+  return { mati, belum: false, telat, sejak, pesan };
 }
