@@ -6,6 +6,7 @@ import pandas as pd
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
 from backend.paper import koreksi_mekanisme as km
+from backend.paper import laporan_emas as lem
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import parameter_uji_maju as pu
 
@@ -102,6 +103,11 @@ def harian(hari_ini=None):
         m = mp.Mesin(kode, data, state=st, mulai=prm["mulai"], rebalance_pertama=prm["rebalance_pertama"])
         m.jalan([x for x in data.hari if x < sekarang and x >= prm["mulai"] and (not st["terakhir"] or x > pd.Timestamp(st["terakhir"]))])
         simpan(db, kode, m)
+        if kode == "h37":
+            try:
+                print("laporan emas H37:", lem.simpan(db, data))
+            except Exception as e:
+                print(f"laporan emas H37 gagal: {type(e).__name__}: {e}")
         print(f"{kode.upper()}: {len(m.transaksi)} transaksi, {len(m.kejadian)} kejadian, {len(m.ekuitas)} hari baru, terakhir {st['terakhir']}")
 
 
