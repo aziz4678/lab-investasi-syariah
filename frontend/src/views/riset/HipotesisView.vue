@@ -11,6 +11,7 @@ import TeksWarna from "@/components/common/TeksWarna.vue";
 import SectionHipotesis from "@/components/hipotesis/SectionHipotesis.vue";
 import GrafikHipotesis from "@/components/hipotesis/GrafikHipotesis.vue";
 import PenjelasanHipotesis from "@/components/hipotesis/PenjelasanHipotesis.vue";
+import UjiMajuKartu from "@/views/riset/pertumbuhan/UjiMajuKartu.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 
@@ -353,6 +354,8 @@ function keDaftar() {
             <PanelPekerjaan :kerja="kerjaEks" :galat="galatEks" />
           </template>
         </SectionHipotesis>
+
+        <UjiMajuKartu v-if="['H35', 'H37'].includes(aktif.kode)" />
 
         <PenjelasanHipotesis :kode="aktif.kode" :status="aktif.status" :kode-ada="kodeAda" :analisis="analisisAktif" @buka="buka" />
 

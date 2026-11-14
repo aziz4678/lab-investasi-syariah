@@ -31,11 +31,6 @@ const baris = computed(() => {
     { judul: "10 tahun terburuk, per tahun", dev: f(d.h35.j10_buruk, d.h37.j10_buruk, prTanda), hold: f(h.h35.j10_buruk, h.h37.j10_buruk, prTanda) },
   ];
 });
-const bagi = computed(() => [
-  { nama: "Saham syariah Indonesia", nilai: props.setoran * 0.4, warna: "bg-s2" },
-  { nama: "Saham syariah global", nilai: props.setoran * 0.4, warna: "bg-s4" },
-  { nama: "ETF emas syariah", nilai: props.setoran * 0.2, warna: "bg-kuning" },
-]);
 const terpilih = computed(() => e.value?.etf?.find((x) => x.kode === e.value?.terpilih));
 const pc = (v) => (v == null ? "–" : `${v >= 0 ? "+" : ""}${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`);
 const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01);
@@ -84,20 +79,7 @@ const mahal = (v) => v != null && Math.abs(v) > (e.value?.batas_premium ?? 0.01)
       Penyeimbangan tiap Desember otomatis menjual sebagian emas yang sudah naik, dan membeli kembali bagian yang tertinggal.
     </div>
 
-    <div v-if="pilih === '3'" class="mt-4">
-      <div class="text-[13px] font-medium">Setoran {{ rupiahRingkas(setoran) }}/bulan, dibagi 40 / 40 / 20</div>
-      <div class="mt-2 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
-        <div v-for="x in bagi" :key="x.nama" :class="x.warna" :style="{ width: `${(x.nilai / setoran) * 100}%` }" />
-      </div>
-      <ul class="m-0 mt-2 list-none space-y-1 p-0 text-[12px]">
-        <li v-for="x in bagi" :key="x.nama" class="flex items-center justify-between gap-3">
-          <span class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full" :class="x.warna" />{{ x.nama }}</span>
-          <span class="font-medium tabular-nums">{{ rupiahRingkas(x.nilai) }}</span>
-        </li>
-      </ul>
-      <p class="m-0 mt-2 text-[11px] leading-relaxed text-muted">Daftar belanja di bawah masih dihitung untuk saham saja (50% Indonesia + 50% global). Untuk saham + emas pakai produk yang sama dengan nominal 40% + 40% di atas, dan 20% ke ETF emas. Seimbangkan tiap Desember ke 40/40/20.</p>
-    </div>
-    <p v-else class="m-0 mt-3 text-[12px] text-muted">Daftar belanja dan jadwal di bawah mengikuti saham saja (50% Indonesia + 50% global). Pilih "Saham + emas" untuk melihat pembagian setoran dengan emas.</p>
+    <p class="m-0 mt-3 text-[12px] text-muted">Daftar belanja sesuai pilihan gaya ada di bagian Belanja di atas. Di sini hanya data pembanding dan daftar ETF emas yang diperiksa.</p>
 
     <div class="mt-4 grid gap-3 md:grid-cols-2">
       <div class="rounded-2xl border border-garis p-4">

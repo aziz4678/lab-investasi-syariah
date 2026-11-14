@@ -13,6 +13,12 @@ import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import TersediaDi from "@/components/produk/TersediaDi.vue";
 import GrafikJalurModal from "@/components/charts/GrafikJalurModal.vue";
 import GrafikSimulasi from "@/components/charts/GrafikSimulasi.vue";
+import NavLengket from "@/components/portofolio/NavLengket.vue";
+import PilihAplikasi from "@/components/portofolio/PilihAplikasi.vue";
+import KartuRingkasan from "@/components/portofolio/KartuRingkasan.vue";
+import GrupBelanja from "@/components/portofolio/GrupBelanja.vue";
+import ChecklistBulan from "@/components/portofolio/ChecklistBulan.vue";
+import KartuRisiko from "@/components/portofolio/KartuRisiko.vue";
 
 const dasar = ref(null);
 const rencana = ref(null);
@@ -24,12 +30,19 @@ const pindahTab = inject("pindahTab");
 const modal = ref(1000000000);
 const pengeluaran = ref(10000000);
 const bulanDarurat = ref(6);
-const aplikasi = ref("semua");
+const apps = ref(["bibit", "ajaib", "makmur", "stockbit"]);
+const belanjaBaru = ref(null);
+const appAngka = computed(() => {
+  const rd = apps.value.filter((a) => APLIKASI_RD.includes(a));
+  return rd.length === 1 ? rd[0] : "semua";
+});
 const gaya = ref("fleksibel");
 const porsiSbn = ref("sbn50");
 const tarikGrafik = ref("");
 
-const PILIHAN_APLIKASI = [["semua", "Semua"], ["bibit", "Bibit"], ["makmur", "Makmur"], ["ajaib", "Ajaib"]];
+const NAV = [["rencana", "Rencana"], ["belanja", "Belanja"], ["jadwal", "Jadwal"], ["risiko", "Risiko"], ["dasar", "Dasar hitungan"]];
+const PILIHAN_GAYA = [["fleksibel", "RD saja"], ["terkunci", "RD + sukuk negara"]];
+const APLIKASI_RD = ["bibit", "ajaib", "makmur"];
 const PILIHAN_SBN = [["sbn30", "30% di SBN"], ["sbn50", "50% di SBN"], ["sbn70", "70% di SBN"]];
 const NAMA_OPSI = { tanpa_sbn: "Reksa Dana Saja", sbn30: "Reksa Dana + Sukuk Negara 30%", sbn50: "Reksa Dana + Sukuk Negara 50%", sbn70: "Reksa Dana + Sukuk Negara 70%", jii_pu: "Pembanding: 54% JII / 46% RD pasar uang" };
 const RISIKO_SBN = "Rendah";
@@ -52,8 +65,10 @@ const muatDasar = async () => {
 };
 const muatRencana = async () => {
   memuat.value = true;
-  const q = new URLSearchParams({ modal: modal.value, pengeluaran: pengeluaran.value, darurat: bulanDarurat.value || 0, opsi: opsi.value, aplikasi: aplikasi.value });
-  rencana.value = await ambil(`konservatif/rencana?${q}`).catch(() => null);
+  const b = new URLSearchParams({ modal: modal.value, pengeluaran: pengeluaran.value, darurat: bulanDarurat.value || 0, opsi: opsi.value, apps: apps.value.join(",") });
+  const b1 = await ambil(`belanja/konservatif?${b}`).catch(() => null);
+  rencana.value = b1?.rencana ?? null;
+  belanjaBaru.value = b1;
   memuat.value = false;
   siap.value = true;
 };
@@ -61,7 +76,7 @@ const muatSemua = async () => {
   await Promise.all([muatDasar(), muatRencana()]);
 };
 let jeda = null;
-watch([modal, pengeluaran, bulanDarurat, opsi, aplikasi], () => {
+watch([modal, pengeluaran, bulanDarurat, opsi, apps], () => {
   clearTimeout(jeda);
   jeda = setTimeout(muatRencana, 300);
 });
@@ -139,6 +154,35 @@ const grupBelanja = computed(() => {
   return g;
 });
 
+const modalKecil = computed(() => !!belanjaBaru.value?.modal_kecil);
+const sbnTampil = computed(() => !modalKecil.value && sbn.value && r.value?.terkunci > 0);
+const itemRingkas = computed(() => [
+  { label: "Setelah 5 tahun, biasanya", nilai: `${modalPersen(port.value?.di_aman_5?.median)} daya beli modal` },
+  { label: "Setelah 5 tahun, kondisi terburuk", nilai: `${modalPersen(port.value?.di_aman_5?.terburuk)} daya beli modal` },
+  { label: "Dibanding pengeluaranmu", nilai: tutupPengeluaran.value != null ? `${Math.round(tutupPengeluaran.value * 100)}% tertutup` : "–" },
+]);
+const kalimatRisiko = computed(() => `Penurunan terdalam di masa lalu hanya ${ddKonservatif.value}, tapi penghasilannya kecil karena yang dijaga adalah modal.`);
+const langkah = computed(() => {
+  const b = belanjaBaru.value;
+  if (!b?.ada) return [];
+  const daftar = [];
+  (b.grup ?? []).forEach((g) => {
+    g.produk.forEach((p) => {
+      if (p.nilai > 0) daftar.push({ id: `${g.aplikasi}:${p.kaki}:${p.id}`, teks: `Buka ${g.nama} → beli ${p.cari_di_aplikasi} ${rupiahRingkas(p.nilai)}` });
+    });
+  });
+  if (sbnTampil.value) daftar.push({ id: `sbn:${sbn.value.seri}`, teks: `Saat penawaran dibuka: beli sukuk negara ${sbn.value.seri} senilai ${rupiahRingkas(r.value.terkunci)} lewat bank atau mitra distribusi resmi` });
+  return daftar;
+});
+const risikoKartu = computed(() => [
+  { judul: "Penghasilannya kecil", angka: `${rentangAman.value}/th`, kelas: "text-ink", teks: "Yang diambil hanya sebagian kecil modal per tahun supaya daya beli modal tetap terjaga." },
+  { judul: "Pernah turun sedikit", angka: ddKonservatif.value, kelas: "text-turun", teks: "Penurunan terdalam di data masa lalu untuk gaya ini. Bukan jaminan tidak akan turun lebih dalam." },
+  terkunci.value
+    ? { judul: "Sukuk negara tidak bisa dicairkan", angka: "", kelas: "", teks: "Bagian sukuk negara ditahan sampai jatuh tempo. Sisanya reksa dana, bisa dicairkan 1–7 hari kerja." }
+    : { judul: "Bukan tabungan", angka: "", kelas: "", teks: "Reksa dana tidak dijamin LPS dan nilainya bisa turun sementara. Dicairkan 1–7 hari kerja." },
+  { judul: "Belum terbukti", angka: "", kelas: "", teks: "Diuji dengan data masa lalu; belum terbukti di masa depan. Hasil masa lalu bukan janji." },
+]);
+
 const jadwal = computed(() => {
   if (!r.value) return [];
   const daftar = [];
@@ -206,13 +250,13 @@ const pilihanTahunSim = computed(() => (sim.value?.pilihan_tahun ?? [5, 10, 15, 
 const muatSim = async () => {
   if (!r.value?.ada || !r.value.sisa) return;
   simMemuat.value = true;
-  const q = new URLSearchParams({ modal: r.value.sisa, opsi: opsi.value, aplikasi: aplikasi.value, tahun: simTahun.value });
+  const q = new URLSearchParams({ modal: r.value.sisa, opsi: opsi.value, aplikasi: appAngka.value, tahun: simTahun.value });
   if (nilaiTarikSim.value != null) q.set("tarik", nilaiTarikSim.value);
   sim.value = await ambil(`konservatif/simulasi?${q}`).catch(() => null);
   simMemuat.value = false;
 };
 let jedaSim = null;
-watch([() => r.value?.sisa, opsi, aplikasi, simTahun, nilaiTarikSim], () => {
+watch([() => r.value?.sisa, opsi, appAngka, simTahun, nilaiTarikSim], () => {
   clearTimeout(jedaSim);
   jedaSim = setTimeout(muatSim, 250);
 });
@@ -239,15 +283,128 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
 
 <template>
   <div class="space-y-5">
-    <Panel judul="Portofolio Konservatif" ket="Penghasilan rutin dari reksa dana syariah (dan SBN ritel), tanpa daya beli modal berkurang">
-      <template #aksi>
-        <span v-if="ada" class="chip" :class="dasar?.basi ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-ink-2'">
-          Dihitung {{ tglTeks(r.dihitung) }} · data s/d {{ bulanTeks(r.periode.akhir) }}<template v-if="dasar?.basi"> · data basi</template>
-        </span>
-        <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
-      </template>
-      <PanelPekerjaan class="mb-4" :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
-      <div class="mb-6 grid gap-4 lg:grid-cols-2">
+    <header>
+      <p class="m-0 text-[13px] leading-relaxed text-ink-2">Penghasilan rutin dari reksa dana syariah (dan sukuk negara), tanpa daya beli modal yang berkurang. Isi data, lalu ikuti daftar belanja.</p>
+    </header>
+    <NavLengket :item="NAV" />
+
+    <section id="rencana" class="scroll-mt-16 space-y-5">
+      <div class="panel px-4 py-5 sm:px-6">
+        <div class="text-[14px] font-medium">Isi data</div>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="min-w-0">
+            <label class="text-xs text-muted">Modal</label>
+            <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
+              <input :value="tampilRp(modal)" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" @input="(e) => (modal = angka(e.target.value))" /></div>
+            <div class="mt-1 text-[11px] text-muted">{{ rupiahRingkas(modal) }}</div>
+          </div>
+          <div class="min-w-0">
+            <label class="text-xs text-muted">Pengeluaran per bulan</label>
+            <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
+              <input :value="tampilRp(pengeluaran)" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" @input="(e) => (pengeluaran = angka(e.target.value))" /></div>
+            <div class="mt-1 text-[11px] text-muted">{{ rupiahRingkas(pengeluaran) }}</div>
+          </div>
+          <div class="min-w-0">
+            <label class="text-xs text-muted">Dana darurat</label>
+            <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4">
+              <input v-model.number="bulanDarurat" type="number" min="0" max="36" class="h-10 w-full min-w-0 bg-transparent text-[15px] outline-none" /><span class="text-[13px] text-muted">bulan</span></div>
+            <div class="mt-1 text-[11px] text-muted">= {{ rupiahRingkas(pengeluaran * (bulanDarurat || 0)) }}, dipisah dari modal investasi</div>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs text-muted">Aplikasi yang kamu punya</div>
+            <PilihAplikasi v-model="apps" class="mt-1.5" />
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <div class="text-xs text-muted">Gaya</div>
+          <Segmen v-model="gaya" :pilihan="PILIHAN_GAYA" kecil />
+          <Segmen v-if="terkunci" v-model="porsiSbn" :pilihan="PILIHAN_SBN" kecil />
+          <span v-if="risikoGaya[gaya]" class="chip" :class="KELAS_RISIKO[risikoGaya[gaya].label]">Risiko {{ risikoGaya[gaya].label.toLowerCase() }}</span>
+        </div>
+        <p v-if="r?.darurat_kurang" class="m-0 mt-3 text-xs text-kuning">Dana darurat lebih besar dari modal; seluruh modal dipakai sebagai dana darurat.</p>
+      </div>
+
+      <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
+      <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" di bagian Dasar hitungan (±2 menit).</p></Panel>
+      <KartuRingkasan v-else-if="modalKecil" judul="Modal masih kecil" :kalimat="belanjaBaru?.label_modal_kecil ?? 'Modal masih kecil — pakai sebagai dana darurat dulu; penghasilan rutin baru berarti di modal besar.'"
+        label="Diuji dengan data masa lalu; belum terbukti di masa depan." />
+      <KartuRingkasan v-else judul="Penghasilan per bulan, berdasarkan masa lalu" :besar="r.penghasilan != null ? rupiahRingkas(r.penghasilan) : ''" :satuan="r.penghasilan != null ? 'per bulan' : ''"
+        :kalimat="r.penghasilan != null ? `Naik ikut inflasi tiap tahun · modal investasi ${rupiahRingkas(r.sisa)} tetap terjaga daya belinya.` : 'Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk gaya ini.'"
+        :item="itemRingkas" :risiko="kalimatRisiko" label="Diuji dengan data masa lalu; belum terbukti di masa depan.">
+        <p class="m-0 mt-3 text-[12px] leading-relaxed text-ink-2"><b class="font-medium text-ink">Kapan bisa dicairkan:</b> {{ kapanCair.utama }} · {{ kapanCair.ket }}<template v-if="terkunci && r.terkunci"> · uang terkunci di sukuk negara {{ rupiahRingkas(r.terkunci) }} ({{ pr(r.terkunci_porsi, 0) }})</template>.</p>
+      </KartuRingkasan>
+    </section>
+
+    <template v-if="siap && ada">
+      <section id="belanja" class="scroll-mt-16 space-y-5">
+        <div class="panel relative px-4 py-5 sm:px-6">
+          <Pemutar v-if="memuat" class="absolute top-4 right-4" />
+          <div class="text-[14px] font-medium">Daftar belanja</div>
+          <p class="m-0 mt-1 text-[12px] text-muted">Hanya produk yang ada di aplikasimu, total {{ rupiahRingkas(r.masukan.modal) }}. Dipilih dengan aturan tetap, bukan dari hasil masa lalu.</p>
+          <div class="mt-3">
+            <GrupBelanja :grup="belanjaBaru?.grup ?? []" :peringatan="belanjaBaru?.peringatan ?? []" satuan="" />
+          </div>
+          <div v-if="sbnTampil" class="mt-3 overflow-hidden rounded-2xl border border-garis">
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-surface-2 px-4 py-3">
+              <div class="flex items-center gap-2 text-[14px] font-medium"><Landmark class="h-4 w-4 text-s2" />Sukuk negara {{ sbn.seri }} ({{ sbn.jenis === "ST" ? "Sukuk Tabungan" : "Sukuk Ritel" }})</div>
+              <div class="text-[13px] text-ink-2">total <b class="text-[16px] font-semibold text-ink tabular-nums">{{ rupiahRingkas(r.terkunci) }}</b></div>
+            </div>
+            <ul class="m-0 list-none divide-y divide-garis p-0">
+              <li v-for="v in sbn.varian" :key="v.seri" class="flex items-center gap-3 px-4 py-3">
+                <div class="min-w-0 flex-1">
+                  <div class="text-[13px] font-medium">{{ v.seri }} · {{ v.tenor }} tahun</div>
+                  <div class="text-[11px] text-muted">jatuh tempo {{ bulanTeks(v.jatuh_tempo) }} · kupon {{ v.kupon != null ? pr(v.kupon, 2) : "–" }}/th{{ v.kupon_perkiraan ? " (perkiraan)" : "" }}</div>
+                  <span class="chip mt-1 bg-naik-bg text-naik">Risiko rendah · dijamin negara</span>
+                </div>
+                <div class="shrink-0 text-[15px] font-semibold tabular-nums">{{ rupiahRingkas(v.nilai) }}</div>
+              </li>
+            </ul>
+            <p class="m-0 border-t border-garis px-4 py-3 text-[11px] leading-relaxed text-muted">
+              <template v-if="sbn.status === 'dibuka'">Sedang dibuka: {{ tglTeks(sbn.mulai) }} – {{ tglTeks(sbn.tutup) }}, terbit {{ tglTeks(sbn.terbit) }}.</template>
+              <template v-else>Perkiraan dibuka sekitar {{ bulanTeks(sbn.bulan) }} (dari pola sebelumnya, bukan jadwal resmi).</template>
+              Beli lewat bank atau mitra distribusi resmi saat masa penawaran. Sampai uangnya dipakai, simpan dulu di RD pasar uang.
+            </p>
+          </div>
+        </div>
+        <ChecklistBulan kunci="konservatif" :langkah="langkah" />
+      </section>
+
+      <section id="jadwal" class="panel scroll-mt-16 px-4 py-5 sm:px-6">
+        <div class="text-[14px] font-medium">Jadwal rutin</div>
+        <p v-if="modalKecil" class="m-0 mt-2 text-[13px] text-ink-2">Belum perlu jadwal penarikan. Simpan dulu sebagai dana darurat; jadwal penghasilan rutin baru berarti di modal besar.</p>
+        <ol v-else class="m-0 mt-3 list-none space-y-0 p-0">
+          <li v-for="(j, i) in jadwal" :key="i" class="relative flex gap-4 pb-5 last:pb-0">
+            <div class="flex flex-col items-center">
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full" :class="[tema.latar, tema.teks]"><component :is="j.ikon" class="h-4 w-4" /></span>
+              <span v-if="i < jadwal.length - 1" class="mt-1 w-px flex-1 bg-garis"></span>
+            </div>
+            <div class="min-w-0 pt-1">
+              <div class="text-[11px] font-medium tracking-wide text-muted uppercase">{{ j.kapan }}</div>
+              <div class="text-[14px] font-medium">{{ j.judul }}</div>
+              <div v-for="(x, k) in j.isi" :key="k" class="text-[12px] text-ink-2">{{ x }}</div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="risiko" class="scroll-mt-16">
+        <KartuRisiko :daftar="risikoKartu" />
+      </section>
+
+      <section id="dasar" class="scroll-mt-16 space-y-5">
+        <div class="px-1">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-[14px] font-medium">Dasar hitungan</div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="chip" :class="dasar?.basi ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-ink-2'">Dihitung {{ tglTeks(r.dihitung) }} · data s/d {{ bulanTeks(r.periode.akhir) }}<template v-if="dasar?.basi"> · data basi</template></span>
+              <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
+            </div>
+          </div>
+          <p class="m-0 mt-1 text-[12px] leading-relaxed text-muted">Bagian teknis di balik angka di atas: simulasi ke depan, perbandingan, dan keterbatasan.</p>
+        </div>
+        <PanelPekerjaan :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
+        <Panel judul="Tentang gaya konservatif">
+          <div class="mb-6 grid gap-4 lg:grid-cols-2">
         <div class="rounded-2xl bg-aksen-lembut px-5 py-4">
           <div class="flex items-center gap-2 text-[15px] font-medium"><ShieldCheck class="h-4 w-4 text-aksen" />Apa itu gaya konservatif?</div>
           <ul class="m-0 mt-2 space-y-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
@@ -279,188 +436,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           </p>
         </div>
       </div>
-      <div class="text-[13px] font-medium">1 · Isi data</div>
-      <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="min-w-0">
-          <label class="text-xs text-muted">Modal</label>
-          <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
-            <input :value="tampilRp(modal)" @input="(e) => (modal = angka(e.target.value))" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" /></div>
-          <div class="mt-1 text-[11px] text-muted">{{ rupiahRingkas(modal) }}</div>
-        </div>
-        <div class="min-w-0">
-          <label class="text-xs text-muted">Pengeluaran per bulan</label>
-          <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
-            <input :value="tampilRp(pengeluaran)" @input="(e) => (pengeluaran = angka(e.target.value))" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" /></div>
-          <div class="mt-1 text-[11px] text-muted">{{ rupiahRingkas(pengeluaran) }}</div>
-        </div>
-        <div class="min-w-0">
-          <label class="text-xs text-muted">Dana darurat</label>
-          <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4">
-            <input v-model.number="bulanDarurat" type="number" min="0" max="36" class="h-10 w-full min-w-0 bg-transparent text-[15px] outline-none" /><span class="text-[13px] text-muted">bulan</span></div>
-          <div class="mt-1 text-[11px] text-muted">= {{ rupiahRingkas(pengeluaran * (bulanDarurat || 0)) }}, dipisah dari modal investasi</div>
-        </div>
-        <div class="min-w-0">
-          <div class="text-xs text-muted">Aplikasi yang aku pakai <span class="text-muted">(opsional)</span></div>
-          <Segmen v-model="aplikasi" :pilihan="PILIHAN_APLIKASI" kecil class="mt-1.5" />
-          <div class="mt-1 text-[11px] text-muted">{{ aplikasi === "semua" ? "produk dari semua tempat beli" : "hanya produk yang ditemukan di aplikasi ini" }}</div>
-        </div>
-      </div>
-      <p v-if="r?.darurat_kurang" class="m-0 mt-3 text-xs text-kuning">Dana darurat lebih besar dari modal; seluruh modal dipakai sebagai dana darurat.</p>
-    </Panel>
-
-    <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
-    <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" (±2 menit).</p></Panel>
-    <template v-else>
-      <section class="panel overflow-hidden">
-        <div class="px-6 pt-5 text-[13px] font-medium">2 · Pilih gaya</div>
-        <div class="grid gap-3 px-6 pt-3 sm:grid-cols-2">
-          <button class="flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition" :class="!terkunci ? 'border-aksen bg-aksen-lembut' : 'border-garis hover:bg-surface-2'" @click="gaya = 'fleksibel'">
-            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full" :class="!terkunci ? 'bg-aksen text-white' : 'bg-surface-2 text-muted'"><Unlock class="h-5 w-5" /></span>
-            <span class="min-w-0">
-              <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="!terkunci ? 'text-aksen' : ''">Reksa Dana Saja</span>
-                <span v-if="risikoGaya.fleksibel" class="chip" :class="KELAS_RISIKO[risikoGaya.fleksibel.label]">Risiko {{ risikoGaya.fleksibel.label.toLowerCase() }}</span></span>
-              <span class="block text-[12px] text-ink-2">Semua di reksa dana syariah. Bisa dicairkan kapan saja (1–7 hari kerja).</span>
-              <span v-if="risikoGaya.fleksibel" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ teksKomposisi(risikoGaya.fleksibel) }}</span>
-            </span>
-          </button>
-          <button class="flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition" :class="terkunci ? 'border-s2 bg-s2/10' : 'border-garis hover:bg-surface-2'" @click="gaya = 'terkunci'">
-            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full" :class="terkunci ? 'bg-s2 text-white' : 'bg-surface-2 text-muted'"><Lock class="h-5 w-5" /></span>
-            <span class="min-w-0">
-              <span class="flex flex-wrap items-center gap-2"><span class="text-[16px] font-semibold" :class="terkunci ? 'text-s2' : ''">Reksa Dana + Sukuk Negara</span>
-                <span v-if="risikoGaya.terkunci" class="chip" :class="KELAS_RISIKO[risikoGaya.terkunci.label]">Risiko {{ risikoGaya.terkunci.label.toLowerCase() }}</span></span>
-              <span class="block text-[12px] text-ink-2">Sebagian di sukuk negara ritel (SR/ST) yang ditahan sampai jatuh tempo. Penghasilan lebih besar.</span>
-              <span v-if="risikoGaya.terkunci" class="mt-1 block text-[11px] text-muted">Komposisi risiko: {{ teksKomposisi(risikoGaya.terkunci) }}</span>
-            </span>
-          </button>
-        </div>
-        <div v-if="terkunci" class="px-6 pt-3"><Segmen v-model="porsiSbn" :pilihan="PILIHAN_SBN" kecil /></div>
-        <div class="mt-5 grid grid-cols-1 border-t sm:grid-cols-3" :class="[tema.garis, tema.latar]">
-          <div class="px-6 py-4">
-            <div class="text-xs text-muted">Penghasilan per bulan</div>
-            <div class="mt-0.5 text-[20px] font-semibold" :class="tema.teks">{{ r.penghasilan != null ? rupiahRingkas(r.penghasilan) : "–" }}</div>
-            <div class="text-[11px] text-muted">{{ pr(r.aman) }} per tahun dari modal investasi</div>
-          </div>
-          <div class="border-t px-6 py-4 sm:border-t-0 sm:border-l" :class="tema.garis">
-            <div class="text-xs text-muted">Uang terkunci</div>
-            <div class="mt-0.5 text-[20px] font-semibold">{{ rupiahRingkas(r.terkunci) }} <span class="text-[14px] font-medium text-muted">· {{ pr(r.terkunci_porsi, 0) }}</span></div>
-            <div class="text-[11px] text-muted">{{ r.terkunci ? "di SBN, tidak bisa dijual sebelum jatuh tempo" : "tidak ada yang terkunci" }}</div>
-          </div>
-          <div class="border-t px-6 py-4 sm:border-t-0 sm:border-l" :class="tema.garis">
-            <div class="text-xs text-muted">Kapan bisa dicairkan</div>
-            <div class="mt-0.5 text-[20px] font-semibold">{{ kapanCair.utama }}</div>
-            <div class="text-[11px] text-muted">{{ kapanCair.ket }}</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel relative px-6 py-6">
-        <Pemutar v-if="memuat" class="absolute top-5 right-6" />
-        <div class="text-[13px] font-medium">3 · Hasilnya</div>
-        <div v-if="r.penghasilan != null" class="mt-2">
-          <div class="text-[34px] leading-tight font-semibold sm:text-[40px]" :class="tema.teks">{{ rupiahRingkas(r.penghasilan) }} <span class="text-[18px] font-medium text-ink-2">per bulan</span></div>
-          <div class="mt-1 text-[14px] text-ink-2">naik ikut inflasi tiap tahun · modal investasi {{ rupiahRingkas(r.sisa) }} tetap terjaga daya belinya</div>
-          <div class="mt-4 grid gap-3 sm:grid-cols-3">
-            <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Setelah 5 tahun, biasanya</div>
-              <div class="text-[17px] font-medium">{{ modalPersen(port?.di_aman_5?.median) }} <span class="text-[12px] font-normal text-muted">daya beli modal</span></div>
-            </div>
-            <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Setelah 5 tahun, kondisi terburuk</div>
-              <div class="text-[17px] font-medium">{{ modalPersen(port?.di_aman_5?.terburuk) }} <span class="text-[12px] font-normal text-muted">daya beli modal</span></div>
-            </div>
-            <div class="rounded-2xl bg-surface-2 px-4 py-3">
-              <div class="text-[11px] text-muted">Dibanding pengeluaranmu</div>
-              <div class="text-[17px] font-medium">{{ tutupPengeluaran != null ? `${Math.round(tutupPengeluaran * 100)}%` : "–" }} <span class="text-[12px] font-normal text-muted">tertutup</span></div>
-            </div>
-          </div>
-        </div>
-        <p v-else class="m-0 mt-2 text-[15px] text-ink-2">Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk gaya ini.</p>
-        <p class="m-0 mt-3 text-[11px] text-muted">Dihitung dari {{ NAMA_SKENARIO[r.skenario] }}, yang hasilnya lebih kecil (lebih hati-hati). Berdasarkan {{ r.n_mulai_5 }} kali mulai berbeda sejak {{ bulanTeks(r.periode.awal) }}; hasil masa lalu, bukan jaminan.</p>
-      </section>
-
-      <Panel judul="4 · Daftar belanja" :ket="`Beli ${jumlahKartu} reksa dana${sbn ? ` dan ${sbn.varian.length} seri sukuk negara` : ''}, total ${rupiahRingkas(r.masukan.modal)}. Urutkan dari langkah 1.`">
-        <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
-          <div v-for="g in grupBelanja" :key="g.kode" :class="g.kelas" :style="{ width: `${(g.total / (r.masukan.modal || 1)) * 100}%` }" :title="g.judul"></div>
-        </div>
-
-        <ol class="m-0 mt-5 list-none space-y-4 p-0">
-          <li v-for="(g, i) in grupBelanja" :key="g.kode" class="overflow-hidden rounded-2xl border border-garis">
-            <div class="flex items-start gap-3 bg-surface-2 px-4 py-3">
-              <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[13px] font-semibold text-white" :class="g.kelas">{{ i + 1 }}</span>
-              <div class="min-w-0 flex-1">
-                <div class="text-[14px] font-medium">{{ g.judul }}</div>
-                <div class="text-[12px] text-muted">{{ g.ket }}</div>
-                <div class="mt-1 text-[13px] sm:hidden"><b class="text-[16px] font-semibold tabular-nums">{{ rupiahRingkas(g.total) }}</b> <span class="text-[11px] text-muted">· {{ g.rincian }}</span></div>
-              </div>
-              <div class="hidden shrink-0 text-right sm:block">
-                <div class="text-[17px] font-semibold tabular-nums">{{ rupiahRingkas(g.total) }}</div>
-                <div class="text-[11px] text-muted">{{ g.rincian }}</div>
-              </div>
-            </div>
-
-            <ul v-if="g.kode !== 'sbn'" class="m-0 list-none divide-y divide-garis p-0">
-              <li v-for="p in g.isi" :key="`${g.kode}-${p.id}`" class="flex items-center gap-3 px-4 py-3">
-                <Logo jenis="mi" :kunci="kunciMi(p.mi)" :teks="p.mi" :ukuran="34" />
-                <div class="min-w-0 flex-1">
-                  <a :href="`#reksadana/katalog/${p.id}`" class="text-[13px] leading-snug font-medium text-ink hover:text-aksen" @click.prevent="bukaProduk(p.id)">{{ p.nama }}</a>
-                  <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span class="chip" :class="KELAS_RISIKO[p.risiko]" :title="p.risiko_sumber === 'resmi' ? `Tingkat risiko ${p.risiko_skala} dari skala 1–9 (detail produk / fund fact sheet)` : 'Diturunkan dari jenis RD, data resmi tidak ada'">Risiko {{ p.risiko.toLowerCase() }}<template v-if="p.risiko_sumber === 'jenis'"> · dari jenis RD</template></span>
-                    <TersediaDi v-if="p.platform.length" :platform="p.platform" kecil />
-                    <span v-else class="text-[11px] text-muted">belum ditemukan di Bibit/Makmur/Ajaib</span>
-                  </div>
-                </div>
-                <div class="shrink-0 text-right">
-                  <div class="text-[15px] font-semibold tabular-nums">{{ rupiahRingkas(p.nilai) }}</div>
-                  <a :href="`#reksadana/katalog/${p.id}`" class="inline-flex items-center text-[11px] text-aksen" @click.prevent="bukaProduk(p.id)">Detail<ChevronRight class="h-3 w-3" /></a>
-                </div>
-              </li>
-            </ul>
-
-            <template v-else>
-              <ul class="m-0 list-none divide-y divide-garis p-0">
-                <li v-for="v in sbn.varian" :key="v.seri" class="flex items-center gap-3 px-4 py-3">
-                  <span class="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[30%] bg-s2/10 text-s2"><Landmark class="h-4 w-4" /></span>
-                  <div class="min-w-0 flex-1">
-                    <div class="text-[13px] font-medium">{{ v.seri }} · {{ v.tenor }} tahun</div>
-                    <div class="text-[11px] text-muted">jatuh tempo {{ bulanTeks(v.jatuh_tempo) }} · kupon {{ v.kupon != null ? pr(v.kupon, 2) : "–" }}/th{{ v.kupon_perkiraan ? " (perkiraan)" : "" }}<template v-if="v.kupon_bersih_bulan"> · ±{{ rupiahRingkas(v.kupon_bersih_bulan) }}/bulan setelah pajak</template></div>
-                    <span class="chip mt-1 bg-naik-bg text-naik">Risiko rendah · dijamin negara</span>
-                  </div>
-                  <div class="shrink-0 text-[15px] font-semibold tabular-nums">{{ rupiahRingkas(v.nilai) }}</div>
-                </li>
-              </ul>
-              <p class="m-0 border-t border-garis px-4 py-3 text-[11px] text-muted">
-                <template v-if="sbn.status === 'dibuka'">Sedang dibuka: {{ tglTeks(sbn.mulai) }} – {{ tglTeks(sbn.tutup) }}, terbit {{ tglTeks(sbn.terbit) }}.</template>
-                <template v-else>Perkiraan dibuka sekitar {{ bulanTeks(sbn.bulan) }} (dari pola sebelumnya, bukan jadwal resmi).</template>
-                Beli lewat bank atau aplikasi mitra distribusi resmi DJPPR. Sampai uangnya dipakai, simpan dulu di RD pasar uang.<a v-if="sbn.sumber" :href="sbn.sumber" target="_blank" rel="noopener" class="ml-1 inline-flex items-center gap-0.5 text-aksen">info resmi<ExternalLink class="h-3 w-3" /></a>
-              </p>
-            </template>
-          </li>
-        </ol>
-
-        <p class="m-0 mt-4 flex items-start gap-1.5 text-[11px] text-muted"><ShieldCheck class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Produk dipilih dari aturan, bukan dari hasil masa lalu: syariah, rupiah, masih aktif, riwayat ≥ {{ r.keranjang.kriteria.min_tahun }} tahun, tidak membagi hasil tunai, biayanya diketahui, dana kelolaan di atas tengah-tengah, lalu yang biayanya paling murah. Bukan rekomendasi.
-            Daftar dibentuk {{ tglTeks(r.keranjang.dibentuk) }}; dicek ulang tiap Januari, dan produk yang bermasalah diganti di tengah tahun.
-            <template v-if="tanpaAplikasi"> {{ tanpaAplikasi }} dari {{ belanja.pt.length + belanja.pu.length }} produk belum ditemukan di Bibit, Makmur, atau Ajaib (bisa jadi dijual di tempat lain).</template>
-            <template v-if="!r.keranjang.sama_dengan_hitungan"> Daftar ini lebih baru dari hitungan terakhir; tekan "Hitung ulang".</template>
-          </span>
-        </p>
-      </Panel>
-
-      <Panel judul="5 · Jadwal rutin" ket="Yang dilakukan setelah semua dibeli">
-        <ol class="m-0 list-none space-y-0 p-0">
-          <li v-for="(j, i) in jadwal" :key="i" class="relative flex gap-4 pb-5 last:pb-0">
-            <div class="flex flex-col items-center">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full" :class="[tema.latar, tema.teks]"><component :is="j.ikon" class="h-4 w-4" /></span>
-              <span v-if="i < jadwal.length - 1" class="mt-1 w-px flex-1 bg-garis"></span>
-            </div>
-            <div class="min-w-0 pt-1">
-              <div class="text-[11px] font-medium tracking-wide text-muted uppercase">{{ j.kapan }}</div>
-              <div class="text-[14px] font-medium">{{ j.judul }}</div>
-              <div v-for="(x, k) in j.isi" :key="k" class="text-[12px] text-ink-2">{{ x }}</div>
-            </div>
-          </li>
-        </ol>
-      </Panel>
+        </Panel>
 
       <Panel judul="6 · Simulasi ke depan" :ket="`Modal investasi ${rupiahRingkas(r.sisa)}, gaya ${NAMA_OPSI[opsi]}, mulai sekarang`">
         <template #aksi><Pemutar v-if="simMemuat" /></template>
@@ -627,6 +603,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
             </div>
           </div>
         </div>
+      </section>
       </section>
     </template>
 
