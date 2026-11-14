@@ -92,6 +92,7 @@ class Ctx:
         self.pekerjaan = pekerjaan or []
         self.seri = seri or {}
         self.koleksi = koleksi or {}
+        self.portofolio_saya = []
 
     def bursa(self):
         return self.tgl in set(self.kalender)
@@ -329,7 +330,21 @@ def cek_kalender_libur(c):
     return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
 
 
-CEK = [cek_parameter_mesin, cek_ketertinggalan, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
+def cek_setoran_bulan_ini(c):
+    kurang = []
+    for p in c.portofolio_saya:
+        hari = int(p.get("tanggal_setor") or 1)
+        if not p.get("setoran_rutin") or p.get("ada_beli_bulan_ini"):
+            continue
+        jatuh_tempo = pd.Timestamp(year=c.tgl.year, month=c.tgl.month, day=min(hari, 28)) + pd.Timedelta(days=3)
+        if c.tgl > jatuh_tempo and jatuh_tempo.month == c.tgl.month:
+            kurang.append(f"{p['nama']} (tanggal setor {hari})")
+    if kurang:
+        return [hasil("setoran_bulan_ini", "info", f"Belum ada transaksi beli bulan ini di Portofolio Saya: {', '.join(kurang)}")]
+    return [hasil("setoran_bulan_ini", "ok", "setoran Portofolio Saya bulan ini sudah tercatat atau belum jatuh tempo")]
+
+
+CEK = [cek_parameter_mesin, cek_ketertinggalan, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur, cek_setoran_bulan_ini]
 
 
 def jalankan_cek(c):
@@ -401,6 +416,11 @@ def bangun_ctx(db, tgl=None, sekarang=None):
             "ekuitas": [x["_id"] for x in db[f"paper_{k}_ekuitas"].find({}, {"_id": 1})],
         }
     ctx.koleksi = koleksi
+    try:
+        from backend.app.services import portofolio_saya as psy
+        ctx.portofolio_saya = psy.ringkas_untuk_cek(db, tgl)
+    except Exception:
+        ctx.portofolio_saya = []
     ctx.terakhir_proses = [("paper H11a", tgl_atau_none((db.paper_status.find_one({"_id": "status"}) or {}).get("tgl_terakhir")), None),
                            ("paper H22", tgl_atau_none((db.paper_h22_status.find_one({"_id": "status"}) or {}).get("tgl_terakhir")), None),
                            ("uji maju H37", tgl_atau_none((((koleksi["h37"]["status"] or {}).get("mesin")) or {}).get("terakhir")), ctx.mulai),
