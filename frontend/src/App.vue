@@ -43,16 +43,16 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"], pertumbuhan: ["rencana", "historis", "cara"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"], pertumbuhan: ["rencana", "data"], konservatif: ["rencana", "data"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
 const ALIH = { "reksadana/konservatif": "konservatif" };
-const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" } };
+const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" }, pertumbuhan: { historis: "data", cara: "data" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
 const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
 const LABEL_TEMA = { sistem: "Tema: ikuti sistem", terang: "Tema: terang", gelap: "Tema: gelap" };
 
 const tab = ref("beranda");
-const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar", pertumbuhan: "rencana" });
+const subTab = ref({ tren52: "paper", blend: "paper", dividen: "daftar", reksadana: "mulai", etf: "daftar", pertumbuhan: "rencana", konservatif: "rencana" });
 const sub = computed(() => subTab.value[tab.value]);
 const status = ref(null);
 const sidebar = ref(null);
@@ -87,14 +87,7 @@ function pilih(k, s) {
 
 const tglPendek = (s) => new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 function keUjiMaju() {
-  pilih("pertumbuhan", "rencana");
-  const mulai = Date.now();
-  const coba = () => {
-    const el = document.getElementById("uji-maju");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    else if (Date.now() - mulai < 4000) setTimeout(coba, 150);
-  };
-  setTimeout(coba, 200);
+  pilih("hipotesis", "H35");
 }
 const lencana = (t) => {
   if (t.k === "pertumbuhan") {
@@ -111,7 +104,7 @@ const klikLencana = (t, e) => {
   l.klik();
 };
 const subJudul = (t) => (t.k === "hipotesis" && sidebar.value?.hipotesis_terakhir ? `Semua uji ${sidebar.value.hipotesis_pertama}-${sidebar.value.hipotesis_terakhir}` : t.sub || t.ket);
-const klikMenu = (t) => (t.k === "pertumbuhan" ? pilih("pertumbuhan", "rencana") : pilih(t.k));
+const klikMenu = (t) => (t.k === "pertumbuhan" || t.k === "konservatif" ? pilih(t.k, "rencana") : pilih(t.k));
 
 function gantiSub(s) {
   subTab.value = { ...subTab.value, [tab.value]: s };
@@ -251,7 +244,7 @@ onMounted(() => {
       <EtfView v-else-if="tab === 'etf'" :sub="sub" @sub="gantiSub" />
       <EmitenView v-else-if="tab === 'emiten'" />
       <HipotesisView v-else-if="tab === 'hipotesis'" />
-      <KonservatifView v-else-if="tab === 'konservatif'" />
+      <KonservatifView v-else-if="tab === 'konservatif'" :sub="sub" @sub="gantiSub" />
       <PertumbuhanView v-else-if="tab === 'pertumbuhan'" :sub="sub" @sub="gantiSub" />
       <PortofolioSayaView v-else-if="tab === 'portosaya'" />
       <RencanaView v-else-if="tab === 'rencana'" />

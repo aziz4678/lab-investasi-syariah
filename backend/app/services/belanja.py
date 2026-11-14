@@ -1,4 +1,6 @@
 import math
+import re
+import threading
 from datetime import date
 
 import numpy as np
@@ -165,13 +167,60 @@ def _nama_di_aplikasi(db, fid, app):
     return x.get("nama")
 
 
-def _kartu_rd(pt, c, nilai, total, kin, pengganti, app, db, catatan=None):
+PENANDA_USD = ("USD", "US$", "$", "DOLLAR", "DOLAR")
+LABEL_MIN_BELI = "minimal dari manajer investasi, cek di aplikasi"
+
+
+def parse_min_beli(teks, mata_uang=None):
+    if teks is None or str(teks).strip() == "":
+        return {"nilai": None, "uang": mata_uang or "IDR", "tampil": None}
+    t = str(teks).upper()
+    uang = "USD" if any(m in t for m in PENANDA_USD) else "IDR" if "RP" in t else (mata_uang or "IDR")
+    if "TIDAK ADA" in t:
+        return {"nilai": 0.0, "uang": uang, "tampil": "tanpa batas"}
+    m = re.search(r"\d[\d.,]*", t)
+    if not m:
+        return {"nilai": None, "uang": uang, "tampil": None}
+    angka = m.group(0).rstrip(".,")
+    if re.search(r"[.,]\d{1,2}$", angka) and not re.search(r"[.,]\d{3}$", angka):
+        angka = angka[: angka.rfind(".") if angka.rfind(".") > angka.rfind(",") else angka.rfind(",")]
+    nilai = float(re.sub(r"[.,]", "", angka))
+    simbol = "US$" if uang == "USD" else "Rp"
+    return {"nilai": nilai, "uang": uang, "tampil": f"{simbol}{nilai:,.0f}".replace(",", ".")}
+
+
+def kurs_terakhir():
+    from backend.db import data as dt
+    if not dt.ada("kurs/USD"):
+        return None
+    x = dt.baca("kurs/USD")["close"].dropna()
+    return float(x.iloc[-1]) if len(x) else None
+
+
+def info_min_beli(c, nilai, kurs=None):
+    teks = c.get("min_beli_mi")
+    if teks is not None:
+        mb = parse_min_beli(teks, c.get("mata_uang"))
+    elif c.get("min_beli_nilai") is not None:
+        uang = c.get("min_beli_uang") or c.get("mata_uang") or "IDR"
+        simbol = "US$" if uang == "USD" else "Rp"
+        mb = {"nilai": float(c["min_beli_nilai"]), "uang": uang, "tampil": f"{simbol}{c['min_beli_nilai']:,.0f}".replace(",", ".")}
+    else:
+        mb = {"nilai": None, "uang": c.get("mata_uang") or "IDR", "tampil": None}
+    idr = None
+    if mb["nilai"] is not None:
+        if mb["uang"] != "USD":
+            idr = mb["nilai"]
+        elif kurs:
+            idr = mb["nilai"] * kurs
+    return {"min_beli_tampil": mb["tampil"], "min_beli_uang": mb["uang"], "min_beli_idr": idr, "min_beli_teks": LABEL_MIN_BELI,
+            "min_beli_melebihi": bool(idr is not None and nilai and nilai > 0 and idr > nilai)}
+
+
+def _kartu_rd(pt, c, nilai, total, kin, pengganti, app, db, catatan=None, kurs=None):
     k = pt._kartu(c, nilai, catatan, kin)
     return {**k, "tipe": "rd", "aplikasi": app, "cari_di_aplikasi": _nama_di_aplikasi(db, c["id"], app) or c["nama"], "pengganti_dari": pengganti,
-            "porsi": nilai / total if total else None,
-            "min_beli_teks": "minimal dari manajer investasi, cek di aplikasi",
-            "min_beli_melebihi": bool(c.get("min_beli_nilai") and c.get("min_beli_uang") == "IDR" and nilai > 0 and c["min_beli_nilai"] > nilai),
-            "tersedia_di": tersedia(c, APLIKASI_RD)}
+            "porsi": nilai / total if total else None, **info_min_beli(c, nilai, kurs), "tersedia_di": tersedia(c, APLIKASI_RD)}
 
 
 def _kelompok(kartu, apps):
@@ -232,12 +281,13 @@ def pertumbuhan(apps=None, setoran=1_000_000, modal_awal=0, gaya="saham", hari_i
     semua = [(c, nilai_lk[c["id"]], pengganti_lk[i], "lokal") for i, c in enumerate(terpilih_lk)] + [(c, nilai_gl[c["id"]], None, "global") for c in gl]
     peta = tetapkan_aplikasi([x[0] for x in semua], apps)
     kartu = []
+    kurs = kurs_terakhir()
     for i, (c, nilai, pengganti, kaki) in enumerate(semua):
         app = peta.get(i)
         if app is None:
             continue
         catatan = pt.CATATAN_GLOBAL if kaki == "global" else None
-        k = _kartu_rd(pt, c, nilai, setoran, kin, pengganti, app, db, catatan)
+        k = _kartu_rd(pt, c, nilai, setoran, kin, pengganti, app, db, catatan, kurs)
         kartu.append({**k, "kaki": kaki})
     etf = None
     if w["emas"] > 0:
@@ -279,7 +329,10 @@ def konservatif(apps=None, modal=1_000_000_000, pengeluaran=10_000_000, darurat=
     cl, _ = kr.calon()
     dok = kr.terbaru("semua")
     db = kdb.koneksi()
-    skala = {int(x["id"]): float(x["risiko"]) for x in rdn.daftar()["data"] if x.get("risiko") is not None}
+    data_rd = rdn.daftar()["data"]
+    skala = {int(x["id"]): float(x["risiko"]) for x in data_rd if x.get("risiko") is not None}
+    info_rd = {int(x["id"]): x for x in data_rd}
+    kurs = kurs_terakhir()
     peringatan = []
     if not rd:
         return bersih({"ada": True, "rencana": r, "grup": [], "peringatan": [{"jenis": "tanpa_rd", "teks": "Produk reksa dana tidak tersedia di aplikasimu, butuh aplikasi: Bibit, Ajaib, atau Makmur.",
@@ -323,10 +376,59 @@ def konservatif(apps=None, modal=1_000_000_000, pengeluaran=10_000_000, darurat=
         if app is None:
             continue
         k = pn._kartu(c, wadah, nilai, modal, skala)
+        sumber = info_rd.get(int(c["id"]), {})
         rd_kartu.append({**k, "tipe": "rd", "aplikasi": app, "kaki": wadah, "cari_di_aplikasi": _nama_di_aplikasi(db, c["id"], app) or c["nama"], "pengganti_dari": peng,
-                         "min_beli_teks": "minimal dari manajer investasi, cek di aplikasi", "tersedia_di": tersedia(c, APLIKASI_RD)})
+                         **info_min_beli({"min_beli_mi": sumber.get("min_beli"), "mata_uang": sumber.get("mata_uang") or "IDR"}, nilai, kurs), "tersedia_di": tersedia(c, APLIKASI_RD)})
     grup = _kelompok(rd_kartu, apps)
     sbn = None if kecil else r.get("sbn")
     return bersih({"ada": True, "rencana": r, "grup": grup, "peringatan": peringatan, "sbn": sbn, "modal_kecil": kecil,
                    "label_modal_kecil": "Modal masih kecil — pakai sebagai dana darurat dulu; penghasilan rutin baru berarti di modal besar." if kecil else None,
                    "masukan": {"apps": apps, "modal": modal}})
+
+
+CACHE = {}
+CACHE_MAKS = 64
+KUNCI_CACHE = threading.Lock()
+
+
+def versi_data():
+    from backend.app.services import reksadana as rdn
+    from backend.db import data as dt
+    from backend.db import koneksi as kdb
+    db = kdb.koneksi()
+    st = db.paper_h37_status.find_one({"_id": "status"}, {"pilih_etf_awal": 1}) or {}
+    lab = dt.db()
+    kp_doc = lab["keranjang_pertumbuhan"].find_one({"aplikasi": "semua"}, {"_id": 1}, sort=[("dibentuk", -1)]) or {}
+    kr_doc = lab["keranjang_konservatif"].find_one({"aplikasi": "semua"}, {"_id": 1}, sort=[("dibentuk", -1)]) or {}
+    tarik = lab["hasil_penarikan"].find_one({}, {"dihitung": 1}, sort=[("dihitung", -1)]) or {}
+    etf = round(sum(dt.versi(f"etf_emas/{k}") for k in dt.daftar("etf_emas")), 3)
+    return (rdn.versi(), kp_doc.get("_id"), kr_doc.get("_id"), str(tarik.get("dihitung")), etf, round(dt.versi_hasil("etf_emas_ringkas"), 3), round(dt.versi_hasil("pertumbuhan"), 3),
+            str(st.get("pilih_etf_awal")), date.today().isoformat())
+
+
+def dari_cache(nama, argumen, hitung):
+    kunci = (nama, argumen, versi_data())
+    with KUNCI_CACHE:
+        if kunci in CACHE:
+            return CACHE[kunci]
+    nilai = hitung()
+    with KUNCI_CACHE:
+        CACHE[kunci] = nilai
+        while len(CACHE) > CACHE_MAKS:
+            CACHE.pop(next(iter(CACHE)))
+    return nilai
+
+
+def kosongkan_cache():
+    with KUNCI_CACHE:
+        CACHE.clear()
+
+
+def pertumbuhan_cache(apps, setoran, modal_awal, gaya):
+    arg = (tuple(normal_aplikasi(apps)), round(float(setoran or 0), 2), round(float(modal_awal or 0), 2), gaya)
+    return dari_cache("pertumbuhan", arg, lambda: pertumbuhan(apps, setoran, modal_awal, gaya))
+
+
+def konservatif_cache(apps, modal, pengeluaran, darurat, opsi):
+    arg = (tuple(normal_aplikasi(apps)), round(float(modal or 0), 2), round(float(pengeluaran or 0), 2), int(darurat or 0), opsi)
+    return dari_cache("konservatif", arg, lambda: konservatif(apps, modal, pengeluaran, darurat, opsi))

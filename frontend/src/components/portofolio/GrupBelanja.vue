@@ -86,8 +86,8 @@ const feeTeks = (p) => (p.fee == null ? "cek di aplikasi" : `${(p.fee * 100).toL
             </div>
             <div class="mt-2 rounded-xl bg-surface-2 px-3 py-2 text-[12px] leading-relaxed text-ink-2">
               <div><b class="font-medium text-ink">Cari di aplikasi:</b> {{ p.cari_di_aplikasi }}</div>
-              <div class="text-muted">Minimal beli: {{ p.min_beli_mi || "tidak tercatat" }} ({{ p.min_beli_teks }})</div>
-              <div v-if="p.min_beli_melebihi" class="mt-1 flex items-start gap-1.5 text-kuning"><AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />Minimal dari manajer investasi lebih besar dari porsi bulan ini. Cek minimal di aplikasi; kalau tetap lebih besar, beli bergiliran tiap beberapa bulan atau naikkan setoran.</div>
+              <div class="text-muted">Minimal beli: {{ p.min_beli_tampil || "tidak tercatat" }} ({{ p.min_beli_teks }})</div>
+              <div v-if="p.min_beli_melebihi" class="mt-1 flex items-start gap-1.5 text-kuning"><AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />Minimal dari manajer investasi ({{ p.min_beli_tampil }}<template v-if="p.min_beli_uang === 'USD' && p.min_beli_idr"> ≈ {{ rupiahRingkas(p.min_beli_idr) }}</template>) lebih besar dari porsi bulan ini ({{ rupiahRingkas(p.nilai) }}). Cek minimal di aplikasi; kalau tetap lebih besar, beli bergiliran tiap beberapa bulan atau naikkan setoran.<template v-if="p.kaki === 'global'"> Produk global tidak diganti otomatis.</template></div>
               <div v-if="p.catatan" class="mt-1 flex items-start gap-1.5 text-muted"><Info class="mt-0.5 h-3 w-3 shrink-0 text-aksen" />{{ p.catatan }}</div>
             </div>
             <a :href="`#reksadana/katalog/${p.id}`" class="mt-1 inline-flex items-center text-[11px] text-aksen" @click.prevent="bukaProduk(p.id)">Detail produk<ChevronRight class="h-3 w-3" /></a>

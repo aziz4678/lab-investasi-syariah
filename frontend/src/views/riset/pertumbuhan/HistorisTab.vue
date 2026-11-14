@@ -6,7 +6,8 @@ import GrafikBanding from "@/components/charts/GrafikBanding.vue";
 import BatangSeri from "@/components/charts/BatangSeri.vue";
 import { prTanda, kelasTanda, dariSeratus, bulanPendek, NAMA_PORTO, NAMA_SUMBER, WARNA, NAMA_SERI, lamaPulih } from "@/views/riset/pertumbuhan/bantu";
 
-const props = defineProps({ r: Object, d: Object });
+const props = defineProps({ r: Object, d: Object, bagian: { type: String, default: "" } });
+const tampil = (b) => !props.bagian || props.bagian === b;
 const pindahTab = inject("pindahTab");
 
 const SUMBER_KURVA = [["indeks", "Indeks 2001–2026"], ["keranjang", "Produk di keranjang 2016–2026"], ["kategori", "Rata-rata RD sejenis 2016–2026"]];
@@ -95,7 +96,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
 
 <template>
   <div class="space-y-5">
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('ringkas')" class="panel px-4 py-5 sm:px-6">
       <div class="text-[14px] font-medium">Ringkasan 25 tahun (indeks, Jun 2001 – Okt 2026, dalam rupiah)</div>
       <p class="m-0 mt-1 text-[12px] text-muted">Memegang sejak Juni 2001 tanpa setoran tambahan, dikembalikan ke porsi awal tiap Desember.</p>
       <div class="mt-3 grid gap-3 md:grid-cols-3">
@@ -113,7 +114,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       </div>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('ringkas')" class="panel px-4 py-5 sm:px-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="text-[14px] font-medium">Rp1 yang ditanam di awal jadi berapa?</div>
         <Segmen v-model="sumberKurva" :pilihan="SUMBER_KURVA" kecil />
@@ -132,7 +133,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       <GrafikBanding v-if="grafikTurun" class="mt-2" :label="grafikTurun.label" :seri="grafikTurun.seri" :warna-seri="grafikTurun.warna" :tinggi="200" />
     </section>
 
-    <section v-if="dekade" class="panel px-4 py-5 sm:px-6">
+    <section v-if="dekade && tampil('ringkas')" class="panel px-4 py-5 sm:px-6">
       <div class="text-[14px] font-medium">Kenapa dicampur: per dekade</div>
       <p class="m-0 mt-2 text-[14px] leading-relaxed">{{ d.dekade.teks }}</p>
       <p class="m-0 mt-1 text-[11px] text-muted">Sumber: {{ d.dekade.sumber }}. Rata-rata per tahun di tiap dekade. Korelasi bulanan Indonesia vs global {{ d.korelasi?.toFixed(2).replace(".", ",") }} (0 = tidak bergerak bersama, 1 = selalu bersama).</p>
@@ -152,7 +153,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       </div>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('riwayat')" class="panel px-4 py-5 sm:px-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="text-[14px] font-medium">Hasil per tahun</div>
         <Segmen v-model="sumberKurva" :pilihan="SUMBER_KURVA" kecil />
@@ -173,7 +174,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       </div>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('riwayat')" class="panel px-4 py-5 sm:px-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="text-[14px] font-medium">Setor rutin: hasil untuk setiap bulan mulai</div>
         <Segmen v-model="tahunSip" :pilihan="[['5', '5 tahun'], ['10', '10 tahun']]" kecil />
@@ -191,7 +192,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       </div>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('riwayat')" class="panel px-4 py-5 sm:px-6">
       <div class="text-[14px] font-medium">Semua sumber, setor {{ rupiahRingkas(d.setoran_contoh) }}/bulan</div>
       <p class="m-0 mt-1 text-[12px] text-muted">Biasanya · paling sial · periode untung (jumlah bulan mulai). Total setor 5 tahun {{ rupiahRingkas(d.setoran_contoh * 60) }}, 10 tahun {{ rupiahRingkas(d.setoran_contoh * 120) }}.</p>
       <div class="mt-2 overflow-x-auto">
@@ -215,7 +216,7 @@ const PECAH_LABEL = { Penuh: "Seluruh periode", "Jun 2001-2009": "2001–2009", 
       </div>
     </section>
 
-    <section class="panel px-4 py-5 sm:px-6">
+    <section v-if="tampil('uji')" class="panel px-4 py-5 sm:px-6">
       <div class="text-[14px] font-medium">Hasil uji H35 "Syariah Global"</div>
       <p class="m-0 mt-1 text-[12px] text-muted">Aturan dan kriteria ditulis sebelum dihitung, tapi gambaran umum data sudah diketahui sebelumnya. Jadi statusnya "lolos setelah data diketahui", wajib dipantau maju mulai Januari 2027.</p>
       <ul class="m-0 mt-3 list-none space-y-2 p-0 text-[13px]">
