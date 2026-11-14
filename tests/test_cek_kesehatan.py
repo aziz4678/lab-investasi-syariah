@@ -338,7 +338,7 @@ class TesRunner(unittest.TestCase):
         c = ctx("2026-11-16", telat_emas=0, seri={"NAV RD": pd.Timestamp("2026-11-16")}, koleksi=koleksi(),
                 langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=[{"jenis": "uji_maju_harian", "status": "selesai", "mulai": "1"}])
         nama = {x["nama_cek"]: x["status"] for x in ck.jalankan_cek(c)}
-        self.assertEqual(nama, {"parameter_mesin": "ok", "emas_telat": "ok", "job_jadwal": "ok", "seri_data": "ok", "belum_mulai": "ok", "kalender_libur": "ok"})
+        self.assertEqual(nama, {"parameter_mesin": "ok", "sidik_paper": "peringatan", "emas_telat": "ok", "job_jadwal": "ok", "seri_data": "ok", "belum_mulai": "ok", "kalender_libur": "ok"})
 
 
 if __name__ == "__main__":

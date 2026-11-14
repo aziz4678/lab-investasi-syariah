@@ -7,6 +7,7 @@ import pandas as pd
 from backend.core import libur_bursa as lb
 from backend.db import koneksi as d
 from backend.ingest import etf_emas as ee
+from backend.paper import jejak_paper as jp
 from backend.paper import mesin_pertumbuhan as mp
 from backend.paper import parameter_uji_maju as pu
 
@@ -73,11 +74,12 @@ def pengingat_dari_status(db):
 
 
 class Ctx:
-    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None, parameter=None, beda_parameter=None):
+    def __init__(self, tgl, kalender=None, sekarang=None, telat_emas=0, langkah=None, pekerjaan=None, seri=None, koleksi=None, pengingat=None, parameter=None, beda_parameter=None, sidik=None):
         self.tgl = pd.Timestamp(tgl).normalize()
         prm = parameter or {"mulai": MULAI, "tgl_pilih": TGL_PILIH, "batas_awal": BATAS_AWAL}
         self.mulai, self.tgl_pilih, self.batas_awal = prm["mulai"], prm["tgl_pilih"], prm["batas_awal"]
         self.beda_parameter = beda_parameter or []
+        self.sidik = sidik
         if kalender is None:
             kalender = lb.hari_bursa_antara(MULAI_KALENDER, self.tgl)
         self.kalender = sorted(pd.Timestamp(x).normalize() for x in kalender)
@@ -155,6 +157,20 @@ def cek_parameter_mesin(c):
     if c.beda_parameter:
         return [hasil("parameter_mesin", "gagal", "parameter kode tidak sama dengan status terkunci: " + "; ".join(c.beda_parameter))]
     return [hasil("parameter_mesin", "ok", f"MULAI {c.mulai.date()}, pilih ETF {c.tgl_pilih.date()}, batas awal {c.batas_awal.date()} dibaca dari status terkunci dan sama dengan kode")]
+
+
+def cek_sidik_paper(c):
+    x = c.sidik
+    if x is None:
+        return [hasil("sidik_paper", "peringatan", "status sidik paper tidak terbaca")]
+    if not x.get("snapshot"):
+        return [hasil("sidik_paper", "peringatan", "belum ada snapshot sidik paper (job paper_jejak belum pernah jalan)")]
+    rusak = list(x.get("live_beda") or []) + [a for a in x.get("anomali") or [] if a not in (x.get("live_beda") or [])]
+    if rusak:
+        return [hasil("sidik_paper", "gagal", f"dokumen lama koleksi paper append-only berubah/hilang ({len(rusak)}): {'; '.join(rusak[:4])}")]
+    if c.bursa() and c.telat(x["snapshot"]) > TELAT_SERI_MAKS:
+        return [hasil("sidik_paper", "peringatan", f"snapshot sidik paper terakhir {x['snapshot']} telat {c.telat(x['snapshot'])} hari bursa")]
+    return [hasil("sidik_paper", "ok", f"{x['dokumen']} dokumen di {x['koleksi']} koleksi append-only tidak berubah (snapshot {x['snapshot']})")]
 
 
 def cek_belum_mulai(c):
@@ -286,7 +302,7 @@ def cek_kalender_libur(c):
     return [hasil("kalender_libur", "ok", f"kalender libur terisi untuk {', '.join(str(y) for y in sorted(lb.LIBUR))}")]
 
 
-CEK = [cek_parameter_mesin, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
+CEK = [cek_parameter_mesin, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur]
 
 
 def jalankan_cek(c):
@@ -315,6 +331,10 @@ def bangun_ctx(db, tgl=None, sekarang=None):
     except Exception as e:
         prm, beda = None, [f"status tidak terbaca: {type(e).__name__}: {str(e)[:100]}"]
     ctx = Ctx(tgl, sekarang=sekarang, pengingat=pengingat_dari_status(db), parameter=prm, beda_parameter=beda)
+    try:
+        ctx.sidik = jp.status(db, sekarang)
+    except Exception:
+        ctx.sidik = None
     ctx.telat_emas = ctx.telat(data.emas_usd.index.max())
     seri = {}
     try:
