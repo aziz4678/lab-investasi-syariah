@@ -8,14 +8,12 @@ import Kerangka from "@/components/common/Kerangka.vue";
 import Panel from "@/components/common/Panel.vue";
 import Segmen from "@/components/common/Segmen.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
-import NavLengket from "@/components/portofolio/NavLengket.vue";
 import PilihAplikasi from "@/components/portofolio/PilihAplikasi.vue";
 import KartuRingkasan from "@/components/portofolio/KartuRingkasan.vue";
 import GrupBelanja from "@/components/portofolio/GrupBelanja.vue";
 import ChecklistBulan from "@/components/portofolio/ChecklistBulan.vue";
 import KartuRisiko from "@/components/portofolio/KartuRisiko.vue";
-import TautanData from "@/components/portofolio/TautanData.vue";
-import HalamanData from "@/components/portofolio/HalamanData.vue";
+import TabHalaman from "@/components/portofolio/TabHalaman.vue";
 import BagianData from "@/components/portofolio/BagianData.vue";
 import PilihanEmas from "@/views/riset/pertumbuhan/PilihanEmas.vue";
 import HistorisTab from "@/views/riset/pertumbuhan/HistorisTab.vue";
@@ -26,8 +24,6 @@ const props = defineProps({ sub: { type: String, default: "rencana" } });
 const emit = defineEmits(["sub"]);
 const pindahTab = inject("pindahTab", () => {});
 
-const NAV = [["rencana", "Rencana"], ["belanja", "Belanja"], ["jadwal", "Jadwal"], ["risiko", "Risiko"]];
-const NAV_DATA = [["data-ringkasan", "Hasil historis"], ["data-riwayat", "Per tahun & setor rutin"], ["data-emas", "Emas"], ["data-cara", "Cara kerja"]];
 const PILIHAN_GAYA = [["saham", "Saham saja"], ["emas", "Saham + emas"]];
 const APLIKASI_RD = ["bibit", "ajaib", "makmur"];
 
@@ -77,17 +73,11 @@ onMounted(async () => {
   await kerja.lanjutkan("pertumbuhan_hitung", muatSemua);
 });
 const hitungUlang = () => kerja.mulai("aksi/pertumbuhan_hitung", {}, muatSemua);
-const bukaData = () => {
-  emit("sub", "data");
+const pindah = (x) => {
+  emit("sub", x);
   window.scrollTo({ top: 0 });
 };
-const kembali = () => {
-  emit("sub", "rencana");
-  window.scrollTo({ top: 0 });
-};
-
 const ada = computed(() => rencana.value?.ada && dasar.value?.ada);
-const chipData = computed(() => (dasar.value?.ada ? [{ teks: `Data indeks s/d ${bulanTeks(dasar.value.periode.kategori[1])}` }, { teks: "Hasil masa lalu, bukan janji", kelas: "bg-kuning-bg text-kuning" }] : []));
 const hasil = computed(() => ["5", "10"].map((t) => rencana.value?.rentang?.[t]).filter(Boolean));
 const h10 = computed(() => rencana.value?.rentang?.["10"]);
 const h5 = computed(() => rencana.value?.rentang?.["5"]);
@@ -133,6 +123,16 @@ const langkah = computed(() => {
   return daftar;
 });
 
+const kesimpulan = computed(() => {
+  const c = campuranIndeks.value;
+  if (!c) return [];
+  return [
+    `Di data indeks Jun 2001 – Okt 2026, campuran 50/50 rata-rata ${pr(c.cagr)} per tahun dalam rupiah dan tidak pernah rugi dalam periode 10 tahun mana pun.`,
+    `Harganya: pernah turun ${pr(Math.abs(c.dd), 0)} dari puncak dan butuh ${c.pulih ?? "–"} bulan untuk pulih. Semua produknya berisiko tinggi.`,
+    "Cocok untuk uang yang tidak dipakai minimal 5 tahun, disetor rutin, dan tidak dijual saat turun.",
+    "Belum terbukti di masa depan: diuji dengan data masa lalu, dan dipantau lewat uji maju sejak 1 Des 2026.",
+  ];
+});
 const des = computed(() => rencana.value?.desember);
 const risiko = computed(() => {
   const i = dasar.value?.indeks ?? {};
@@ -151,33 +151,52 @@ const risiko = computed(() => {
 
 <template>
   <div class="space-y-5">
-    <HalamanData v-if="sub === 'data'" atas="Portofolio Pertumbuhan" judul="Dari mana angka ini?" :chip="chipData" :nav="NAV_DATA" @kembali="kembali"
-      ringkas="Semua angka di halaman rencana berasal dari data masa lalu di bawah. Ini bagian teknisnya: hasil historis, perbandingan dengan emas, dan cara hitungnya.">
+    <header>
+      <p class="m-0 text-[13px] leading-relaxed text-ink-2">Uang yang tidak dipakai minimal 5 tahun. Setor rutin tiap bulan ke saham syariah Indonesia dan global, lalu tinggal ikuti daftar belanja di bawah.</p>
+    </header>
+    <TabHalaman :model-value="sub === 'backtest' ? 'backtest' : 'rencana'" @update:model-value="pindah" />
+    <template v-if="sub === 'backtest'">
       <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
       <template v-else>
-        <BagianData id="data-ringkasan" nomor="1" judul="Hasil historis 25 tahun" ket="Rp1 yang ditanam sejak 2001: berapa jadinya dan seberapa dalam turunnya.">
-          <HistorisTab v-if="ada" bagian="ringkas" :r="rencana" :d="dasar" />
+        <BagianData id="bt-apa" nomor="1" judul="Ini apa?" ket="Cara investasinya, langkah-langkahnya, dan istilah yang dipakai.">
+          <CaraTab bagian="apa" :d="ada ? dasar : null" :kerja="kerja" @hitung="hitungUlang" />
         </BagianData>
-        <BagianData id="data-riwayat" nomor="2" judul="Per tahun dan setor rutin" ket="Hasil tiap tahun, dan hasil setor rutin untuk setiap bulan mulai yang mungkin.">
-          <HistorisTab v-if="ada" bagian="riwayat" :r="rencana" :d="dasar" />
+        <BagianData id="bt-tujuan" nomor="2" judul="Tujuannya gimana?" ket="Untuk siapa dan apa yang ingin dicapai.">
+          <section class="panel px-4 py-5 sm:px-6">
+            <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
+              <li><b class="font-medium text-ink">Uang tumbuh dalam jangka panjang</b> (minimal 5 tahun) lewat setoran rutin, tanpa menebak kapan pasar naik atau turun.</li>
+              <li><b class="font-medium text-ink">Tidak bergantung ke nasib satu negara.</b> Separuh saham syariah Indonesia, separuh global; masa buruk keduanya jatuh di dekade yang berbeda.</li>
+              <li><b class="font-medium text-ink">Pilihan emas:</b> "saham + emas" menyisihkan 20% ke ETF emas syariah untuk menahan saat saham jatuh. Bebannya: emas tertinggal saat saham naik kencang.</li>
+              <li><b class="font-medium text-ink">Bukan untuk uang yang dipakai kurang dari 5 tahun.</b> Untuk itu pakai <a href="#konservatif" class="text-aksen" @click.prevent="pindahTab('konservatif')">Portofolio Konservatif</a>.</li>
+            </ul>
+          </section>
         </BagianData>
-        <BagianData id="data-emas" nomor="3" judul="Saham saja dibanding saham + emas" ket="Hasil uji, pilihan ETF emas, dan beban emas.">
-          <PilihanEmas />
-          <HistorisTab v-if="ada" bagian="uji" :r="rencana" :d="dasar" />
-          <button class="inline-flex items-center gap-1 px-1 text-[12px] text-aksen" @click="pindahTab('hipotesis', 'H35')"><FlaskConical class="h-3.5 w-3.5" />Sedang diuji maju sejak 1 Des 2026, lihat Lab<ChevronRight class="h-3 w-3" /></button>
+        <BagianData id="bt-data" nomor="3" judul="Angka dan data ini dari mana?" ket="Data historis, perbandingan dengan emas, aturan memilih produk, dan sumber data.">
+          <div class="space-y-5 text-[12px]">
+            <HistorisTab v-if="ada" bagian="ringkas" :r="rencana" :d="dasar" />
+            <HistorisTab v-if="ada" bagian="riwayat" :r="rencana" :d="dasar" />
+            <PilihanEmas />
+            <HistorisTab v-if="ada" bagian="uji" :r="rencana" :d="dasar" />
+            <CaraTab bagian="data" :d="ada ? dasar : null" :kerja="kerja" @hitung="hitungUlang" />
+            <button class="inline-flex items-center gap-1 px-1 text-[12px] text-aksen" @click="pindahTab('hipotesis', 'H35')"><FlaskConical class="h-3.5 w-3.5" />Sedang diuji maju sejak 1 Des 2026, lihat Lab<ChevronRight class="h-3 w-3" /></button>
+          </div>
         </BagianData>
-        <BagianData id="data-cara" nomor="4" judul="Cara kerja dan aturan" ket="Penjelasan langkah, istilah, aturan memilih produk, dan sumber data.">
-          <CaraTab :d="ada ? dasar : null" :kerja="kerja" @hitung="hitungUlang" />
+        <BagianData id="bt-waspada" nomor="4" judul="Hal yang harus diwaspadai" ket="Risiko yang perlu diterima sebelum mulai.">
+          <KartuRisiko :daftar="risiko" judul="Risiko dan keterbatasan" />
+        </BagianData>
+        <BagianData id="bt-kesimpulan" nomor="5" judul="Kesimpulan">
+          <section class="panel px-4 py-5 sm:px-6">
+            <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
+              <li v-for="(x, i) in kesimpulan" :key="i">{{ x }}</li>
+            </ul>
+            <div class="mt-3 inline-flex rounded-full bg-surface-2 px-3 py-1 text-[11px] font-medium text-ink-2">Diuji dengan data masa lalu; belum terbukti di masa depan.</div>
+          </section>
         </BagianData>
       </template>
-    </HalamanData>
+    </template>
     <template v-else>
-      <header>
-        <p class="m-0 text-[13px] leading-relaxed text-ink-2">Uang yang tidak dipakai minimal 5 tahun. Setor rutin tiap bulan ke saham syariah Indonesia dan global, lalu tinggal ikuti daftar belanja di bawah.</p>
-      </header>
-      <NavLengket :item="NAV" tautan="Data & perhitungan →" @tautan="bukaData" />
 
-      <section id="rencana" class="scroll-mt-16 space-y-5">
+      <section class="space-y-5">
         <div class="panel px-4 py-5 sm:px-6">
           <div class="text-[14px] font-medium">Isi data</div>
           <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -211,7 +230,7 @@ const risiko = computed(() => {
         </KartuRingkasan>
       </section>
 
-      <section id="belanja" class="scroll-mt-16 space-y-5">
+      <section class="space-y-5">
         <div class="panel relative px-4 py-5 sm:px-6">
           <Pemutar v-if="memuat" class="absolute top-4 right-4" />
           <div class="text-[14px] font-medium">Daftar belanja bulan ini</div>
@@ -225,7 +244,7 @@ const risiko = computed(() => {
         <ChecklistBulan kunci="pertumbuhan" :langkah="langkah" />
       </section>
 
-      <section id="jadwal" class="panel scroll-mt-16 px-4 py-5 sm:px-6">
+      <section class="panel px-4 py-5 sm:px-6">
         <div class="flex items-center gap-2 text-[14px] font-medium"><CalendarClock class="h-4 w-4 text-aksen" />Jadwal rutin</div>
         <ul class="m-0 mt-3 grid list-none gap-3 p-0 md:grid-cols-3">
           <li class="rounded-2xl bg-surface-2 px-4 py-3">
@@ -247,12 +266,9 @@ const risiko = computed(() => {
         </ul>
       </section>
 
-      <section id="risiko" class="scroll-mt-16 space-y-3">
-        <KartuRisiko :daftar="risiko" />
-        <div class="rounded-2xl border border-garis px-4 py-3 text-[12px] leading-relaxed text-ink-2"><b class="font-medium text-ink">Uang yang dipakai kurang dari 5 tahun lagi jangan di sini.</b> Taruh di <a href="#konservatif" class="text-aksen" @click.prevent="pindahTab('konservatif')">Portofolio Konservatif</a>.</div>
-      </section>
-
-      <TautanData teks="Data historis, perbandingan dengan emas, dan cara hitung." @buka="bukaData" />
+      <KartuRisiko :daftar="risiko">
+        <b class="font-medium text-ink">Uang yang dipakai kurang dari 5 tahun lagi jangan di sini.</b> Taruh di <a href="#konservatif" class="text-aksen" @click.prevent="pindahTab('konservatif')">Portofolio Konservatif</a>.
+      </KartuRisiko>
     </template>
   </div>
 </template>

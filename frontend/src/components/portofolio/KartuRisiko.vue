@@ -14,5 +14,8 @@ defineProps({ daftar: { type: Array, default: () => [] }, judul: { type: String,
         <p class="m-0 mt-1 text-[12px] leading-relaxed text-ink-2">{{ x.teks }}</p>
       </li>
     </ul>
+    <div v-if="$slots.default" class="mt-3 border-t border-garis pt-3 text-[12px] leading-relaxed text-ink-2">
+      <slot />
+    </div>
   </section>
 </template>

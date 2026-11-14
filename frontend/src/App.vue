@@ -43,10 +43,10 @@ function alihSidebar() {
     lebar.value = lebar.value;
   }
 }
-const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"], pertumbuhan: ["rencana", "data"], konservatif: ["rencana", "data"] };
+const SUB_TAB = { tren52: ["paper", "backtest", "aturan"], blend: ["paper", "backtest", "aturan"], dividen: ["daftar", "kalkulator", "trap", "riset", "data"], reksadana: ["mulai", "katalog", "sukuk", "banding", "data"], etf: ["data", "luar", "daftar", "banding"], pertumbuhan: ["rencana", "backtest"], konservatif: ["rencana", "backtest"] };
 const LAMA = { paper: ["tren52", "paper"], backtest: ["tren52", "backtest"], riset: ["hipotesis", "H11a"] };
 const ALIH = { "reksadana/konservatif": "konservatif" };
-const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" }, pertumbuhan: { historis: "data", cara: "data" } };
+const SUB_LAMA = { tren52: { riset: "aturan" }, dividen: { uji: "riset", aturan: "riset" }, reksadana: { alokasi: "mulai" }, pertumbuhan: { historis: "backtest", cara: "backtest", data: "backtest" }, konservatif: { data: "backtest" } };
 const URUT_TEMA = ["sistem", "terang", "gelap"];
 const IKON_TEMA = { sistem: Monitor, terang: Sun, gelap: Moon };
 const LABEL_TEMA = { sistem: "Tema: ikuti sistem", terang: "Tema: terang", gelap: "Tema: gelap" };

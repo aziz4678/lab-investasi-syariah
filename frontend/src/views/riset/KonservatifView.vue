@@ -13,14 +13,12 @@ import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 import TersediaDi from "@/components/produk/TersediaDi.vue";
 import GrafikJalurModal from "@/components/charts/GrafikJalurModal.vue";
 import GrafikSimulasi from "@/components/charts/GrafikSimulasi.vue";
-import NavLengket from "@/components/portofolio/NavLengket.vue";
 import PilihAplikasi from "@/components/portofolio/PilihAplikasi.vue";
 import KartuRingkasan from "@/components/portofolio/KartuRingkasan.vue";
 import GrupBelanja from "@/components/portofolio/GrupBelanja.vue";
 import ChecklistBulan from "@/components/portofolio/ChecklistBulan.vue";
 import KartuRisiko from "@/components/portofolio/KartuRisiko.vue";
-import TautanData from "@/components/portofolio/TautanData.vue";
-import HalamanData from "@/components/portofolio/HalamanData.vue";
+import TabHalaman from "@/components/portofolio/TabHalaman.vue";
 import BagianData from "@/components/portofolio/BagianData.vue";
 
 const dasar = ref(null);
@@ -43,16 +41,10 @@ const gaya = ref("fleksibel");
 const porsiSbn = ref("sbn50");
 const tarikGrafik = ref("");
 
-const NAV_DATA = [["data-tentang", "Gaya & alasan"], ["data-simulasi", "Simulasi"], ["data-dasar", "Riwayat & batasan"]];
-const NAV = [["rencana", "Rencana"], ["belanja", "Belanja"], ["jadwal", "Jadwal"], ["risiko", "Risiko"]];
 defineProps({ sub: { type: String, default: "rencana" } });
 const emit = defineEmits(["sub"]);
-const bukaData = () => {
-  emit("sub", "data");
-  window.scrollTo({ top: 0 });
-};
-const kembali = () => {
-  emit("sub", "rencana");
+const pindah = (x) => {
+  emit("sub", x);
   window.scrollTo({ top: 0 });
 };
 const PILIHAN_GAYA = [["fleksibel", "RD saja"], ["terkunci", "RD + sukuk negara"]];
@@ -168,7 +160,6 @@ const grupBelanja = computed(() => {
   return g;
 });
 
-const chipData = computed(() => (r.value ? [{ teks: `Dihitung ${tglTeks(r.value.dihitung)} · data s/d ${bulanTeks(r.value.periode.akhir)}${dasar.value?.basi ? " · data basi" : ""}`, kelas: dasar.value?.basi ? "bg-kuning-bg text-kuning" : undefined }, { teks: "Hasil masa lalu, bukan janji", kelas: "bg-kuning-bg text-kuning" }] : []));
 const modalKecil = computed(() => !!belanjaBaru.value?.modal_kecil);
 const sbnTampil = computed(() => !modalKecil.value && sbn.value && r.value?.terkunci > 0);
 const itemRingkas = computed(() => [
@@ -298,27 +289,36 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
 
 <template>
   <div class="space-y-5">
-    <HalamanData v-if="sub === 'data'" atas="Portofolio Konservatif" judul="Dari mana angka ini?" :chip="chipData" :nav="NAV_DATA" @kembali="kembali"
-      ringkas="Semua angka di halaman rencana berasal dari data masa lalu di bawah. Ini bagian teknisnya: gaya konservatif dan alasannya, simulasi ke depan, dan dasar perhitungan.">
-      <template #aksi>
-        <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
-      </template>
+    <header>
+      <p class="m-0 text-[13px] leading-relaxed text-ink-2">Penghasilan rutin dari reksa dana syariah (dan sukuk negara), tanpa daya beli modal yang berkurang. Isi data, lalu ikuti daftar belanja.</p>
+    </header>
+    <TabHalaman :model-value="sub === 'backtest' ? 'backtest' : 'rencana'" @update:model-value="pindah" />
+    <template v-if="sub === 'backtest'">
       <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
-      <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" di atas (±2 menit).</p></Panel>
+      <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Buka bagian "Angka dan data ini dari mana?" lalu tekan "Hitung ulang" (±2 menit).</p></Panel>
       <template v-else>
-        <PanelPekerjaan :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
-        <BagianData id="data-tentang" nomor="1" judul="Gaya konservatif dan alasannya" ket="Untuk apa gaya ini, apa isinya, dan kenapa tidak memakai reksa dana saham.">
+        <BagianData id="bt-apa" nomor="1" judul="Ini apa?" ket="Isi portofolio dan aturan penarikannya.">
           <section class="panel px-4 py-5 sm:px-6">
-            <div class="mb-6 grid gap-4 lg:grid-cols-2">
-          <div class="rounded-2xl bg-aksen-lembut px-5 py-4">
-            <div class="flex items-center gap-2 text-[15px] font-medium"><ShieldCheck class="h-4 w-4 text-aksen" />Apa itu gaya konservatif?</div>
-            <ul class="m-0 mt-2 space-y-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
-              <li><b class="font-medium text-ink">Tujuannya</b> penghasilan rutin tiap bulan, tanpa membuat daya beli modal berkurang. Yang dijaga adalah modal, bukan mengejar untung besar.</li>
+            <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
               <li><b class="font-medium text-ink">Isinya</b> RD pendapatan tetap syariah (bagian yang tumbuh) dan RD pasar uang syariah (bagian yang stabil, sumber uang bulanan). Boleh ditambah sukuk negara ritel (SR/ST) yang dijamin negara dan ditahan sampai jatuh tempo.</li>
               <li><b class="font-medium text-ink">Aturannya</b> ambil sedikit saja: {{ rentangAman }} per tahun dari modal, dinaikkan ikut inflasi tiap tahun. Dana darurat dipisah dan tidak ikut diambil.</li>
-              <li><b class="font-medium text-ink">Yang perlu diterima</b> penghasilannya kecil. Imbalannya, penurunan terdalam di masa lalu hanya {{ ddKonservatif }}.</li>
             </ul>
+          </section>
+        </BagianData>
+        <BagianData id="bt-tujuan" nomor="2" judul="Tujuannya gimana?" ket="Untuk siapa dan apa yang ingin dicapai.">
+          <section class="panel px-4 py-5 sm:px-6">
+            <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
+              <li><b class="font-medium text-ink">Penghasilan rutin tiap bulan</b> tanpa membuat daya beli modal berkurang. Yang dijaga adalah modal, bukan mengejar untung besar.</li>
+              <li><b class="font-medium text-ink">Cocok untuk</b> uang yang mungkin dipakai dalam waktu dekat. Untuk uang yang tidak dipakai minimal 5 tahun, lihat <a href="#pertumbuhan" class="text-aksen" @click.prevent="pindahTab('pertumbuhan')">Portofolio Pertumbuhan</a>.</li>
+            </ul>
+          </section>
+        </BagianData>
+        <BagianData id="bt-data" nomor="3" judul="Angka dan data ini dari mana?" ket="Dari data masa lalu: perbandingan dengan RD saham, simulasi ke depan, dan dasar perhitungan.">
+          <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+            <span class="chip" :class="dasar?.basi ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-ink-2'">Dihitung {{ tglTeks(r.dihitung) }} · data s/d {{ bulanTeks(r.periode.akhir) }}<template v-if="dasar?.basi"> · data basi</template></span>
+            <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
           </div>
+          <PanelPekerjaan :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
           <div v-if="profil" class="rounded-2xl bg-surface-2 px-5 py-4">
             <div class="text-[15px] font-medium">Kenapa tidak pakai RD saham?</div>
             <p class="m-0 mt-2 text-[13px] leading-relaxed text-ink-2">
@@ -340,10 +340,6 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
               Rata-rata RD saham cenderung terlalu bagus karena {{ profil.lompatan.saham_nov2019_turun }} penurunan tajam di November 2019 dikeluarkan sebagai lompatan data. Moderat/Agresif = RD saham + sisanya RD pendapatan tetap & pasar uang 50/50.
             </p>
           </div>
-        </div>
-          </section>
-        </BagianData>
-        <BagianData id="data-simulasi" nomor="2" judul="Simulasi ke depan" ket="Berapa lama modal bertahan kalau diambil tiap bulan, dari ribuan jalur hasil masa lalu.">
           <Panel judul="Atur dan lihat hasil simulasi" :ket="`Modal investasi ${rupiahRingkas(r.sisa)}, gaya ${NAMA_OPSI[opsi]}, mulai sekarang`">
           <template #aksi><Pemutar v-if="simMemuat" /></template>
           <div class="grid gap-4">
@@ -423,9 +419,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
             </p>
           </template>
         </Panel>
-        </BagianData>
-        <BagianData id="data-dasar" nomor="3" judul="Riwayat, perbandingan, dan keterbatasan" ket="Perjalanan modal riil, perbandingan keranjang dengan rata-rata kategori, dan batasan data.">
-                  <section class="panel">
+          <section class="panel">
           <div>
             <header class="px-6 pt-5 pb-4"><h2 class="m-0 text-[17px] font-medium">Dasar perhitungan</h2><p class="m-0 mt-0.5 text-xs text-muted">Dari mana angka di atas berasal</p></header>
             <div class="space-y-6 px-6 pb-6">
@@ -512,15 +506,25 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           </div>
         </section>
         </BagianData>
+        <BagianData id="bt-waspada" nomor="4" judul="Hal yang harus diwaspadai" ket="Risiko yang perlu diterima.">
+          <KartuRisiko :daftar="risikoKartu" judul="Risiko dan keterbatasan" />
+        </BagianData>
+        <BagianData id="bt-kesimpulan" nomor="5" judul="Kesimpulan">
+          <section class="panel px-4 py-5 sm:px-6">
+            <ul class="m-0 space-y-2 pl-4 text-[13px] leading-relaxed text-ink-2">
+              <li v-if="r.penghasilan != null">Dari modal investasi {{ rupiahRingkas(r.sisa) }}, aman mengambil sekitar <b class="font-medium text-ink">{{ rupiahRingkas(r.penghasilan) }} per bulan</b> ({{ pr(r.aman) }} per tahun), naik ikut inflasi.</li>
+              <li v-else>Dari data masa lalu belum ada tingkat penarikan yang aman (sampai 3% per tahun) untuk gaya ini.</li>
+              <li>Setelah 5 tahun, biasanya daya beli modal {{ modalPersen(port?.di_aman_5?.median) }}; di kondisi terburuk {{ modalPersen(port?.di_aman_5?.terburuk) }}. Penurunan terdalam di masa lalu {{ ddKonservatif }}.</li>
+              <li>Penghasilannya kecil karena yang dijaga adalah modal. Belum terbukti di masa depan.</li>
+            </ul>
+            <div class="mt-3 inline-flex rounded-full bg-surface-2 px-3 py-1 text-[11px] font-medium text-ink-2">Diuji dengan data masa lalu; belum terbukti di masa depan.</div>
+          </section>
+        </BagianData>
       </template>
-    </HalamanData>
+    </template>
     <template v-else>
-      <header>
-        <p class="m-0 text-[13px] leading-relaxed text-ink-2">Penghasilan rutin dari reksa dana syariah (dan sukuk negara), tanpa daya beli modal yang berkurang. Isi data, lalu ikuti daftar belanja.</p>
-      </header>
-      <NavLengket :item="NAV" tautan="Data & perhitungan →" @tautan="bukaData" />
 
-      <section id="rencana" class="scroll-mt-16 space-y-5">
+      <section class="space-y-5">
         <div class="panel px-4 py-5 sm:px-6">
           <div class="text-[14px] font-medium">Isi data</div>
           <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -568,7 +572,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
       </section>
 
       <template v-if="siap && ada">
-        <section id="belanja" class="scroll-mt-16 space-y-5">
+        <section class="space-y-5">
           <div class="panel relative px-4 py-5 sm:px-6">
             <Pemutar v-if="memuat" class="absolute top-4 right-4" />
             <div class="text-[14px] font-medium">Daftar belanja</div>
@@ -601,7 +605,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           <ChecklistBulan kunci="konservatif" :langkah="langkah" />
         </section>
 
-        <section id="jadwal" class="panel scroll-mt-16 px-4 py-5 sm:px-6">
+        <section class="panel px-4 py-5 sm:px-6">
           <div class="text-[14px] font-medium">Jadwal rutin</div>
           <p v-if="modalKecil" class="m-0 mt-2 text-[13px] text-ink-2">Belum perlu jadwal penarikan. Simpan dulu sebagai dana darurat; jadwal penghasilan rutin baru berarti di modal besar.</p>
           <ol v-else class="m-0 mt-3 list-none space-y-0 p-0">
@@ -619,12 +623,8 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
           </ol>
         </section>
 
-        <section id="risiko" class="scroll-mt-16">
-          <KartuRisiko :daftar="risikoKartu" />
-        </section>
-        <TautanData teks="Simulasi ke depan, perbandingan produk, dan keterbatasan." @buka="bukaData" />
+        <KartuRisiko :daftar="risikoKartu" />
       </template>
     </template>
-
   </div>
 </template>
