@@ -21,6 +21,23 @@ INDEKS = {"my_titans25": "0821EA.KL", "my_klci_etf": "0820EA.KL", "my_klci": "^K
           "gl_djim_titans": "^IMXL", "gl_msci_world_islamic": "ISDW.L"}
 
 
+KRIPTO = {"btc_usd": "BTC-USD", "eth_usd": "ETH-USD"}
+
+
+def unduh_kripto():
+    hari_ini = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    for nama, s in KRIPTO.items():
+        h = yf.download(s, start="2014-01-01", interval="1d", auto_adjust=False, actions=False, progress=False, multi_level_index=False)
+        if h is None or h.empty:
+            print(f"{nama}: kosong", flush=True)
+            continue
+        h.columns = [c.lower().replace(" ", "_") for c in h.columns]
+        h = rapikan_index(h)
+        h = h[h.index < hari_ini]
+        dt.tulis(f"indeks_luar/{nama}", h)
+        print(f"{nama} ({s}): {len(h)} baris {h.index.min().date()} s/d {h.index.max().date()}", flush=True)
+
+
 def kode_my():
     s = set()
     for d in dt.db()["syariah_my"].find({"jumlah": {"$gt": 0}}, {"kode": 1}):
@@ -106,13 +123,15 @@ def unduh_indeks(pilih=None):
 
 def utama():
     a = argparse.ArgumentParser()
-    a.add_argument("perintah", choices=["my", "us", "spus", "indeks", "semua"])
+    a.add_argument("perintah", choices=["my", "us", "spus", "indeks", "kripto", "semua"])
     a.add_argument("--nama", nargs="*")
     x = a.parse_args()
     if x.perintah in ("spus", "semua"):
         print(f"SPUS: {len(perbarui_spus())} kode", flush=True)
     if x.perintah in ("indeks", "semua"):
         unduh_indeks(x.nama)
+    if x.perintah == "kripto":
+        unduh_kripto()
     if x.perintah in ("my", "semua"):
         unduh("my")
     if x.perintah in ("us", "semua"):

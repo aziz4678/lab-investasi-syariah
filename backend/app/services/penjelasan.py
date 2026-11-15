@@ -244,6 +244,28 @@ AWAM["H25"] = {
     "istilah": ["net", "trade"],
 }
 
+AWAM["H38"] = {
+    "kode": ["H38"],
+    "pertanyaan": "Saham syariah Indonesia lemah beberapa tahun terakhir. Apakah porsinya di portofolio Pertumbuhan (H35 dan H37) sebaiknya dikurangi?",
+    "jawaban": "Tidak. Mengurangi porsi saham lokal menang di 2014-2026 tapi kalah di 2001-2013, jadi tidak ada varian yang menang di kedua periode sekaligus. Porsi lokal tetap seperti aturan awal.",
+    "cara": ["Jalankan mesin H35/H37 dengan porsi lokal 50%, 25%, dan 0% (sisanya global; emas tetap 20% di H37).", "Bagi data jadi dev 2001-2013 dan holdout 2014-2026.", "Varian hanya menggantikan baseline kalau CAGR tidak lebih rendah dan penurunan terdalam tidak lebih buruk dari 3 poin, di kedua periode."],
+    "pembanding": "Baseline H35 (lokal 50%) dan H37 (lokal 40%), dengan data dan biaya yang sama.",
+    "syarat": "Lulus di dev DAN holdout sekaligus; ditulis sebelum hasil dilihat.",
+    "pelaku": [], "kelompok": [],
+    "arti": ["Pertanyaan muncul setelah saham lokal lemah, jadi hasilnya tidak boleh dipakai untuk mengejar periode terakhir."],
+}
+
+AWAM["H39"] = {
+    "kode": ["H39"],
+    "pertanyaan": "Kalau 2,5% atau 5% dari portofolio Pertumbuhan (H35 dan H37) diganti Bitcoin dan di-rebalance tiap Desember, apakah hasilnya lebih baik tanpa penurunan yang jauh lebih dalam?",
+    "jawaban": "Lolos aturan yang dikunci: BTC 5% menaikkan return di 2014-2020 maupun 2021-2026 tanpa memperdalam penurunan terdalam lebih dari 3 poin, di kedua struktur. Tapi kenaikannya sebagian besar dari lonjakan BTC 2017 dan 2020; di 2021-2026 hanya sekitar 2 poin per tahun, dan porsi 5% sempat membengkak jadi ±40% sebelum rebalance. Ini lolos aturan, bukan bukti edge.",
+    "cara": ["Jalankan mesin H35/H37 dengan BTC 0% (baseline), 2,5%, dan 5%; BTC dalam rupiah, biaya 0,5% tiap beli/jual.", "Bagi data jadi dev Okt 2014-Des 2020 dan holdout Jan 2021-Okt 2026.", "Varian lulus kalau CAGR tidak lebih rendah dan penurunan terdalam tidak lebih buruk dari 3 poin, di kedua periode."],
+    "pembanding": "Baseline H35 dan H37 tanpa BTC, data dan biaya yang sama.",
+    "syarat": "Lulus di dev DAN holdout sekaligus; kalau 2,5% dan 5% sama-sama lulus dipilih 5%. Ditulis sebelum hasil dilihat.",
+    "pelaku": [], "kelompok": [],
+    "arti": ["Data BTC hanya ±12 tahun dengan satu siklus besar, dan BTC sudah naik besar sebelum uji ini dibuat."],
+}
+
 KODE_AWAM = {k: id_ for id_, x in AWAM.items() for k in x["kode"]}
 
 
