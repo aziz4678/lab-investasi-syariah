@@ -372,9 +372,10 @@ function waktu(s) {
       <PanelPerawatan class="h-full" />
     </div>
 
+    </template>
+
     <div id="sumber-data" class="scroll-mt-6">
       <PanelSumberData />
     </div>
-    </template>
   </div>
 </template>

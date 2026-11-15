@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
+from backend.app import akses
 from backend.app.jobs import pekerjaan as pk
 from backend.app.services import sumber_data as sd
 
@@ -35,8 +36,12 @@ def otomatis(sumber: str):
 
 
 @router.get("/sumber_data")
-def daftar_sumber_data():
-    return sd.status()
+def daftar_sumber_data(request: Request):
+    hasil = sd.status()
+    if akses.pemilik(request):
+        return hasil
+    ada = ("id", "nama", "cara", "perlu", "terakhir", "diimpor", "dicek")
+    return [{k: s.get(k) for k in ada} for s in hasil]
 
 
 @router.get("/skrip/{nama}", response_class=PlainTextResponse)

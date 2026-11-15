@@ -2,12 +2,13 @@
 import { ref, computed, onMounted, inject } from "vue";
 import { ChevronDown, RefreshCw, Zap, MousePointerClick, Globe, Copy, Check, ExternalLink, CalendarClock, CircleAlert, CircleCheck, Bot } from "lucide-vue-next";
 import { ambil } from "@/api/client";
+import { pemilik, muatMode } from "@/composables/mode";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
 import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 
-const lokal = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+const lokal = computed(() => pemilik.value);
 const muatStatus = inject("muatStatus", null);
 const data = ref([]);
 const siap = ref(false);
@@ -99,8 +100,9 @@ function waktu(s) {
 }
 
 onMounted(async () => {
+  await muatMode();
   await muat();
-  if (!lokal) return;
+  if (!lokal.value) return;
   muatLab();
   buka.value = new Set(data.value.filter((s) => s.perlu && s.cara === "browser").map((s) => s.id));
   for (const s of data.value) {
@@ -113,7 +115,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Panel judul="Sumber data & cara pembaruan" :ket="lokal ? 'Status dihitung dari jadwal terbit tiap data. Data tanpa API diambil lewat browser, lalu diimpor dengan tombol' : 'Status dihitung dari jadwal terbit tiap data. Pembaruan dilakukan dari komputer lokal'" rapat>
+  <Panel :judul="lokal ? 'Sumber data & cara pembaruan' : 'Sumber data'" :ket="lokal ? 'Status dihitung dari jadwal terbit tiap data. Data tanpa API diambil lewat browser, lalu diimpor dengan tombol' : 'Kapan tiap data terakhir diperbarui'" rapat>
     <template #aksi>
       <span v-if="data.length" class="chip !h-7 !px-3 !text-xs" :class="jumlahPerlu ? 'bg-kuning-bg text-kuning' : 'bg-naik-bg text-naik'">
         {{ jumlahPerlu ? `${jumlahPerlu} perlu diperbarui` : "Semua terbaru" }}
@@ -138,16 +140,16 @@ onMounted(async () => {
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-medium">{{ s.nama }}</span>
               <span class="chip" :class="s.perlu ? 'bg-kuning-bg text-kuning' : 'bg-naik-bg text-naik'">{{ s.perlu ? "Perlu diperbarui" : "Terbaru" }}</span>
-              <span class="chip bg-surface-2 text-muted"><component :is="CARA[s.cara].ikon" class="h-3 w-3" />{{ CARA[s.cara].l }}</span>
+              <span v-if="lokal" class="chip bg-surface-2 text-muted"><component :is="CARA[s.cara].ikon" class="h-3 w-3" />{{ CARA[s.cara].l }}</span>
             </div>
-            <div class="mt-0.5 text-xs" :class="s.perlu ? 'text-kuning' : 'text-muted'">
-              {{ s.alasan || `${s.terakhir || "belum ada"}` }}
+            <div class="mt-0.5 text-xs" :class="lokal && s.perlu ? 'text-kuning' : 'text-muted'">
+              {{ (lokal && s.alasan) || `Data terakhir: ${s.terakhir || "belum ada"}` }}
             </div>
             <div class="mt-0.5 flex flex-wrap items-center gap-x-3 text-[11px] text-muted">
-              <span v-if="s.alasan">Sekarang: {{ s.terakhir || "belum ada" }}</span>
-              <span v-if="s.diimpor">diimpor {{ waktu(s.diimpor) }}</span>
-              <span v-else-if="s.dicek">dicek {{ waktu(s.dicek) }}</span>
-              <span class="inline-flex items-center gap-1"><CalendarClock class="h-3 w-3" />berikutnya {{ s.berikutnya }}</span>
+              <span v-if="lokal && s.alasan">Sekarang: {{ s.terakhir || "belum ada" }}</span>
+              <span v-if="s.diimpor">diperbarui {{ waktu(s.diimpor) }}</span>
+              <span v-else-if="s.dicek">diperbarui {{ waktu(s.dicek) }}</span>
+              <span v-if="lokal" class="inline-flex items-center gap-1"><CalendarClock class="h-3 w-3" />berikutnya {{ s.berikutnya }}</span>
             </div>
           </div>
           <div v-if="lokal" class="flex items-center gap-2">

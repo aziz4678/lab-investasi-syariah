@@ -17,7 +17,7 @@ BATAS_GAGAL = 5
 JEDA_GAGAL = 15 * 60
 HEADER_PROXY = ("x-forwarded-for", "x-forwarded-host", "forwarded", "cf-connecting-ip", "tailscale-user-login")
 
-BLOK_TAMU = ("/api/pekerjaan", "/api/cek-kesehatan", "/api/portofolio-saya", "/api/kualitas", "/api/sumber_data", "/api/chrome_lab", "/api/skrip", "/api/cadangan", "/api/jadwal", "/api/otomatis")
+BLOK_TAMU = ("/api/pekerjaan", "/api/cek-kesehatan", "/api/portofolio-saya", "/api/kualitas", "/api/chrome_lab", "/api/skrip", "/api/cadangan", "/api/jadwal", "/api/otomatis")
 
 IZIN_TAMU = ("/api/kualitas/paper",)
 
