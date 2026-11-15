@@ -8,7 +8,8 @@ PRODUK = {"lokal": [{"id": 1, "nama": "RD Lokal A", "mu": "IDR"}, {"id": 2, "nam
 
 
 class DataSintetis:
-    def __init__(self, hari, rd, etf, aum=None):
+    def __init__(self, hari, rd, etf, aum=None, btc=None):
+        self.btc_seri = btc
         self.hari = [pd.Timestamp(h) for h in hari]
         self.rd_seri = rd
         self.etf_df = etf
@@ -32,6 +33,16 @@ class DataSintetis:
 
     def aum(self, kode, D):
         return self.aum_nilai.get(kode)
+
+    def btc(self, D):
+        if self.btc_seri is None:
+            return None
+        s = self.btc_seri[self.btc_seri.index < D]
+        return float(s.iloc[-1]) if len(s) else None
+
+    def tgl_harga_btc(self, D):
+        s = self.btc_seri[self.btc_seri.index < D]
+        return (s.index[-1] if len(s) else None), D
 
     def frames(self):
         return self.etf_df
@@ -57,10 +68,11 @@ def seri_rd(hari, awal=1000.0, naik=0.0001):
     return pd.Series([awal * (1 + naik) ** i for i in range(len(hari))], index=pd.DatetimeIndex(hari))
 
 
-def bangun(hari, etf=None, aum=None, rd_naik=0.0001):
+def bangun(hari, etf=None, aum=None, rd_naik=0.0001, btc_naik=None):
     naik = rd_naik if isinstance(rd_naik, dict) else {i: rd_naik for i in (1, 2, 3)}
     rd = {i: seri_rd(hari, 1000.0 + 100 * i, naik[i]) for i in (1, 2, 3)}
-    return DataSintetis(hari, rd, etf if etf is not None else {"AAA": seri_etf(hari)}, aum if aum is not None else {"AAA": 20e9})
+    btc = None if btc_naik is None else pd.Series([1e9 * (1 + btc_naik) ** i for i in range(len(hari))], index=pd.DatetimeIndex(hari))
+    return DataSintetis(hari, rd, etf if etf is not None else {"AAA": seri_etf(hari)}, aum if aum is not None else {"AAA": 20e9}, btc)
 
 
 def mesin(strategi, data, mulai, **kw):
