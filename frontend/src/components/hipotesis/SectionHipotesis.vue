@@ -48,7 +48,7 @@ function tiles(a) {
 }
 
 const kelasHasil = (h) => (h === "lulus" ? "bg-naik-bg text-naik" : h === "gagal" ? "bg-turun-bg text-turun" : "bg-surface-2 text-muted");
-const judulKenapa = computed(() => (["paper", "uji_maju"].includes(props.h.status) ? "Kenapa lanjut" : props.h.status === "gagal" ? "Kenapa gagal" : props.h.status === "tidak_diadopsi" ? "Kenapa tidak diadopsi" : "Status"));
+const judulKenapa = computed(() => (props.h.status === "lolos" ? "Kenapa lolos" : ["paper", "uji_maju"].includes(props.h.status) ? "Kenapa lanjut" : props.h.status === "gagal" ? "Kenapa gagal" : props.h.status === "tidak_diadopsi" ? "Kenapa tidak diadopsi" : "Status"));
 const tglFmt = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : null);
 </script>
 

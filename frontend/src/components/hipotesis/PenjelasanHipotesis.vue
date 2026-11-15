@@ -30,7 +30,7 @@ watch(() => props.kode, async (k) => {
 
 const awam = computed(() => isi.value?.awam || null);
 const pembanding = computed(() => awam.value?.pelaku.find((p) => p.pembanding) || null);
-const lulus = computed(() => ["paper", "uji_maju"].includes(props.status));
+const lulus = computed(() => ["paper", "uji_maju", "lolos"].includes(props.status));
 
 function warnaPelaku(p) {
   if (p.id === props.kode) return "var(--series-1)";
@@ -146,7 +146,7 @@ watch(() => props.kode, () => { buka.value = null; });
           </div>
         </div>
 
-        <div>
+        <div v-if="awam.kelompok.length">
           <div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             <div>
               <div class="text-[15px] font-medium">Hasilnya</div>
