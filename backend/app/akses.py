@@ -17,7 +17,26 @@ BATAS_GAGAL = 5
 JEDA_GAGAL = 15 * 60
 HEADER_PROXY = ("x-forwarded-for", "x-forwarded-host", "forwarded", "cf-connecting-ip", "tailscale-user-login")
 
+BLOK_TAMU = ("/api/pekerjaan", "/api/cek-kesehatan", "/api/portofolio-saya", "/api/kualitas", "/api/sumber_data", "/api/chrome_lab", "/api/skrip", "/api/cadangan", "/api/jadwal", "/api/otomatis")
+
+IZIN_TAMU = ("/api/kualitas/paper",)
+
 _gagal: list[float] = []
+
+
+def pemilik(request: Request) -> bool:
+    lewat_proxy = any(h in request.headers for h in HEADER_PROXY)
+    return not lewat_proxy and request.client is not None and request.client.host in ("127.0.0.1", "::1")
+
+
+async def _teruskan(request: Request, lanjut):
+    if not pemilik(request):
+        jalur = request.url.path
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            return JSONResponse({"detail": "Hanya untuk pemilik (lokal)"}, status_code=403)
+        if jalur not in IZIN_TAMU and any(jalur == b or jalur.startswith(b + "/") for b in BLOK_TAMU):
+            return JSONResponse({"detail": "Hanya untuk pemilik (lokal)"}, status_code=403)
+    return await lanjut(request)
 
 
 def sandi() -> str:
@@ -75,7 +94,7 @@ async def penjaga(request: Request, lanjut):
     if not kunci:
         if lewat_proxy:
             return Response("Akses dari luar ditolak: sandi belum dipasang (akses.txt).", status_code=503)
-        return await lanjut(request)
+        return await _teruskan(request, lanjut)
 
     jalur = request.url.path
     if jalur == "/login":
@@ -94,7 +113,7 @@ async def penjaga(request: Request, lanjut):
         return _halaman()
 
     if token_sah(request.cookies.get(NAMA_COOKIE), kunci):
-        return await lanjut(request)
+        return await _teruskan(request, lanjut)
     if jalur.startswith("/api"):
         return JSONResponse({"detail": "Belum masuk"}, status_code=401)
     return RedirectResponse("/login", status_code=303)

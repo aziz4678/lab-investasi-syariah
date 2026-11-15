@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { Search, X, ChevronLeft, ChevronRight, ArrowUp } from "lucide-vue-next";
 import { ambil } from "@/api/client";
@@ -342,7 +343,7 @@ function keDaftar() {
         <SectionHipotesis :key="aktif.kode" :h="aktif" :kategori="katMap[aktif.kategori]" :kelas-status="kelasStatus" :label-status="labelStatus"
           :lencana="data.lencana" :kelas-lencana="kelasLencana" :eksplorasi-info="data.eksplorasi" @buka="buka">
           <template #eksplorasi>
-            <button class="tombol !h-7 text-xs" :disabled="sibukEks" @click="ulangEksplorasi">Jalankan ulang semua eksplorasi</button>
+            <button v-if="pemilik" class="tombol !h-7 text-xs" :disabled="sibukEks" @click="ulangEksplorasi">Jalankan ulang semua eksplorasi</button>
             <PanelPekerjaan :kerja="kerjaEks" :galat="galatEks" />
           </template>
         </SectionHipotesis>

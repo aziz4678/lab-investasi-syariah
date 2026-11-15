@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, provide } from "vue";
 import { House, TrendingUp, Blend, Coins, ChartPie, Layers, Compass, FlaskConical, ScanSearch, BookOpen, ShieldCheck, Sun, Moon, Monitor, PanelLeftClose, PanelLeftOpen, RefreshCw, PiggyBank, Sprout, Wallet } from "lucide-vue-next";
 import { ambil } from "@/api/client";
+import { pemilik, muatMode } from "@/composables/mode";
 import { modeTema, setTema, temaGelap } from "@/composables/tema";
 import logoTerang from "@/assets/logo/logo.svg";
 import logoGelap from "@/assets/logo/logo-gelap.svg";
@@ -21,13 +22,15 @@ import KualitasDataView from "@/views/lainnya/KualitasDataView.vue";
 
 const NAMA_APP = "Lab Investasi";
 const logo = computed(() => (temaGelap() ? logoGelap : logoTerang));
-const GRUP = [
+const GRUP_SEMUA = [
   { judul: "", isi: [{ k: "beranda", l: "Beranda", ikon: House }] },
   { judul: "Riset / Strategi", isi: [{ k: "tren52", l: "Follow Tren", ikon: TrendingUp, ket: "Saham syariah IDX", sub: "Saham syariah", lencana: "Paper" }, { k: "blend", l: "Momentum Blend", ikon: Blend, ket: "Saham syariah IDX", sub: "Breakout 52W + RS 12-1", lencana: "Paper" }, { k: "konservatif", l: "Portofolio Konservatif", ikon: PiggyBank, ket: "RD & SBN ritel syariah", sub: "Penarikan rutin" }, { k: "pertumbuhan", l: "Portofolio Pertumbuhan", ikon: Sprout, ket: "RD saham syariah lokal + global", sub: "Setor rutin, 5 th+" }, { k: "portosaya", l: "Portofolio Saya", ikon: Wallet, ket: "Catatan uang nyata", sub: "Catat & analisa" }, { k: "hipotesis", l: "Hipotesis", ikon: FlaskConical, ket: "Semua uji riset" }] },
   { judul: "Produk", isi: [{ k: "emiten", l: "Emiten", ikon: ScanSearch, ket: "Saham IDX", sub: "Saham IDX" }, { k: "dividen", l: "Dividen", ikon: Coins, ket: "Dividen saham syariah", sub: "Jadwal & kalender" }, { k: "reksadana", l: "Reksa Dana", ikon: ChartPie, ket: "Reksa dana & sukuk syariah", sub: "Termasuk sukuk" }, { k: "etf", l: "ETF", ikon: Layers, ket: "ETF Indonesia & luar negeri", sub: "Indonesia & luar" }] },
   { judul: "Lainnya", isi: [{ k: "rencana", l: "Rencana", ikon: Compass, ket: "Section berikutnya" }, { k: "kualitas", l: "Kualitas data", ikon: ShieldCheck, ket: "Cek & koreksi harga", sub: "Cek & koreksi harga" }, { k: "panduan", l: "Panduan", ikon: BookOpen }] },
 ];
-const TAB = GRUP.flatMap((g) => g.isi);
+const KHUSUS_PEMILIK = ["kualitas", "portosaya"];
+const GRUP = computed(() => (pemilik.value ? GRUP_SEMUA : GRUP_SEMUA.map((g) => ({ ...g, isi: g.isi.filter((t) => !KHUSUS_PEMILIK.includes(t.k)) }))));
+const TAB = computed(() => GRUP.value.flatMap((g) => g.isi));
 let simpanLebar = "1";
 try {
   simpanLebar = localStorage.getItem("sidebar_lebar") ?? "1";
@@ -57,7 +60,7 @@ const sub = computed(() => subTab.value[tab.value]);
 const status = ref(null);
 const sidebar = ref(null);
 const kodeEmiten = ref("");
-const aktif = computed(() => TAB.find((t) => t.k === tab.value));
+const aktif = computed(() => TAB.value.find((t) => t.k === tab.value));
 const judul = computed(() => aktif.value?.l);
 const atasJudul = computed(() => (aktif.value?.ket ? `${NAMA_APP} · ${aktif.value.ket}` : NAMA_APP));
 
@@ -139,14 +142,15 @@ async function cekBuild() {
 onUnmounted(() => clearInterval(pantau));
 const muatUlang = () => window.location.reload();
 
-onMounted(() => {
+onMounted(async () => {
+  await muatMode();
   cekBuild();
   pantau = setInterval(cekBuild, 20000);
   const [h, xAsli] = location.hash.replace("#", "").split("/");
   const x = SUB_LAMA[h]?.[xAsli] || xAsli;
   if (ALIH[`${h}/${xAsli}`]) pilih(ALIH[`${h}/${xAsli}`]);
   else if (LAMA[h]) pilih(h);
-  else if (TAB.some((t) => t.k === h)) {
+  else if (TAB.value.some((t) => t.k === h)) {
     tab.value = h;
     if (SUB_TAB[h]?.includes(x)) subTab.value = { ...subTab.value, [h]: x };
     if (h === "emiten" && x) kodeEmiten.value = x.toUpperCase();

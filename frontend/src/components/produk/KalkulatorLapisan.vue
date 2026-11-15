@@ -61,7 +61,7 @@ const opsiGrafik = computed(() => {
       <Segmen v-if="pilihanPeriode.length" v-model="periode" :pilihan="pilihanPeriode" kecil />
     </template>
     <Kerangka v-if="!siap" :n="4" />
-    <p v-else-if="!p" class="m-0 text-muted">Data backtest Follow Tren belum tersedia. Tekan 'Hitung ulang backtest' di Perawatan.</p>
+    <p v-else-if="!p" class="m-0 text-muted">Data backtest Follow Tren belum tersedia.</p>
     <template v-else>
       <div class="rounded-2xl bg-surface-2 px-5 py-4">
         <div class="flex flex-wrap items-center justify-between gap-3">

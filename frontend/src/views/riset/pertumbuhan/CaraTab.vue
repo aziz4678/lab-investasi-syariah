@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { computed, inject } from "vue";
 import { RefreshCw, Sprout, Scale, ListChecks, BookOpen, Database, AlertTriangle } from "lucide-vue-next";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
@@ -139,7 +140,7 @@ const infoKat = computed(() => props.d?.info_kategori);
           <template v-if="d">Dihitung {{ tglTeks(d.dihitung) }} · data s/d {{ bulanTeks(d.periode.kategori[1]) }} · keranjang dibentuk {{ tglTeks(d.keranjang?.dibentuk) }} ({{ d.keranjang?.alasan }}).</template>
           Diperbarui otomatis tiap hari kerja kalau ada data baru.
         </span>
-        <button class="tombol" :disabled="kerja.sibuk.value" @click="emit('hitung')"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
+        <button v-if="pemilik" class="tombol" :disabled="kerja.sibuk.value" @click="emit('hitung')"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
       </div>
       <PanelPekerjaan class="mt-3" :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
     </section>

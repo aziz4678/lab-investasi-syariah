@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import KodeSaham from "@/components/common/KodeSaham.vue";
 import { ref, computed, inject, onMounted, onUnmounted } from "vue";
@@ -190,13 +191,14 @@ const stat = computed(() => {
       <div v-if="r?.mulai" class="flex flex-wrap items-center gap-2">
         <span class="chip !h-8 bg-surface-2 !px-3 !text-xs text-ink-2">Data resmi per close {{ tanggal(r.tgl_terakhir) }}</span>
         <button
+          v-if="pemilik"
           class="tombol"
           :disabled="sibuk"
           @click="tanyaReset = !tanyaReset"
         >
           <RotateCcw class="h-3.5 w-3.5" />Reset
         </button>
-        <button class="tombol-utama" :disabled="sibuk" @click="perbarui">
+        <button v-if="pemilik" class="tombol-utama" :disabled="sibuk" @click="perbarui">
           <RefreshCw
             class="h-3.5 w-3.5"
             :class="sibuk ? 'animate-spin' : ''"
@@ -206,7 +208,7 @@ const stat = computed(() => {
     </div>
 
     <div
-      v-if="tanyaReset"
+      v-if="pemilik && tanyaReset"
       class="panel flex flex-wrap items-center gap-3 px-5 py-3.5"
     >
       <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-turun"></span
@@ -248,7 +250,7 @@ const stat = computed(() => {
     </template>
 
     <Panel
-      v-if="siap && r && !r.mulai"
+      v-if="pemilik && siap && r && !r.mulai"
       judul="Mulai paper trade"
       ket="Mengunduh harga terbaru (±1 menit), lalu mengambil sinyal dari penutupan terakhir"
     >

@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed } from "vue";
 import { Award, TriangleAlert, ShieldCheck, ExternalLink, Search, ChevronRight, UserRound, Smartphone, Briefcase, Landmark, LineChart, Wallet } from "lucide-vue-next";
 import { persen } from "@/utils/format";
@@ -270,6 +271,6 @@ const SUMBER = [
         </ul>
       </Panel>
     </div>
-    <CekPlatformRD />
+    <CekPlatformRD v-if="pemilik" />
   </div>
 </template>

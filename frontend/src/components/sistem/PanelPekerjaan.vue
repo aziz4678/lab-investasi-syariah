@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { computed, ref, watch, nextTick } from "vue";
 
 const props = defineProps({ kerja: Object, galat: String });
@@ -31,8 +32,8 @@ watch(log, async () => {
 </script>
 
 <template>
-  <div v-if="galat" class="panel px-5 py-3.5 text-turun">{{ galat }}</div>
-  <div v-if="kerja" class="panel">
+  <div v-if="pemilik && galat" class="panel px-5 py-3.5 text-turun">{{ galat }}</div>
+  <div v-if="pemilik && kerja" class="panel">
     <div class="flex flex-wrap items-center gap-2 px-6 pt-4 pb-2">
       <span class="font-medium">{{ kerja.label }}</span>
       <span class="chip" :class="STATUS[kerja.status]?.k">

@@ -2,6 +2,7 @@
 import TeksWarna from "@/components/common/TeksWarna.vue";
 import KodeSaham from "@/components/common/KodeSaham.vue";
 import { ref, computed, inject, onMounted, onUnmounted } from "vue";
+import { pemilik } from "@/composables/mode";
 import { ArrowRight, DollarSign, Gem, Droplet, ChartLine, Globe, Activity } from "lucide-vue-next";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
 import { ambil } from "@/api/client";
@@ -153,7 +154,7 @@ function waktu(s) {
 
 <template>
   <div class="space-y-5">
-    <BannerKesehatan />
+    <BannerKesehatan v-if="pemilik" />
 
     <template v-if="!pasar">
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -352,6 +353,7 @@ function waktu(s) {
       </Panel>
     </div>
 
+    <template v-if="pemilik">
     <div class="flex items-baseline gap-3 px-1 pt-3"><h2 class="m-0 text-[17px] font-medium">Sistem</h2><span class="text-xs text-muted">data, jadwal otomatis, dan cadangan</span></div>
     <div class="grid gap-5 lg:grid-cols-2">
       <Panel class="h-full" judul="Aktivitas terakhir">
@@ -373,5 +375,6 @@ function waktu(s) {
     <div id="sumber-data" class="scroll-mt-6">
       <PanelSumberData />
     </div>
+    </template>
   </div>
 </template>

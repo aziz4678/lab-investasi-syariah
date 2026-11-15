@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, watch } from "vue";
 import { Search, RefreshCw, SlidersHorizontal } from "lucide-vue-next";
 import { persen, ringkas, kelasPersen } from "@/utils/format";
@@ -98,7 +99,7 @@ const waktuData = computed(() => (props.daftar?.info?.diperbarui ? new Date(prop
       <Panel :judul="cari ? `Hasil pencarian “${cari}”` : `${jumlahKat} ${daftar.label?.[kategori]?.toLowerCase() || 'reksa dana'}`"
         :ket="`Klik produk untuk detail · data per ${waktuData}`" rapat>
         <template #aksi>
-          <button class="tombol" :disabled="kerja.sibuk.value" @click="kerja.mulai('aksi/rd_perbarui', {}, () => emit('muat'))"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Perbarui</button>
+          <button v-if="pemilik" class="tombol" :disabled="kerja.sibuk.value" @click="kerja.mulai('aksi/rd_perbarui', {}, () => emit('muat'))"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Perbarui</button>
         </template>
         <PanelPekerjaan class="mx-6 mb-3" :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 pb-3 text-[13px] text-ink-2">

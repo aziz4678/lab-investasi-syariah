@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, inject, onMounted, onUnmounted, watch } from "vue";
 import { Line } from "vue-chartjs";
 import { RefreshCw, Lock, Radio, BookOpen, ArrowRight, TriangleAlert, Info as IkonInfo } from "lucide-vue-next";
@@ -227,7 +228,7 @@ const hasil = (t) => {
       <p class="m-0 min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">Dua aturan momentum dijalankan ke depan dengan uang pura-pura dalam satu modal, lalu dinilai pada 1 Nov 2027. Tidak perlu beli manual: semuanya tercatat otomatis.</p>
       <div v-if="r?.ada" class="flex flex-wrap items-center gap-2">
         <span class="chip !h-8 bg-surface-2 !px-3 !text-xs text-ink-2">Data resmi per close {{ tanggal(r.tgl_terakhir) }}</span>
-        <button class="tombol-utama" :disabled="sibuk" @click="perbarui">
+        <button v-if="pemilik" class="tombol-utama" :disabled="sibuk" @click="perbarui">
           <RefreshCw class="h-3.5 w-3.5" :class="sibuk ? 'animate-spin' : ''" />{{ sibuk ? "Memperbarui..." : "Perbarui hari ini" }}
         </button>
       </div>
@@ -246,7 +247,7 @@ const hasil = (t) => {
 
     <Panel v-else-if="r && !r.ada" judul="Paper Momentum Blend belum dimulai">
       <p class="m-0 text-ink-2">Tekan "Perbarui hari ini" untuk menyiapkan bagian RS 12-1 (titik awal close 30 Okt 2026, rebalance pertama di open 2 Nov 2026).</p>
-      <button class="tombol-utama mt-3" :disabled="sibuk" @click="perbarui">Siapkan paper</button>
+      <button v-if="pemilik" class="tombol-utama mt-3" :disabled="sibuk" @click="perbarui">Siapkan paper</button>
     </Panel>
 
     <template v-else-if="r">

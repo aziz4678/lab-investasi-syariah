@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, inject } from "vue";
 import { ChevronDown } from "lucide-vue-next";
 import Panel from "@/components/common/Panel.vue";
@@ -77,7 +78,7 @@ function alih(i) {
       </table>
     </Panel>
 
-    <Panel judul="Rutinitas" rapat>
+    <Panel v-if="pemilik" judul="Rutinitas" rapat>
       <table class="tabel">
         <tbody>
           <tr v-for="(r, i) in RUTIN" :key="r[0]">

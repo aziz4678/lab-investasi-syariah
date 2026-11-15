@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, watch, onMounted, onUnmounted, inject } from "vue";
 import { ArrowLeft, TriangleAlert, Info as IkonInfo } from "lucide-vue-next";
 import { ambil } from "@/api/client";
@@ -166,7 +167,7 @@ const FREK_PENDEK = { Mingguan: "mingguan", Bulanan: "bulanan", "Kuartalan (3 bu
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <Segmen v-model="jenis" kecil :pilihan="pilihanJenis" />
-          <button class="tombol" :disabled="sibuk" @click="mulai('aksi/etf_perbarui', {}, muat)">Perbarui</button>
+          <button v-if="pemilik" class="tombol" :disabled="sibuk" @click="mulai('aksi/etf_perbarui', {}, muat)">Perbarui</button>
         </div>
       </div>
       <PanelPekerjaan :kerja="kerja" :galat="galat" />
@@ -214,7 +215,7 @@ const FREK_PENDEK = { Mingguan: "mingguan", Bulanan: "bulanan", "Kuartalan (3 bu
               <select v-model="wilayah" class="!h-9 text-[13px]"><option value="semua">Semua wilayah</option><option v-for="w in daftarWilayah" :key="w" :value="w">{{ w }}</option></select>
               <select v-model="kelasPilih" class="!h-9 text-[13px]"><option value="semua">Semua jenis</option><option v-for="k in daftarKelas" :key="k" :value="k">{{ KELAS[k] || k }}</option></select>
               <input v-model="cariLuar" class="!h-9 w-44 text-[13px]" placeholder="Cari kode / nama" />
-              <button class="tombol" :disabled="sibuk" @click="mulai('aksi/etf_perbarui', {}, muatLuar)">Perbarui</button>
+              <button v-if="pemilik" class="tombol" :disabled="sibuk" @click="mulai('aksi/etf_perbarui', {}, muatLuar)">Perbarui</button>
             </div>
           </div>
           <p v-if="wilayah !== 'semua' && luar?.wilayah_ket?.[wilayah]" class="m-0 rounded-2xl bg-surface-2 px-4 py-2.5 text-[13px] text-ink-2"><b class="font-medium text-ink">{{ wilayah }}:</b> {{ luar.wilayah_ket[wilayah] }}</p>
@@ -343,7 +344,7 @@ const FREK_PENDEK = { Mingguan: "mingguan", Bulanan: "bulanan", "Kuartalan (3 bu
         <ul class="m-0 list-disc space-y-1.5 pl-5 text-[13px] text-ink-2">
           <li>ETF Indonesia: daftar, NAV, biaya, dan dana kelolaan dari Pasardana; harga bursa dari Yahoo Finance (kode bursa diverifikasi dengan mencocokkan harga terhadap NAV).</li>
           <li>ETF luar negeri: harga, dividen, biaya, dana kelolaan, 10 isi terbesar, dan pembagian sektor dari Yahoo Finance. Kurs dolar dan pound dari Yahoo Finance.</li>
-          <li>Diperbarui otomatis tiap hari bursa (jadwal 17:30) atau lewat tombol Perbarui.</li>
+          <li>Diperbarui otomatis tiap hari bursa.</li>
         </ul>
       </Panel>
     </template>

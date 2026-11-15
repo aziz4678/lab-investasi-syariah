@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
+from backend.app import akses
 from backend.app.jobs import jadwal as jd
 from backend.app.jobs import pekerjaan as pk
 from backend.app.services import sumber_data as sd
@@ -12,6 +13,11 @@ from backend.db import koneksi as d
 
 router = APIRouter(prefix="/api")
 DB = d.koneksi()
+
+
+@router.get("/mode")
+def mode(request: Request):
+    return {"pemilik": akses.pemilik(request)}
 
 
 @router.get("/sidebar")

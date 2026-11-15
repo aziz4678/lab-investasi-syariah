@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, watch, onMounted } from "vue";
 import { ambil } from "@/api/client";
 import { pakaiPekerjaan } from "@/composables/pekerjaan";
@@ -124,7 +125,7 @@ watch(versi, (v) => v && isi(v));
     <TabelTrade ref="tabel" :trade="trade" :ekuitas="ekuitas" :versi="versi" />
     </div>
     <IstilahTren :tambahan="s?.istilah" :nama="s?.nama" />
-    <Panel judul="Olah ulang data" :ket="b.olah_ket || 'Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit'">
+    <Panel v-if="pemilik" judul="Olah ulang data" :ket="b.olah_ket || 'Pakai setelah ada data atau aturan baru · hitung ulang butuh beberapa menit'">
       <template #aksi>
         <button v-for="[jenis, label] in OLAH" :key="jenis" class="tombol" :disabled="sibuk" @click="jalankan(jenis)">{{ label }}</button>
       </template>

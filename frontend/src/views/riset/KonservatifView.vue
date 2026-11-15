@@ -1,4 +1,5 @@
 <script setup>
+import { pemilik } from "@/composables/mode";
 import { ref, computed, watch, onMounted, inject } from "vue";
 import { RefreshCw, Lock, Unlock, ExternalLink, CalendarClock, Repeat, Landmark, ShieldCheck, ChevronRight } from "lucide-vue-next";
 import { ambil } from "@/api/client";
@@ -295,7 +296,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
     <TabHalaman :model-value="sub === 'backtest' ? 'backtest' : 'rencana'" @update:model-value="pindah" />
     <template v-if="sub === 'backtest'">
       <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
-      <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Buka bagian "Angka dan data ini dari mana?" lalu tekan "Hitung ulang" (±2 menit).</p></Panel>
+      <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Hasil hitungan belum tersedia.</p></Panel>
       <template v-else>
         <BagianData id="bt-apa" nomor="1" judul="Ini apa?" ket="Isi portofolio dan aturan penarikannya.">
           <section class="panel px-4 py-5 sm:px-6">
@@ -316,7 +317,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         <BagianData id="bt-data" nomor="3" judul="Angka dan data ini dari mana?" ket="Dari data masa lalu: perbandingan dengan RD saham, simulasi ke depan, dan dasar perhitungan.">
           <div class="flex flex-wrap items-center justify-between gap-2 px-1">
             <span class="chip" :class="dasar?.basi ? 'bg-kuning-bg text-kuning' : 'bg-surface-2 text-ink-2'">Dihitung {{ tglTeks(r.dihitung) }} · data s/d {{ bulanTeks(r.periode.akhir) }}<template v-if="dasar?.basi"> · data basi</template></span>
-            <button class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
+            <button v-if="pemilik" class="tombol" :disabled="kerja.sibuk.value" @click="hitungUlang"><RefreshCw class="h-3.5 w-3.5" :class="kerja.sibuk.value ? 'animate-spin' : ''" />Hitung ulang</button>
           </div>
           <PanelPekerjaan :kerja="kerja.kerja.value" :galat="kerja.galat.value" />
           <div v-if="profil" class="rounded-2xl bg-surface-2 px-5 py-4">
@@ -565,7 +566,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
         </div>
 
         <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
-        <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" di bagian Dasar hitungan (±2 menit).</p></Panel>
+        <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Hasil hitungan belum tersedia.</p></Panel>
         <KartuRingkasan v-else-if="modalKecil" judul="Modal masih kecil" :kalimat="belanjaBaru?.label_modal_kecil ?? 'Modal masih kecil — pakai sebagai dana darurat dulu; penghasilan rutin baru berarti di modal besar.'"
           label="Diuji dengan data masa lalu; belum terbukti di masa depan." />
         <KartuRingkasan v-else judul="Penghasilan per bulan, berdasarkan masa lalu" :besar="r.penghasilan != null ? rupiahRingkas(r.penghasilan) : ''" :satuan="r.penghasilan != null ? 'per bulan' : ''"

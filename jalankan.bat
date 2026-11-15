@@ -1,12 +1,14 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+set "ROOT=%~dp0"
+if not exist "%ROOT%venv\Scripts\python.exe" set "ROOT=d:\Project\Test\lab-investasi-syariah\"
+cd /d "%ROOT%"
 title Lab Investasi
 if "%PORT%"=="" set PORT=8765
 set URL=http://127.0.0.1:%PORT%
 
 if not exist "venv\Scripts\python.exe" (
-  echo venv tidak ditemukan di %~dp0venv
+  echo venv tidak ditemukan di %ROOT%venv
   pause
   exit /b 1
 )

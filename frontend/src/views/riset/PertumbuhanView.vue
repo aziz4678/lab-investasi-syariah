@@ -196,7 +196,7 @@ const risiko = computed(() => {
         </div>
 
         <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
-        <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" di bagian Dasar hitungan (±1 menit).</p></Panel>
+        <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Hasil hitungan belum tersedia.</p></Panel>
         <PerkiraanHasil v-else v-model="setoran" :d="perkiraan" :gaya="gaya" :modal-awal="modalAwal" @baca="pindah('backtest')" />
       </section>
 
