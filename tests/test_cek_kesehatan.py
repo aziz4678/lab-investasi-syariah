@@ -382,6 +382,42 @@ class TesKalenderLibur(unittest.TestCase):
         self.assertEqual(ck.Ctx("2026-12-28").telat(pd.Timestamp("2026-12-23")), 1)
 
 
+class TesBtc(unittest.TestCase):
+    def cek(self, tgl, terakhir, ffill=()):
+        c = ctx(tgl)
+        c.btc = {"terakhir": pd.Timestamp(terakhir) if terakhir else None, "ffill": list(ffill)}
+        return {x["nama_cek"]: x for x in ck.cek_btc(c)}
+
+    def test_job_kripto_kritis(self):
+        self.assertIn("kripto_perbarui", ck.KRITIS)
+        c = ctx("2026-11-16", langkah=[{"jenis": "uji_maju_harian", "status": "selesai"}], pekerjaan=[x for x in SEMUA_KRITIS if x["jenis"] != "kripto_perbarui"])
+        self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "gagal")
+        c = ctx("2026-11-16", pekerjaan=SEMUA_KRITIS[:] + [{"jenis": "kripto_perbarui", "status": "gagal", "mulai": "9"}])
+        self.assertEqual(satu(ck.cek_job_jadwal(c))["status"], "gagal")
+
+    def test_tanpa_data_btc_dilewati(self):
+        self.assertEqual(ck.cek_btc(ctx("2026-11-16")), [])
+
+    def test_data_segar_dan_telat(self):
+        self.assertEqual(self.cek("2026-11-16", "2026-11-15")["btc_data"]["status"], "ok")
+        self.assertEqual(self.cek("2026-11-16", "2026-11-13")["btc_data"]["status"], "ok")
+        self.assertEqual(self.cek("2026-11-16", "2026-11-12")["btc_data"]["status"], "peringatan")
+        self.assertEqual(self.cek("2026-11-16", None)["btc_data"]["status"], "peringatan")
+
+    def test_ffill_berturut(self):
+        ok = self.cek("2026-11-12", "2026-11-11", ["2026-11-09", "2026-11-10", "2026-11-11"])
+        self.assertEqual(ok["btc_ffill"]["status"], "ok")
+        w = self.cek("2026-11-12", "2026-11-11", ["2026-11-06", "2026-11-09", "2026-11-10", "2026-11-11"])
+        self.assertEqual(w["btc_ffill"]["status"], "peringatan")
+        self.assertIn("4 hari bursa", w["btc_ffill"]["pesan"])
+
+    def test_ffill_terputus_atau_lama_tidak_memperingatkan(self):
+        t = self.cek("2026-11-12", "2026-11-11", ["2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-09"])
+        self.assertEqual(t["btc_ffill"]["status"], "ok")
+        lama = self.cek("2026-11-30", "2026-11-29", ["2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06"])
+        self.assertEqual(lama["btc_ffill"]["status"], "ok")
+
+
 class TesRunner(unittest.TestCase):
     def test_pemeriksa_error_dilaporkan_gagal(self):
         def rusak(c):

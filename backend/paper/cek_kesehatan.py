@@ -23,7 +23,9 @@ TELAT_SERI_GAGAL = 5
 HARI_MASUK_MAKS = 2
 HARI_REM = 15
 JAM_JADWAL = 17
-KRITIS = {"uji_maju_harian", "etf_emas_perbarui", "emas_panjang_perbarui", "rd_perbarui", "pasar_perbarui"}
+KRITIS = {"uji_maju_harian", "etf_emas_perbarui", "emas_panjang_perbarui", "kripto_perbarui", "rd_perbarui", "pasar_perbarui"}
+BTC_TELAT_HARI = 3
+BTC_FFILL_BERTURUT = 3
 KET_PENGINGAT = {
     "H11a": "keputusan manual, porsi awal maks 10%, peringatan keras H33 berlaku",
     "H29": "evaluasi 12 bulan, bukan bukti edge",
@@ -93,6 +95,7 @@ class Ctx:
         self.seri = seri or {}
         self.koleksi = koleksi or {}
         self.portofolio_saya = []
+        self.btc = None
 
     def bursa(self):
         return self.tgl in set(self.kalender)
@@ -279,6 +282,39 @@ def cek_rem_15(c):
     return [hasil("rem_15_hari", "ok", f"order beli emas terbuka hari ke-{hari} dari {HARI_REM}")]
 
 
+def cek_btc(c):
+    if c.btc is None:
+        return []
+    keluar = []
+    terakhir = c.btc.get("terakhir")
+    if terakhir is None:
+        keluar.append(hasil("btc_data", "peringatan", "data BTC-USD belum ada, jalur info btc_5 tidak bisa dihitung"))
+    else:
+        umur = (c.tgl - pd.Timestamp(terakhir).normalize()).days
+        if umur > BTC_TELAT_HARI:
+            keluar.append(hasil("btc_data", "peringatan", f"data BTC-USD terakhir {pd.Timestamp(terakhir).date()}, {umur} hari kalender (> {BTC_TELAT_HARI}); jalur info btc_5 memakai harga lama"))
+        else:
+            keluar.append(hasil("btc_data", "ok", f"data BTC-USD terakhir {pd.Timestamp(terakhir).date()} ({umur} hari kalender)"))
+    hari = sorted({pd.Timestamp(x).normalize() for x in c.btc.get("ffill") or []})
+    hari = [h for h in hari if h <= c.tgl]
+    if not hari:
+        keluar.append(hasil("btc_ffill", "ok", "tidak ada kejadian harga_btc_ffill"))
+        return keluar
+    idx = {h: i for i, h in enumerate(c.kalender)}
+    run = 1
+    for a, b in zip(hari[::-1][1:], hari[::-1]):
+        if a in idx and b in idx and idx[b] - idx[a] == 1:
+            run += 1
+        else:
+            break
+    aktif = c.telat(hari[-1]) <= 1
+    if run > BTC_FFILL_BERTURUT and aktif:
+        keluar.append(hasil("btc_ffill", "peringatan", f"harga_btc_ffill muncul {run} hari bursa berturut-turut sampai {hari[-1].date()} (> {BTC_FFILL_BERTURUT}); harga BTC atau kurs telat"))
+    else:
+        keluar.append(hasil("btc_ffill", "ok", f"harga_btc_ffill terakhir {hari[-1].date()}, berturut-turut {run} hari bursa"))
+    return keluar
+
+
 def cek_hari_bolong(c):
     if c.tgl <= c.mulai:
         return []
@@ -347,7 +383,7 @@ def cek_setoran_bulan_ini(c):
     return [hasil("setoran_bulan_ini", "ok", "setoran Portofolio Saya bulan ini sudah tercatat atau belum jatuh tempo")]
 
 
-CEK = [cek_parameter_mesin, cek_ketertinggalan, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur, cek_setoran_bulan_ini]
+CEK = [cek_parameter_mesin, cek_ketertinggalan, cek_sidik_paper, cek_emas_telat, cek_job_jadwal, cek_seri_data, cek_btc, cek_belum_mulai, cek_pilih_etf, cek_transaksi_pertama, cek_batas_20, cek_rem_15, cek_hari_bolong, cek_pengingat, cek_kalender_libur, cek_setoran_bulan_ini]
 
 
 def jalankan_cek(c):
@@ -407,6 +443,10 @@ def bangun_ctx(db, tgl=None, sekarang=None):
     idx = sd.idx_harian_terakhir()
     seri["idx_harian"] = pd.Timestamp(idx) if idx is not None else None
     ctx.seri = seri
+    try:
+        ctx.btc = {"terakhir": tgl_terakhir(data.seri_btc_usd()), "ffill": [x["tgl"] for x in db.btc_5_kejadian.find({"jenis": "harga_btc_ffill"}, {"tgl": 1})]}
+    except Exception:
+        ctx.btc = {"terakhir": None, "ffill": []}
     j = db.jadwal_harian.find_one({"_id": str(tgl.date())}) or {}
     ctx.langkah = j.get("langkah") or []
     ctx.pekerjaan = list(db.pekerjaan.find({"oleh": "jadwal", "mulai": {"$gte": datetime.combine(tgl.date(), datetime.min.time())}}, {"jenis": 1, "status": 1, "mulai": 1}))

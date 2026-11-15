@@ -35,6 +35,8 @@ const peta = {
   emas_telat: { judul: "Data emas", kalimat: () => "Data harga emas pembanding telat; selisih paper vs model tidak bisa dipercaya." },
   job_jadwal: { judul: "Jadwal harian", kalimat: (x) => (x.status === "gagal" ? "Ada pekerjaan penting di jadwal harian yang gagal atau tidak tercatat." : "Ada pekerjaan di jadwal harian yang gagal atau dilewati.") },
   seri_data: { judul: "Data harga", kalimat: (x) => (x.status === "gagal" ? "Ada data harga uji maju yang sudah lama tidak diperbarui." : "Ada data harga uji maju yang telat diperbarui.") },
+  btc_data: { judul: "Data BTC", kalimat: () => "Data harga BTC-USD telat atau belum ada; jalur info btc_5 memakai harga lama." },
+  btc_ffill: { judul: "Harga BTC telat", kalimat: () => "Harga BTC atau kurs telat lebih dari 3 hari bursa berturut-turut di jalur info btc_5." },
   belum_mulai: { judul: "Sebelum 1 Des", kalimat: () => "Data uji maju sudah terisi atau aturan berubah padahal belum waktunya mulai." },
   pilih_etf_awal: { judul: "ETF emas awal", kalimat: (x) => (x.status === "gagal" ? "ETF emas awal belum terpilih dengan benar." : "ETF emas awal dipilih lewat cadangan, periksa alasannya.") },
   transaksi_pertama: { judul: "Transaksi pertama", kalimat: () => "Transaksi pertama H35/H37 belum masuk, padahal sudah lewat batas hari bursa ke-2." },
