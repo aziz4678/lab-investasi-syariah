@@ -9,7 +9,7 @@ import Panel from "@/components/common/Panel.vue";
 import Segmen from "@/components/common/Segmen.vue";
 import Pemutar from "@/components/common/Pemutar.vue";
 import PilihAplikasi from "@/components/portofolio/PilihAplikasi.vue";
-import KartuRingkasan from "@/components/portofolio/KartuRingkasan.vue";
+import PerkiraanHasil from "@/components/portofolio/PerkiraanHasil.vue";
 import GrupBelanja from "@/components/portofolio/GrupBelanja.vue";
 import ChecklistBulan from "@/components/portofolio/ChecklistBulan.vue";
 import KartuRisiko from "@/components/portofolio/KartuRisiko.vue";
@@ -31,6 +31,7 @@ const dasar = ref(null);
 const rencana = ref(null);
 const belanja = ref(null);
 const emas = ref(null);
+const perkiraan = ref(null);
 const siap = ref(false);
 const memuat = ref(false);
 const kerja = pakaiPekerjaan();
@@ -49,6 +50,7 @@ const tampilRp = (v) => (v ? v.toLocaleString("id-ID") : "");
 const muatDasar = async () => {
   dasar.value = await ambil("pertumbuhan").catch(() => null);
   emas.value = await ambil("pertumbuhan/emas").catch(() => null);
+  perkiraan.value = await ambil("pertumbuhan/perkiraan").catch(() => null);
 };
 const muatRencana = async () => {
   memuat.value = true;
@@ -78,33 +80,7 @@ const pindah = (x) => {
   window.scrollTo({ top: 0 });
 };
 const ada = computed(() => rencana.value?.ada && dasar.value?.ada);
-const hasil = computed(() => ["5", "10"].map((t) => rencana.value?.rentang?.[t]).filter(Boolean));
-const h10 = computed(() => rencana.value?.rentang?.["10"]);
-const h5 = computed(() => rencana.value?.rentang?.["5"]);
 const campuranIndeks = computed(() => dasar.value?.indeks?.["50/50"]);
-const holdoutEmas = computed(() => emas.value?.holdout?.h37);
-
-const kalimatRingkas = computed(() => {
-  const x = h10.value ?? h5.value;
-  if (!x) return "";
-  const m = rencana.value.masukan;
-  const setor = m.modal_awal > 0 ? `modal awal ${rupiahRingkas(m.modal_awal)} lalu setor ${rupiahRingkas(m.setoran)}/bulan` : `setor ${rupiahRingkas(m.setoran)}/bulan`;
-  return `Kalau dulu ${setor} selama ${x.tahun} tahun, biasanya jadi ${rupiahRingkas(x.median)} (disetor ${rupiahRingkas(x.total)}).`;
-});
-const itemRingkas = computed(() =>
-  hasil.value.map((x) => ({ label: `${x.tahun} tahun`, nilai: rupiahRingkas(x.median), kelas: x.median >= x.total ? "text-naik" : "text-turun", ket: `paling sial ${rupiahRingkas(x.terburuk)} · ${dariSeratus(x.untung)} dari 100 periode untung` })),
-);
-const kalimatRisiko = computed(() => {
-  const c = campuranIndeks.value;
-  const turun = c?.dd != null ? `Pernah turun ${pr(Math.abs(c.dd), 0)} dari puncak.` : "";
-  return `${turun} Jangan pakai uang yang dibutuhkan kurang dari 5 tahun lagi.`.trim();
-});
-const catatanEmas = computed(() => {
-  if (gaya.value !== "emas") return "";
-  const h = holdoutEmas.value;
-  const bagian = h ? ` Di data uji 2014–2026, campuran dengan emas rata-rata ${prTanda(h.cagr)} per tahun dan pernah turun ${pr(Math.abs(h.dd), 0)}.` : "";
-  return `Perkiraan di atas dihitung untuk bagian saham saja (50/50). Dengan emas, 20% setoran pindah ke emas.${bagian}`;
-});
 
 const langkah = computed(() => {
   const b = belanja.value;
@@ -201,11 +177,6 @@ const risiko = computed(() => {
           <div class="text-[14px] font-medium">Isi data</div>
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div class="min-w-0">
-              <label class="text-xs text-muted">Setoran per bulan</label>
-              <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
-                <input :value="tampilRp(setoran)" inputmode="numeric" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" @input="(e) => (setoran = angka(e.target.value))" /></div>
-            </div>
-            <div class="min-w-0">
               <label class="text-xs text-muted">Modal awal <span>(opsional)</span></label>
               <div class="mt-1 flex items-center rounded-full bg-surface-2 px-4"><span class="text-[13px] text-muted">Rp</span>
                 <input :value="tampilRp(modalAwal)" inputmode="numeric" placeholder="0" class="h-10 w-full min-w-0 bg-transparent px-2 text-[15px] outline-none" @input="(e) => (modalAwal = angka(e.target.value))" /></div>
@@ -226,20 +197,17 @@ const risiko = computed(() => {
 
         <Kerangka v-if="!siap" jenis="kartu" :n="2" kolom="grid-cols-1 md:grid-cols-2" />
         <Panel v-else-if="!ada" judul="Belum ada hasil hitungan"><p class="m-0 text-[13px] text-ink-2">Tekan "Hitung ulang" di bagian Dasar hitungan (±1 menit).</p></Panel>
-        <KartuRingkasan v-else judul="Perkiraan hasil, berdasarkan masa lalu" :besar="h10 ? rupiahRingkas(h10.median) : h5 ? rupiahRingkas(h5.median) : ''" :satuan="h10 ? 'setelah 10 tahun' : 'setelah 5 tahun'"
-          :kalimat="kalimatRingkas" :item="itemRingkas" :risiko="kalimatRisiko" label="Diuji dengan data masa lalu; belum terbukti di masa depan.">
-          <p v-if="catatanEmas" class="m-0 mt-3 text-[12px] leading-relaxed text-ink-2">{{ catatanEmas }}</p>
-        </KartuRingkasan>
+        <PerkiraanHasil v-else v-model="setoran" :d="perkiraan" :gaya="gaya" :modal-awal="modalAwal" @baca="pindah('backtest')" />
       </section>
 
       <section class="space-y-5">
         <div class="panel relative px-4 py-5 sm:px-6">
           <Pemutar v-if="memuat" class="absolute top-4 right-4" />
           <div class="text-[14px] font-medium">Daftar belanja bulan ini</div>
-          <p class="m-0 mt-1 text-[12px] text-muted">Hanya produk yang ada di aplikasimu. Dipilih dengan aturan tetap (biaya termurah di antara yang cukup besar), bukan dari hasil terbaik.</p>
+          <p class="m-0 mt-1 text-[12px] text-muted">Hanya produk yang ada di aplikasimu. Dipilih dengan aturan tetap: dana kelolaan cukup besar (min. Rp100 M), biaya 0,3–5% per tahun, dan unggul dari JII 3 tahun terakhir, lalu 3 yang biayanya termurah. Global memakai SPUS lewat Ajaib.</p>
           <div v-if="belanja?.ada" class="mt-3">
-            <div v-if="belanja.awal" class="mb-3 rounded-2xl bg-surface-2 px-4 py-3 text-[13px] text-ink-2">Modal awal {{ rupiahRingkas(belanja.awal.total) }}: {{ rupiahRingkas(belanja.awal.lokal_per_produk) }} ke tiap RD Indonesia<template v-if="belanja.awal.global_per_produk"> dan {{ rupiahRingkas(belanja.awal.global_per_produk) }} ke RD global</template><template v-if="belanja.awal.emas"> dan {{ rupiahRingkas(belanja.awal.emas) }} ke ETF emas</template>.</div>
-            <GrupBelanja :grup="belanja.grup" :peringatan="belanja.peringatan" />
+            <div v-if="belanja.awal" class="mb-3 rounded-2xl bg-surface-2 px-4 py-3 text-[13px] text-ink-2">Modal awal {{ rupiahRingkas(belanja.awal.total) }}: {{ rupiahRingkas(belanja.awal.lokal_per_produk) }} ke tiap RD Indonesia<template v-if="belanja.awal.global_per_produk"> dan {{ rupiahRingkas(belanja.awal.global_per_produk) }} ke SPUS (global)</template><template v-if="belanja.awal.emas"> dan {{ rupiahRingkas(belanja.awal.emas) }} ke ETF emas</template>.</div>
+            <GrupBelanja :grup="belanja.grup" :peringatan="belanja.peringatan" :ringkasan="belanja.ringkasan" />
           </div>
           <p v-else class="m-0 mt-3 text-[13px] text-muted">Daftar belanja belum tersedia.</p>
         </div>

@@ -236,16 +236,30 @@ class TesKunciUjiMaju(unittest.TestCase):
             bl.konservatif(apps, 30_000_000, 5_000_000, 6, "tanpa_sbn")
         self.assertEqual(um.produk_halaman(), sebelum)
 
-    def test_semua_aplikasi_sama_dengan_produk_halaman(self):
-        from backend.paper import uji_maju_pertumbuhan as um
+    def test_semua_aplikasi_sama_dengan_isi_halaman(self):
+        from backend.app.services import pertumbuhan as pt
         try:
-            ph = um.produk_halaman()
+            isi = pt.rencana(1_000_000, 0, "semua")["isi"]
             r = bl.pertumbuhan(None, 1_000_000, 0, "saham")
         except Exception as e:
             self.skipTest(f"data produksi tidak tersedia: {e}")
-        tampil = [p for g in r["grup"] for p in g["produk"] if p["tipe"] == "rd"]
-        self.assertEqual(sorted(p["id"] for p in tampil if p["kaki"] == "lokal"), sorted(x["id"] for x in ph["lokal"]))
-        self.assertEqual(sorted(p["id"] for p in tampil if p["kaki"] == "global"), sorted(x["id"] for x in ph["global"]))
+        tampil = [p for g in r["grup"] for p in g["produk"] if p["tipe"] in ("rd", "saham_as")]
+        self.assertEqual(sorted(p["id"] for p in tampil if p["kaki"] == "lokal"), sorted(x["id"] for x in isi["lokal"]))
+        self.assertEqual(sorted(str(p["id"]) for p in tampil if p["kaki"] == "global"), sorted(str(x["id"]) for x in isi["global"]))
+
+    def test_uji_maju_memakai_produk_beku_bukan_halaman(self):
+        from backend.paper import uji_maju_pertumbuhan as um
+        from backend.db import koneksi as kdb
+        try:
+            beku = kdb.koneksi()[um.KOLEKSI_BEKU].find_one({"_id": um.ID_RESMI})
+        except Exception as e:
+            self.skipTest(f"data produksi tidak tersedia: {e}")
+        if beku is None:
+            self.skipTest("snapshot resmi produk uji maju belum dibuat")
+        self.assertEqual(um.produk_halaman(), {k: beku[k] for k in ("lokal", "global")})
+        self.assertTrue(all(isinstance(x["id"], int) or x["id"] == "SPUS" for k in ("lokal", "global") for x in um.produk_halaman()[k]))
+        lama = um.produk_lama()
+        self.assertEqual([x["id"] for x in lama["global"]], [2233])
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ STATUS = [
      "arti": "Dijalankan maju dengan uang virtual, aturan dikunci. Belum terbukti; dinilai dengan zona normal yang dikunci."},
     {"id": "uji_maju", "label": "Uji maju", "warna": "aksen",
      "arti": "Aturan dikunci dan dijalankan maju pada data yang belum ada (mulai tanggal tertentu)."},
+    {"id": "lolos", "label": "Lolos", "warna": "naik",
+     "arti": "Lulus semua kriteria yang dikunci (termasuk uji ketahanan bila ada), tapi belum dijalankan maju dan belum diterapkan ke strategi. Hanya dicatat."},
     {"id": "dikunci", "label": "Dikunci", "warna": "kuning",
      "arti": "Hipotesis, aturan, dan kriteria sudah ditulis, tapi uji belum dijalankan."},
     {"id": "belum_dikunci", "label": "Belum dikunci", "warna": "garis",
@@ -1473,6 +1475,43 @@ HIPOTESIS.append({
                   "Arah umum data sudah diketahui sebelum uji (kontaminasi H35 tercatat); dividen JII dan global pra-2008 diasumsikan.",
                   "Varian 45/45/10 hanya gagal K1 (DD -38,4%, selisih 4,2 poin): lolos di batas 2/3."],
     "pelajaran": "Lolos dev dan holdout (kriteria dan sensitivitas terkunci). Hasil holdout lebih rendah (CAGR 6,7%) dan sebagian besar keunggulan datang dari emas 2024-2025 (+32% dan +70%). Margin DD di holdout 5,6 poin, hanya sedikit di atas batas 5. Bukan bukti kuat: kontaminasi arah data (H35) tetap. Aturan uji maju H35 & H37 dikunci 2026-11-12 (paper_h37_*, mulai 1 Des 2026 sesuai amandemen pra-mulai, evaluasi pertama Jan 2028): menilai pelaksanaan dengan produk nyata, bukan edge.", "terkait": ["H35", "H23"], "sumber": "hasil_riset/h37_dev, hasil_riset/h37_holdout",
+})
+
+HIPOTESIS.append({
+    "kode": "H38", "keluarga": "H38", "nama": "Porsi lokal: apakah porsi saham syariah Indonesia di H35/H37 perlu dikurangi", "kategori": "rezim", "status": "gagal", "lencana": ["pasca_hasil"],
+    "tgl_kunci": "2026-11-15", "tgl_uji": "2026-11-15", "skor": "0/4 varian lulus (baseline tetap)",
+    "awam": "Saham syariah Indonesia lemah beberapa tahun terakhir. Diuji apakah porsi lokal di H35 (50/50 lokal/global) dan H37 (40/40/20 dengan emas) sebaiknya diturunkan, dengan aturan dikunci dulu supaya tidak memilih setelah melihat hasil.",
+    "aturan": {"Mesin": "Persis H35/H37 (`uji_h37.seri_h37`, `uji_h35.porto`, `uji_h37.porto3`): modal tunggal, rebalance akhir Desember, biaya rebalance dan spread emas sama. Lokal = JII + asumsi dividen mesin, global = proxy H35 (^IMXL lalu ISDW.L) x kurs, emas = GC=F x kurs; semua rupiah.",
+               "Struktur A (tanpa emas)": "Lokal 50% (baseline H35) / 25% / 0%, sisanya global.",
+               "Struktur B (emas 20% tetap)": "Porsi saham 80% dibagi lokal:global = 50:50 (baseline = 40/40/20 H37) / 25:75 (20/60/20) / 0:100 (0/80/20).",
+               "Periode": "Dari bulan pertama semua data tersedia (Jun 2001) s/d Okt 2026. DEV: awal s/d Des 2013. HOLDOUT: Jan 2014 s/d Okt 2026 (tiap periode dimulai dari nol).",
+               "Aturan lulus": "Per struktur, varian menggantikan baseline HANYA kalau di DEV DAN HOLDOUT sekaligus CAGR >= baseline dan max DD tidak lebih buruk dari baseline lebih dari 3 poin. Bila 25% dan 0% sama-sama lulus: pilih perubahan terkecil (25%). Bila tidak ada yang lulus: baseline 50% tetap.",
+               "Info (bukan kriteria)": "Hasil standar lulus seragam proyek (analog K1-K3 H35) dicetak sebagai info; bila bertentangan dengan aturan lulus, hanya dilaporkan. Per tahun kalender (struktur A) dan perbandingan jendela 5 tahun tidak tumpang tindih juga info."},
+    "periode": [p("Dev", "Jun 2001 s/d Des 2013", "Indeks JII + global syariah + emas (rupiah)", False),
+                p("Holdout", "Jan 2014 s/d Okt 2026", "sama", False)],
+    "kriteria": [k("Varian CAGR >= baseline di dev DAN holdout"), k("Varian max DD tidak lebih buruk dari baseline > 3 poin di dev DAN holdout"),
+                 k("25% dan 0% sama-sama lulus: pilih 25%; tidak ada yang lulus: baseline tetap")],
+    "angka": [], "kenapa": "Tidak ada varian yang lolos di dev dan holdout sekaligus: mengurangi porsi lokal menang di holdout (2014-2026) tapi kalah CAGR di dev (2001-2013); baseline 50% tetap di kedua struktur.",
+    "kelemahan": ["Pasca hasil: pertanyaan muncul karena saham lokal lemah belakangan; arah data sudah diketahui (kontaminasi H35/H37).", "Indeks/futures, bukan produk; dividen dan spread emas diasumsikan."],
+    "pelajaran": "", "terkait": ["H35", "H37"], "sumber": "hasil_riset/h38_hasil",
+})
+
+HIPOTESIS.append({
+    "kode": "H39", "keluarga": "H39", "nama": "Tambahan BTC: apakah porsi kecil Bitcoin di H35/H37 layak", "kategori": "rezim", "status": "lolos", "lencana": ["pasca_hasil"],
+    "tgl_kunci": "2026-11-15", "tgl_uji": "2026-11-15", "skor": "4/4 varian lulus (Desember); ketahanan 12/12 bulan rebalance; pilihan 5%",
+    "awam": "Riset luar menyebut porsi kecil Bitcoin (2,5-5%) di portofolio klasik menaikkan return dengan penurunan sedikit lebih dalam. Diuji di H35 dan H37 dengan aturan dikunci dulu, rebalance Desember, biaya BTC 0,5% per beli/jual.",
+    "aturan": {"Mesin": "Persis H35/H37 (modal tunggal, rebalance Desember, biaya rebalance sama). BTC = BTC-USD akhir bulan x kurs akhir bulan H35, biaya 0,5% per beli/jual. Porsi BTC diambil proporsional dari kaki lain (B 5%: 38/38/19/5).",
+               "Struktur": "A = H35 (lokal/global 50/50), B = H37 (40/40/20); masing-masing BTC 0% (baseline) / 2,5% / 5%.",
+               "Periode": "Okt 2014 s/d Okt 2026. DEV: Okt 2014 s/d Des 2020. HOLDOUT: Jan 2021 s/d Okt 2026 (tiap periode mulai dari nol).",
+               "Aturan lulus": "Per struktur, varian lulus HANYA bila di DEV DAN HOLDOUT sekaligus CAGR >= baseline dan max DD tidak lebih buruk dari baseline > 3 poin. 2,5% dan 5% sama-sama lulus: pilih 5%; hanya 2,5%: pilih 2,5%; tidak ada: BTC tidak masuk.",
+               "Ketahanan bulan rebalance (dikunci 2026-11-15, sebelum dihitung)": "Struktur A & B, BTC 0/2,5/5%, rebalance di bulan m = Jan..Des (12 versi; baseline 0% dihitung per m yang sama). 5% DIPAKAI jika per struktur di >= 9 dari 12 bulan m holdout CAGR >= baseline(m) DAN holdout max DD tidak lebih buruk dari baseline(m) > 3 poin. 5% gagal: cek 2,5% dengan syarat sama. Keduanya gagal: BTC tidak masuk (hasil Desember dianggap kebetulan). Status H39: lolos bila ada porsi yang dipakai, gagal bila tidak. Hanya dicatat di katalog; tidak diterapkan ke halaman Pertumbuhan, daftar belanja, atau uji maju.",
+               "Info (bukan kriteria)": "Rebalance kuartalan (2,5% & 5%), BTC+ETH 50/50 untuk 5% (2018-2026), standar seragam analog K1-K3, porsi BTC tertinggi antar-rebalance."},
+    "periode": [p("Dev", "Okt 2014 s/d Des 2020", "Indeks lokal + global syariah + emas + BTC (rupiah)", True),
+                p("Holdout", "Jan 2021 s/d Okt 2026", "sama", True)],
+    "kriteria": [k("Varian CAGR >= baseline di dev DAN holdout"), k("Varian max DD tidak lebih buruk dari baseline > 3 poin di dev DAN holdout"),
+                 k("Dua varian lulus: pilih 5%; satu: yang lulus; tidak ada: BTC tidak masuk")],
+    "angka": [], "kenapa": "BTC 2,5% dan 5% lulus di dev (2014-2020) dan holdout (2021-2026) di kedua struktur; 5% dipilih menurut aturan. Struktur B 5%: dev CAGR 17,1% vs 5,4%, holdout 9,1% vs 7,1%, max DD -12,0% vs -13,4% di holdout. Uji ketahanan bulan rebalance (dikunci sebelum dihitung): 5% lulus di 12 dari 12 bulan rebalance di kedua struktur (holdout CAGR >= baseline, DD tidak lebih buruk > 3 poin), jadi hasil Desember bukan kebetulan. Hanya dicatat di katalog; tidak diterapkan ke halaman Pertumbuhan, daftar belanja, atau uji maju.", "kelemahan": ["Pasca hasil: BTC sudah naik besar sebelum uji; arah data diketahui.", "Hanya ±12 tahun data BTC, satu siklus besar; dev dan holdout masing-masing ±6 tahun.", "Ketahanan hanya menilai holdout (aturan terkunci); di dev, rebalance selain Oktober-Desember memberi DD lebih dalam (5%: A sampai -29,1%, B sampai -23,9%, vs ±-18% dan -10% di Desember).", "Porsi BTC antar-rebalance naik sampai ±40% (target 5%) dan ±25% (target 2,5%) sebelum rebalance Desember, terutama 2017; keunggulan dev sebagian besar dari 2017 dan 2020.", "Proxy indeks/futures, bukan produk; biaya BTC diasumsikan."],
+    "pelajaran": "Lolos aturan yang dikunci, tapi di holdout selisihnya kecil (B 5%: +2 poin CAGR) dan rebalance kuartalan justru memperburuk DD (B 5% holdout -14,9%). Aturan produk H35/H37 tidak diubah.", "terkait": ["H35", "H37"], "sumber": "hasil_riset/h39_hasil, hasil_riset/h39_ketahanan",
 })
 
 GRAFIK["H35"] = [batang("CAGR rupiah per dekade, jalur 1", ["Jun 2001-2009", "2010-2019", "2020-Okt 2026", "Penuh"],

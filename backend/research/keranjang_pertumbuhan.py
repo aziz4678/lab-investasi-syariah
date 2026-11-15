@@ -13,7 +13,13 @@ from backend.research import uji_h35 as h35
 WADAH = {"LK": "lokal", "GL": "global"}
 LABEL = {"LK": "RD saham syariah Indonesia", "GL": "RD saham syariah global"}
 JUMLAH = {"LK": 3, "GL": 1}
-GLOBAL_DISETUJUI = {2233}
+SPUS_KODE = "SPUS"
+SPUS_APLIKASI = "ajaib"
+AUM_MIN = 100e9
+BIAYA_MIN = 0.3
+BIAYA_MAKS = 5.0
+SELISIH_TAHUN = 3
+ATURAN_VERSI = "2026-11-15b"
 MIN_TAHUN = 3
 AKTIF_HARI = 14
 APLIKASI = ("semua", "bibit", "makmur", "ajaib")
@@ -38,14 +44,15 @@ SEKTOR = re.compile(r"TECHNOLOGY|TEKNOLOGI|\bTECH\b|HEALTHCARE|KESEHATAN|GOLD", 
 ALASAN_SEKTOR = "ditolak: satu sektor, menambah risiko konsentrasi teknologi AS"
 TEKNOLOGI = re.compile(r"TECHNOLOGY|TEKNOLOGI|\bTECH\b", re.I)
 KRITERIA = {"jumlah": JUMLAH, "min_tahun": MIN_TAHUN, "aktif_hari": AKTIF_HARI, "urut": "biaya termurah, lalu dana kelolaan terbesar",
-            "aum": "dana kelolaan >= median produk yang lolos di jenisnya", "platform": "wajib ada di >= 1 aplikasi (Bibit/Makmur/Ajaib); kosong = gugur",
+            "aum": f"lokal: dana kelolaan >= Rp{AUM_MIN / 1e9:.0f} M", "biaya_valid": f"lokal: biaya {BIAYA_MIN}% sampai {BIAYA_MAKS:.0f}% (di atas itu terlalu mahal, di bawah itu tidak wajar)",
+            "selisih_jii": f"lokal: return {SELISIH_TAHUN} th di atas JII (+ asumsi dividen {h35.DASAR['div_jii'] * 100:.1f}%/th seperti mesin backtest)", "versi": ATURAN_VERSI, "platform": "wajib ada di >= 1 aplikasi (Bibit/Makmur/Ajaib); kosong = gugur",
             "bagi_hasil": "hanya tanda bagi hasil tunai Pasardana (RD saham yang rugi tidak dianggap bagi hasil)",
-            "global": "hanya RD global luas yang disetujui user (Schroder Global Sharia Equity Fund USD); regional dan satu sektor ditolak",
+            "global": f"kaki global = {SPUS_KODE} (saham AS syariah, dibeli lewat Ajaib); RD global tidak dipakai",
             "min_beli": "tidak menyaring; ditandai 'cek di aplikasi' bila versi MI > Rp1 jt / US$100",
             "bentuk_ulang": "seluruh keranjang tiap Januari",
             "keluar": [f"NAV tidak terbit > {AKTIF_HARI} hari / bubar", "mulai membagi hasil tunai", "tidak lagi ada di aplikasi",
-                       f"lokal: biaya naik di atas biaya produk ke-{JUMLAH['LK']} calon", f"lokal: dana kelolaan < persentil {AUM_KELUAR_PERSENTIL} {AUM_KELUAR_BULAN} bulan berturut-turut"],
-            "ganti": "lokal: diganti calon termurah berikutnya; global: TIDAK diganti otomatis, keranjang global kosong + daftar calon pengganti"}
+                       f"lokal: biaya naik di atas biaya produk ke-{JUMLAH['LK']} calon", "lokal: tidak lagi lolos saringan dana kelolaan (2 bulan berturut-turut), biaya, atau selisih ke JII"],
+            "ganti": "lokal: diganti calon termurah berikutnya; global: tetap SPUS, tidak diganti otomatis"}
 
 
 def _daftar():
@@ -77,15 +84,44 @@ def wadah_dari(x):
     return None
 
 
-def alasan_dasar(x, k, bagi, batas_aktif):
+def selisih_jii(ids, tahun=SELISIH_TAHUN):
+    from backend.app.services import rd_yakin
+    from backend.db import harga
+    b = rd_yakin.bulanan()
+    j = h35.bulanan(harga.indeks("indeks/JKII")["close"])
+    hasil = {}
+    for i in ids:
+        if i not in b.columns:
+            continue
+        m = b[i].dropna()
+        m.index = pd.DatetimeIndex(m.index).to_period("M")
+        m = m[~m.index.duplicated(keep="last")]
+        if not len(m):
+            continue
+        akhir = m.index[-1]
+        awal = akhir - 12 * tahun
+        if awal not in m.index or akhir not in j.index or awal not in j.index:
+            continue
+        p = float((m[akhir] / m[awal]) ** (1 / tahun) - 1)
+        jj = float((j[akhir] / j[awal]) ** (1 / tahun) * (1 + h35.DASAR["div_jii"]) - 1)
+        hasil[int(i)] = {"produk": p, "jii": jj, "selisih": p - jj, "akhir": str(akhir)}
+    return hasil
+
+
+def kartu_spus():
+    x = d.koneksi().etf_luar.find_one({"_id": SPUS_KODE})
+    if not x:
+        return None
+    tahun = (x["sampai"] - x["mulai"]).days / 365.25 if x.get("mulai") and x.get("sampai") else None
+    return {"id": SPUS_KODE, "nama": x.get("nama") or SPUS_KODE, "mi": x.get("penerbit"), "wadah": "GL", "kategori": "etf", "mata_uang": "USD", "biaya": x.get("biaya"), "aum": x.get("aum"),
+            "tahun_data": tahun, "risiko_skala": None, "min_beli_mi": None, "min_beli_nilai": None, "min_beli_uang": "USD", "cek_aplikasi": False,
+            "platform": [{"kode": SPUS_APLIKASI, "url": None}], "jenis": "saham_as"}
+
+
+def alasan_dasar(x, k, bagi, batas_aktif, selisih=None):
     a = []
     if k == "GL":
-        if BUKAN_SAHAM.search(x["nama"]):
-            a.append("bukan RD saham")
-        elif REGIONAL.search(x["nama"]):
-            a.append("regional / satu negara, bukan global")
-        elif SEKTOR.search(x["nama"]):
-            a.append(ALASAN_SEKTOR if TEKNOLOGI.search(x["nama"]) else "ditolak: satu sektor")
+        a.append(f"kaki global diganti {SPUS_KODE}, RD global tidak dipakai")
     if not x.get("nav_tgl") or pd.Timestamp(x["nav_tgl"]) < batas_aktif or x.get("nav_beku"):
         a.append("tidak aktif")
     if (x.get("tahun_data") or 0) < MIN_TAHUN:
@@ -94,43 +130,53 @@ def alasan_dasar(x, k, bagi, batas_aktif):
         a.append("bagi hasil tunai")
     if x.get("biaya") is None or x["biaya"] <= 0:
         a.append("biaya tidak diketahui")
+    elif k == "LK" and not BIAYA_MIN <= x["biaya"] <= BIAYA_MAKS:
+        a.append(f"biaya {x['biaya']:.2f}% di luar {BIAYA_MIN}%-{BIAYA_MAKS:.0f}% (terlalu mahal atau tidak wajar)")
+    if k == "LK":
+        if (x.get("aum") or 0) < AUM_MIN:
+            a.append(f"dana kelolaan < Rp{AUM_MIN / 1e9:.0f} M")
+        sel = (selisih or {}).get(int(x["id"]))
+        if sel is None:
+            a.append(f"selisih {SELISIH_TAHUN} th ke JII tidak bisa dihitung")
+        elif sel["selisih"] <= 0:
+            a.append(f"{SELISIH_TAHUN} th tertinggal dari JII")
     if not x.get("platform"):
         a.append("platform tidak diketahui")
     return a
 
 
-def ringkas_produk(x, k):
+def ringkas_produk(x, k, selisih=None):
+    sel = (selisih or {}).get(int(x["id"])) if k == "LK" else None
     nilai, uang = angka_min_beli(x.get("min_beli"))
     uang = uang or x.get("mata_uang")
     return {"id": int(x["id"]), "nama": x["nama"], "mi": x.get("mi"), "wadah": k, "kategori": x.get("kategori"), "mata_uang": x.get("mata_uang"),
             "biaya": x.get("biaya"), "aum": x.get("aum"), "tahun_data": x.get("tahun_data"), "risiko_skala": x.get("risiko"),
             "min_beli_mi": x.get("min_beli"), "min_beli_nilai": nilai, "min_beli_uang": uang,
             "cek_aplikasi": bool(nilai is not None and nilai > BATAS_MIN_BELI.get(uang, BATAS_MIN_BELI["IDR"])),
-            "platform": [{"kode": p["kode"], "url": p.get("url")} for p in x.get("platform") or []]}
+            "platform": [{"kode": p["kode"], "url": p.get("url")} for p in x.get("platform") or []],
+            "selisih_jii": None if sel is None else sel["selisih"]}
 
 
 def calon(data=None):
     data = _daftar() if data is None else data
     bagi = {int(x["_id"]) for x in d.koneksi().rd_produk.find({"Dividend": True}, {"_id": 1})}
     batas_aktif = pd.Timestamp(date.today()) - pd.Timedelta(days=AKTIF_HARI)
+    selisih = selisih_jii([int(x["id"]) for x in data if wadah_dari(x) == "LK"])
     lolos, gugur = {k: [] for k in WADAH}, []
     for x in data:
         k = wadah_dari(x)
         if k is None:
             continue
-        a = alasan_dasar(x, k, bagi, batas_aktif)
-        p = ringkas_produk(x, k)
+        a = alasan_dasar(x, k, bagi, batas_aktif, selisih)
+        p = ringkas_produk(x, k, selisih)
         if a:
             gugur.append({**p, "alasan": a})
         else:
             lolos[k].append(p)
-    batas = {}
-    for k, v in lolos.items():
-        batas[k] = float(np.median([c["aum"] or 0 for c in v])) if v else 0.0
-        kecil = [c for c in v if (c["aum"] or 0) < batas[k]]
-        gugur += [{**c, "alasan": ["dana kelolaan < median produk sejenis yang lolos"]} for c in kecil]
-        lolos[k] = sorted([c for c in v if (c["aum"] or 0) >= batas[k]], key=lambda c: (c["biaya"], -(c["aum"] or 0)))
-    return lolos, gugur, batas
+    lolos["LK"] = sorted(lolos["LK"], key=lambda c: (c["biaya"], -(c["aum"] or 0)))
+    spus = kartu_spus()
+    lolos["GL"] = [spus] if spus else []
+    return lolos, gugur, {"LK": AUM_MIN, "GL": 0.0}
 
 
 def di_aplikasi(daftar, aplikasi):
@@ -140,17 +186,15 @@ def di_aplikasi(daftar, aplikasi):
 def pilih(lolos, aplikasi):
     lk = di_aplikasi(lolos["LK"], aplikasi)[:JUMLAH["LK"]]
     gl_semua = di_aplikasi(lolos["GL"], aplikasi)
-    gl = [c for c in gl_semua if c["id"] in GLOBAL_DISETUJUI][:JUMLAH["GL"]]
-    return {"LK": lk, "GL": gl}
+    return {"LK": lk, "GL": gl_semua[:JUMLAH["GL"]]}
 
 
 def calon_pengganti_global(lolos, gugur):
-    return ([{**c, "alasan": ["lolos saringan, belum disetujui user"]} for c in lolos["GL"] if c["id"] not in GLOBAL_DISETUJUI] +
-            [c for c in gugur if c["wadah"] == "GL" and not any(a.startswith("regional") or a.startswith("ditolak") or a == "bukan RD saham" for a in c["alasan"])])
+    return []
 
 
 def info_aplikasi(lolos):
-    return {app: {k: len(di_aplikasi(lolos[k], app)) for k in WADAH} | {"GL_disetujui": len([c for c in di_aplikasi(lolos["GL"], app) if c["id"] in GLOBAL_DISETUJUI])}
+    return {app: {k: len(di_aplikasi(lolos[k], app)) for k in WADAH} | {"GL_disetujui": len(di_aplikasi(lolos["GL"], app))}
             for app in APLIKASI}
 
 
@@ -169,13 +213,12 @@ def _aum_rendah(pantau, id_, rendah, bulan):
     return all(str(b - i) in pantau[kunci] for i in range(AUM_KELUAR_BULAN))
 
 
-def produk_keluar(lama, lolos, gugur, pantau, bulan, semua_lk):
+def produk_keluar(lama, lolos, gugur, pantau, bulan):
     kini = {c["id"]: c for v in lolos.values() for c in v}
     sebab = {c["id"]: c["alasan"] for c in gugur}
     keluar = []
     segar = di_aplikasi(lolos["LK"], lama["aplikasi"])
     batas_biaya = segar[JUMLAH["LK"] - 1]["biaya"] if len(segar) >= JUMLAH["LK"] else float("inf")
-    p_aum = float(np.percentile([c["aum"] or 0 for c in semua_lk], AUM_KELUAR_PERSENTIL)) if semua_lk else 0.0
     for k, isi in lama["isi"].items():
         for c in isi:
             x = kini.get(c["id"])
@@ -189,10 +232,14 @@ def produk_keluar(lama, lolos, gugur, pantau, bulan, semua_lk):
                 alasan = "tidak lagi ditemukan di aplikasi"
             elif k == "LK" and x is not None and x["biaya"] > batas_biaya:
                 alasan = f"biaya {x['biaya']:.2f}% di atas produk ke-{JUMLAH['LK']} calon ({batas_biaya:.2f}%)"
+            elif k == "LK" and x is None and s:
+                lain = [a for a in s if not a.startswith("dana kelolaan")]
+                if lain:
+                    alasan = "tidak lagi lolos saringan: " + ", ".join(lain)
+                elif _aum_rendah(pantau, c["id"], True, bulan):
+                    alasan = f"dana kelolaan < Rp{AUM_MIN / 1e9:.0f} M {AUM_KELUAR_BULAN} bulan berturut-turut"
             elif k == "LK":
-                aum = (x or next((g for g in gugur if g["id"] == c["id"]), {})).get("aum") or 0
-                if _aum_rendah(pantau, c["id"], aum < p_aum, bulan):
-                    alasan = f"dana kelolaan < persentil {AUM_KELUAR_PERSENTIL} produk yang lolos {AUM_KELUAR_BULAN} bulan berturut-turut"
+                _aum_rendah(pantau, c["id"], False, bulan)
             elif k == "GL" and x is None and s:
                 alasan = "gagal saringan: " + ", ".join(s)
             if alasan:
@@ -221,7 +268,6 @@ def perbarui(cetak=True, hari=None):
     bulan = str(pd.Period(hari, "M"))
     kol, kol_pantau = dt.db()[KOLEKSI], dt.db()[KOLEKSI_PANTAU]
     lolos, gugur, batas = calon()
-    semua_lk = lolos["LK"] + [c for c in gugur if c["wadah"] == "LK" and c["alasan"] == ["dana kelolaan < median produk sejenis yang lolos"]]
     pengganti = calon_pengganti_global(lolos, gugur)
     per_app = info_aplikasi(lolos)
     hasil = {}
@@ -229,11 +275,11 @@ def perbarui(cetak=True, hari=None):
         lama = terbaru(app, kol)
         waktu = datetime.now()
         ubah = None
-        if lama is None or (hari.month == BENTUK_ULANG_BULAN and lama["penuh"].year < hari.year):
-            ubah = {"alasan": "awal" if lama is None else "januari", "catatan": [], "masuk": [], "isi": pilih(lolos, app), "penuh": datetime.combine(hari, waktu.time())}
+        if lama is None or lama.get("aturan") != ATURAN_VERSI or (hari.month == BENTUK_ULANG_BULAN and lama["penuh"].year < hari.year):
+            ubah = {"alasan": "awal" if lama is None else "aturan baru" if lama.get("aturan") != ATURAN_VERSI else "januari", "catatan": [], "masuk": [], "isi": pilih(lolos, app), "penuh": datetime.combine(hari, waktu.time())}
         else:
             pantau = (kol_pantau.find_one({"_id": app}) or {}).get("aum_rendah", {})
-            keluar = produk_keluar(lama, lolos, gugur, pantau, bulan, semua_lk)
+            keluar = produk_keluar(lama, lolos, gugur, pantau, bulan)
             kol_pantau.replace_one({"_id": app}, {"_id": app, "aum_rendah": pantau, "diperbarui": waktu}, upsert=True)
             if keluar:
                 isi, masuk = ganti(lama, lolos, keluar)
@@ -241,7 +287,7 @@ def perbarui(cetak=True, hari=None):
         if ubah is None:
             hasil[app] = {"berubah": False, "dok": lama}
             continue
-        dok = {"_id": f"{app}_{waktu:%Y%m%d%H%M%S}", "aplikasi": app, "dibentuk": waktu, **ubah, "gugur": gugur, "batas_aum": batas,
+        dok = {"_id": f"{app}_{waktu:%Y%m%d%H%M%S}", "aplikasi": app, "dibentuk": waktu, "aturan": ATURAN_VERSI, **ubah, "gugur": gugur, "batas_aum": batas,
                "per_aplikasi": per_app, "pengganti_global": pengganti, "kriteria": KRITERIA, "sebelumnya": lama["_id"] if lama else None}
         kol.insert_one(dok)
         hasil[app] = {"berubah": True, "dok": dok}
@@ -273,7 +319,7 @@ def seri_rupiah(ids):
 
 
 def return_wadah(produk, r_kat):
-    ids = [c["id"] for c in produk]
+    ids = [c["id"] for c in produk if isinstance(c["id"], int)]
     seri = seri_rupiah(ids)
     R = pd.DataFrame(index=r_kat.index)
     for i in ids:
@@ -516,6 +562,10 @@ def perlu_hitung():
 
 def utama(bila_perlu=False):
     perbarui()
+    from backend.research import catatan_produk
+    catatan_produk.catat()
+    from backend.research import perkiraan_pertumbuhan
+    perkiraan_pertumbuhan.utama(bila_perlu=True)
     perlu, alasan = perlu_hitung()
     if bila_perlu and not perlu:
         print(f"hitung dilewati: {alasan}")

@@ -57,10 +57,73 @@ def kunci():
     print(ATURAN)
 
 
-def produk_halaman():
+KOLEKSI_BEKU = "produk_uji_maju_beku"
+ID_RESMI = "resmi"
+ID_LAMA = "produk_lama"
+ID_LAMA_ASAL = "h35_h37"
+TGL_BEKU = "2026-11-15"
+BAGIAN_LAMA = ("transaksi", "kejadian", "ekuitas")
+AWALAN_L25 = "lokal_25"
+CATATAN_L25 = "jalur pembanding lokal_25 (info, observasi H38), bukan hasil resmi"
+AWALAN_BTC5 = "btc_5"
+CATATAN_BTC5 = "jalur pembanding btc_5 (info, H39 lolos), bukan hasil resmi"
+
+
+def _produk(x):
+    if str(x["id"]) == mp.ID_SPUS:
+        return {"id": mp.ID_SPUS, "nama": x["nama"], "mu": "USD", "jenis": "spus", "fee": mp.FEE_SPUS}
+    return {"id": int(x["id"]), "nama": x["nama"], "mu": x["mata_uang"]}
+
+
+def produk_langsung():
     from backend.app.services import pertumbuhan as pt
     isi = pt.rencana(1_000_000, 0, "semua")["isi"]
-    return {k: [{"id": int(x["id"]), "nama": x["nama"], "mu": x["mata_uang"]} for x in isi[k]] for k in ("lokal", "global")}
+    return {k: [_produk(x) for x in isi[k]] for k in ("lokal", "global")}
+
+
+def _baca_beku(db, kunci):
+    beku = db[KOLEKSI_BEKU].find_one({"_id": kunci})
+    return None if not beku else {k: beku[k] for k in ("lokal", "global")}
+
+
+def produk_halaman():
+    db = d.koneksi()
+    return _baca_beku(db, ID_RESMI) or _baca_beku(db, ID_LAMA_ASAL) or produk_langsung()
+
+
+def produk_lama():
+    db = d.koneksi()
+    return _baca_beku(db, ID_LAMA) or _baca_beku(db, ID_LAMA_ASAL)
+
+
+def bekukan(db=None):
+    db = d.koneksi() if db is None else db
+    if db[KOLEKSI_BEKU].find_one({"_id": ID_LAMA_ASAL}):
+        return False
+    db[KOLEKSI_BEKU].insert_one({"_id": ID_LAMA_ASAL, **produk_langsung(), "dibekukan": datetime.now(),
+                                 "alasan": "isi halaman Portofolio Pertumbuhan per 15 Nov 2026 sebelum aturan pemilihan baru; uji maju tidak mengikuti perubahan pemilihan halaman"})
+    km.pastikan(db)
+    return True
+
+
+def bekukan_resmi(db=None):
+    db = d.koneksi() if db is None else db
+    if db[KOLEKSI_BEKU].find_one({"_id": ID_RESMI}):
+        return False
+    lama = db[KOLEKSI_BEKU].find_one({"_id": ID_LAMA_ASAL})
+    if lama is None:
+        raise RuntimeError("snapshot lama belum ada, jalankan bekukan() dulu")
+    if not db[KOLEKSI_BEKU].find_one({"_id": ID_LAMA}):
+        db[KOLEKSI_BEKU].insert_one({**{k: v for k, v in lama.items() if k != "_id"}, "_id": ID_LAMA, "salinan_dari": ID_LAMA_ASAL, "tgl": TGL_BEKU,
+                                     "catatan": "jalur pembanding, dihitung paralel, bukan hasil resmi"})
+    kini = produk_langsung()
+    from backend.app.services import belanja as bl
+    kode_emas = bl.etf_terpilih()[0]
+    db[KOLEKSI_BEKU].insert_one({"_id": ID_RESMI, **kini, "tgl": TGL_BEKU, "dibekukan": datetime.now(), "emas_halaman": kode_emas,
+                                 "catatan_emas": "kaki emas tidak dibekukan di sini: ETF dipilih aturan uji maju terkunci (hari bursa terakhir Nov 2026)",
+                                 "alasan": "produk uji maju = produk halaman Portofolio Pertumbuhan semua per 15 Nov 2026, beku sampai evaluasi Jan 2028"})
+    km.pastikan(db)
+    return True
 
 
 def simpan(db, kode, m):
@@ -73,6 +136,51 @@ def simpan(db, kode, m):
     db[f"paper_{kode}_posisi"].replace_one({"_id": "kas"}, {"_id": "kas", "kaki": "kas", "unit": m.st["kas"], "diubah": datetime.now()}, upsert=True)
     pilih = {"mesin": m.st, "aktif": bool(m.st["aktif"]), "terakhir_diproses": m.st["terakhir"], "etf_emas": m.st["etf"]}
     db[f"paper_{kode}_status"].update_one({"_id": "status"}, {"$set": pilih})
+
+
+def simpan_jalur(db, awalan, catatan, kode, m):
+    for nama in BAGIAN_LAMA:
+        for x in getattr(m, nama):
+            db[f"{awalan}_{nama}"].replace_one({"_id": f"{kode}|{x['_id']}"}, {**x, "_id": f"{kode}|{x['_id']}", "kode": kode}, upsert=True)
+    db[f"{awalan}_status"].replace_one({"_id": kode}, {"_id": kode, "mesin": m.st, "aktif": bool(m.st["aktif"]), "terakhir_diproses": m.st["terakhir"], "diubah": datetime.now(),
+                                                    "bobot": m.bobot, "catatan": catatan}, upsert=True)
+
+
+def simpan_lama(db, kode, m):
+    simpan_jalur(db, "produk_lama", "jalur pembanding produk_lama, bukan hasil resmi", kode, m)
+
+
+def produk_lokal_25():
+    return produk_halaman()
+
+
+def jalankan_jalur(db, data, prm, sekarang, st_resmi, awalan, catatan, produk_fn, bobot=None):
+    for kode in KONFIG:
+        dok = db[f"{awalan}_status"].find_one({"_id": kode}) or {}
+        st = dok.get("mesin") or mp.keadaan_baru()
+        if kode == "h37" and not (st["pilih_awal"] or {}).get("terpilih"):
+            st["pilih_awal"] = st_resmi[kode]["pilih_awal"]
+        if sekarang <= prm["mulai"]:
+            db[f"{awalan}_status"].replace_one({"_id": kode}, {"_id": kode, "mesin": st, "aktif": False, "diubah": datetime.now(), "bobot": (bobot or {}).get(kode), "catatan": catatan}, upsert=True)
+            continue
+        if st["produk"] is None:
+            st["produk"] = produk_fn()
+        m = mp.Mesin(kode, data, state=st, mulai=prm["mulai"], rebalance_pertama=prm["rebalance_pertama"], bobot=None if bobot is None else bobot[kode])
+        m.jalan([x for x in data.hari if x < sekarang and x >= prm["mulai"] and (not st["terakhir"] or x > pd.Timestamp(st["terakhir"]))])
+        simpan_jalur(db, awalan, catatan, kode, m)
+        print(f"{kode.upper()} {awalan} (pembanding): {len(m.transaksi)} transaksi, {len(m.kejadian)} kejadian, {len(m.ekuitas)} hari baru, terakhir {st['terakhir']}")
+
+
+def jalankan_lama(db, data, prm, sekarang, st_resmi):
+    jalankan_jalur(db, data, prm, sekarang, st_resmi, "produk_lama", "jalur pembanding produk_lama, bukan hasil resmi", produk_lama)
+
+
+def jalankan_lokal_25(db, data, prm, sekarang, st_resmi):
+    jalankan_jalur(db, data, prm, sekarang, st_resmi, AWALAN_L25, CATATAN_L25, produk_lokal_25, mp.BOBOT_LOKAL_25)
+
+
+def jalankan_btc_5(db, data, prm, sekarang, st_resmi):
+    jalankan_jalur(db, data, prm, sekarang, st_resmi, AWALAN_BTC5, CATATAN_BTC5, produk_halaman, mp.BOBOT_BTC_5)
 
 
 def harian(hari_ini=None):
@@ -94,8 +202,10 @@ def harian(hari_ini=None):
         tunggakan = kt.hari_tertinggal([x for x in data.hari if x >= prm["mulai"]], akhir0, sekarang - pd.Timedelta(days=1))
         if kt.terlalu_jauh(tunggakan):
             raise SystemExit(kt.pesan_tolak(f"uji maju {kode.upper()}", tunggakan))
+    st_resmi = {}
     for kode in KONFIG:
         st = dok[kode].get("mesin") or mp.keadaan_baru()
+        st_resmi[kode] = st
         if kode == "h37" and (st["pilih_awal"] is None or not st["pilih_awal"].get("terpilih")):
             sel = ee.pilih_awal(ee.seleksi(data.frames(), {k: data.aum(k, prm["tgl_pilih"]) for k in data.frames()}, data.nama, sampai=prm["tgl_pilih"]))
             sel["dibuat"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -116,6 +226,18 @@ def harian(hari_ini=None):
             except Exception as e:
                 print(f"laporan emas H37 gagal: {type(e).__name__}: {e}")
         print(f"{kode.upper()}: {len(m.transaksi)} transaksi, {len(m.kejadian)} kejadian, {len(m.ekuitas)} hari baru, terakhir {st['terakhir']}")
+    try:
+        jalankan_lama(db, data, prm, sekarang, st_resmi)
+    except Exception as e:
+        print(f"jalur pembanding produk_lama gagal (tidak memengaruhi hasil resmi): {type(e).__name__}: {e}")
+    try:
+        jalankan_lokal_25(db, data, prm, sekarang, st_resmi)
+    except Exception as e:
+        print(f"jalur pembanding lokal_25 gagal (tidak memengaruhi hasil resmi): {type(e).__name__}: {e}")
+    try:
+        jalankan_btc_5(db, data, prm, sekarang, st_resmi)
+    except Exception as e:
+        print(f"jalur pembanding btc_5 gagal (tidak memengaruhi hasil resmi): {type(e).__name__}: {e}")
 
 
 AMANDEMEN_1 = {"id": "a1", "tgl": "2026-11-12", "mulai": "2026-12-01",
@@ -140,11 +262,24 @@ AMANDEMEN_2 = {"id": "a2", "tgl": "2026-11-14", "mulai": "2026-12-01",
                        "Dibuat sebelum ada transaksi atau hasil uji maju apa pun."}
 
 
+AMANDEMEN_3 = {"id": "a3", "tgl": "2026-11-15",
+               "teks": "Amandemen a3 (hanya instrumen eksekusi; porsi, rebalance Desember, jadwal evaluasi, standar lulus, batas premium, rem 15 hari tidak berubah). "
+                       "(a) Produk kaki lokal dan global = produk halaman Portofolio Pertumbuhan 'semua' per 15 Nov 2026, dibekukan sebagai snapshot sampai evaluasi Jan 2028 "
+                       "(perubahan halaman setelah 1 Des 2026 tidak masuk uji maju): lokal BNP Paribas Pesona Syariah, Manulife Syariah Sektoral Amanah Kelas A, Sucorinvest Sharia Equity Fund Kelas A; "
+                       "global SPUS (ETF saham AS syariah). Kaki emas tetap dipilih aturan terkunci. Frasa 'produk yang sama dengan halaman' di teks aturan digantikan: produk dibekukan per 15 Nov 2026. "
+                       "Snapshot lama (BRI Indeks Syariah, BNP Paribas Pesona Syariah, Manulife Syariah Sektoral Amanah Kelas A, Schroder Global Sharia Equity Fund USD) tidak dihapus dan dihitung paralel "
+                       "sebagai jalur pembanding produk_lama (koleksi produk_lama_*), bukan hasil resmi. "
+                       "(b) Harga SPUS = Close + 70% dividen (pajak 30%) dikali USDIDR terakhir; bila harga SPUS atau kurs hari itu kosong dipakai nilai terakhir dan dicatat sebagai kejadian harga_spus_ffill. "
+                       "Biaya transaksi SPUS 0,5% per transaksi (beli dan jual). "
+                       "Alasan: instrumen eksekusi diganti ke produk yang benar-benar dibeli user; pilihan itu diputuskan dari data 2020-2026 (uji SPUS vs Schroder, aturan pemilihan lokal), bukan dari data uji maju. "
+                       "Dibuat sebelum ada transaksi atau hasil uji maju apa pun (uji maju mulai 1 Des 2026)."}
+
+
 def amandemen():
     db = d.koneksi()
     for kode in KONFIG:
         st = db[f"paper_{kode}_status"]
-        for am in (AMANDEMEN_1, AMANDEMEN_2):
+        for am in (AMANDEMEN_1, AMANDEMEN_2, AMANDEMEN_3):
             dok = st.find_one({"_id": "status"})
             if any(a.get("id") == am["id"] for a in dok.get("amandemen") or []):
                 print(f"{kode.upper()} amandemen {am['id']} sudah tercatat.")

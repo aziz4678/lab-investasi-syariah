@@ -7,6 +7,7 @@ import Panel from "@/components/common/Panel.vue";
 import Kerangka from "@/components/common/Kerangka.vue";
 import PanelPekerjaan from "@/components/sistem/PanelPekerjaan.vue";
 
+const lokal = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
 const muatStatus = inject("muatStatus", null);
 const data = ref([]);
 const siap = ref(false);
@@ -98,8 +99,9 @@ function waktu(s) {
 }
 
 onMounted(async () => {
-  muatLab();
   await muat();
+  if (!lokal) return;
+  muatLab();
   buka.value = new Set(data.value.filter((s) => s.perlu && s.cara === "browser").map((s) => s.id));
   for (const s of data.value) {
     if (!s.tombol) continue;
@@ -111,13 +113,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Panel judul="Sumber data & cara pembaruan" ket="Status dihitung dari jadwal terbit tiap data. Data tanpa API diambil lewat browser, lalu diimpor dengan tombol" rapat>
+  <Panel judul="Sumber data & cara pembaruan" :ket="lokal ? 'Status dihitung dari jadwal terbit tiap data. Data tanpa API diambil lewat browser, lalu diimpor dengan tombol' : 'Status dihitung dari jadwal terbit tiap data. Pembaruan dilakukan dari komputer lokal'" rapat>
     <template #aksi>
       <span v-if="data.length" class="chip !h-7 !px-3 !text-xs" :class="jumlahPerlu ? 'bg-kuning-bg text-kuning' : 'bg-naik-bg text-naik'">
         {{ jumlahPerlu ? `${jumlahPerlu} perlu diperbarui` : "Semua terbaru" }}
       </span>
     </template>
-    <div class="mx-6 mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-surface-2 px-4 py-3">
+    <div v-if="lokal" class="mx-6 mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-surface-2 px-4 py-3">
       <Globe class="h-5 w-5 shrink-0 text-muted" />
       <div class="min-w-[220px] flex-1">
         <div class="text-[13px] font-medium">Chrome Lab <span class="chip ml-1" :class="lab?.jalan ? 'bg-naik-bg text-naik' : 'bg-surface text-muted'">{{ lab == null ? "…" : lab.jalan ? (lab.idx_siap ? "terbuka · IDX siap" : "terbuka") : "tertutup" }}</span></div>
@@ -148,7 +150,7 @@ onMounted(async () => {
               <span class="inline-flex items-center gap-1"><CalendarClock class="h-3 w-3" />berikutnya {{ s.berikutnya }}</span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div v-if="lokal" class="flex items-center gap-2">
             <button v-if="s.otomatis" class="tombol" :class="s.perlu ? '!bg-aksen !text-aksen-teks' : ''" :disabled="sibuk" @click="otomatis(s.id)"
               title="Jalankan script di Chrome Lab lalu impor otomatis"><Bot class="h-3.5 w-3.5" />Ambil otomatis</button>
             <button v-if="s.tombol" class="tombol" :class="s.perlu && s.cara !== 'browser' ? '!bg-aksen !text-aksen-teks' : ''" :disabled="sibuk" @click="jalankan(s.tombol)">
@@ -159,7 +161,7 @@ onMounted(async () => {
             </button>
           </div>
         </div>
-        <div v-if="buka.has(s.id)" class="mx-3 mb-3 rounded-2xl bg-surface-2 px-5 py-4">
+        <div v-if="lokal && buka.has(s.id)" class="mx-3 mb-3 rounded-2xl bg-surface-2 px-5 py-4">
           <div class="mb-2 text-xs text-muted">Sumber: {{ s.sumber }} · dipakai: {{ s.dipakai.join(", ") }} · jadwal: {{ s.frekuensi }}</div>
           <ol class="m-0 list-decimal space-y-1.5 pl-5 text-[13px] text-ink-2">
             <li v-for="l in s.langkah" :key="l" class="break-words">{{ l }}</li>
@@ -177,6 +179,6 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-    <div v-if="kerja || galat" class="px-3 pb-3"><PanelPekerjaan :kerja="kerja" :galat="galat" /></div>
+    <div v-if="lokal && (kerja || galat)" class="px-3 pb-3"><PanelPekerjaan :kerja="kerja" :galat="galat" /></div>
   </Panel>
 </template>

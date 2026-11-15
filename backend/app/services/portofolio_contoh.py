@@ -7,6 +7,7 @@ SETORAN = 1_000_000.0
 FEE_EMAS = 0.0015
 ID_EMAS = "EMAS_RP"
 NAMA_EMAS = "Indeks emas rupiah (pengganti XGLD)"
+CATATAN_PENGGANTI_SPUS = "Bagian global di contoh ini memakai reksa dana global lama karena SPUS belum punya riwayat NAV reksa dana. Di Daftar belanja, bagian global memakai SPUS."
 LABEL_PENGGANTI = "Pengganti, bukan produk nyata: ETF emas XGLD baru ada sejak Agu 2026, jadi bagian emas memakai indeks emas dalam rupiah."
 CATATAN_DATA = "Harga reksa dana memakai NAV akhir bulan (data resmi OJK), jadi setoran dicatat di akhir bulan. Hanya produk yang punya NAV di seluruh periode yang dipakai; yang tidak punya diganti produk sejenis."
 AMBANG_REBALANCE = 0.02
@@ -70,8 +71,12 @@ def seri_emas():
 
 def keranjang_saat_ini():
     from backend.app.services import belanja as bl
+    from backend.paper import uji_maju_pertumbuhan as um
     b = bl.pertumbuhan(None, SETORAN, 0, "saham")
-    return [{"id": int(p["id"]), "nama": p["nama"], "kaki": p["kaki"]} for g in b.get("grup", []) for p in g["produk"] if p.get("tipe") == "rd"]
+    hasil = [{"id": int(p["id"]), "nama": p["nama"], "kaki": p["kaki"]} for g in b.get("grup", []) for p in g["produk"] if p.get("tipe") == "rd"]
+    if any(p.get("tipe") == "saham_as" for g in b.get("grup", []) for p in g["produk"]):
+        hasil += [{"id": int(x["id"]), "nama": x["nama"], "kaki": "global", "pengganti_spus": True} for x in um.produk_halaman()["global"]]
+    return hasil
 
 
 def ada_di(seri, tanggal):
@@ -188,7 +193,7 @@ def info_harga(transaksi, keranjang, seri, emas, acuan):
 def pool_pengganti():
     from backend.research import keranjang_pertumbuhan as kp
     lolos, _, _ = kp.calon()
-    return [{"id": int(c["id"]), "nama": c["nama"], "kaki": "lokal" if k == "LK" else "global"} for k in ("LK", "GL") for c in lolos[k]]
+    return [{"id": int(c["id"]), "nama": c["nama"], "kaki": "lokal" if k == "LK" else "global"} for k in ("LK", "GL") for c in lolos[k] if isinstance(c["id"], int)]
 
 
 def penuh(seri_produk, tanggal_list):
@@ -345,6 +350,8 @@ def analisis_contoh(kunci, db=None, data=None):
     diarahkan = len({t["tanggal"] for t in tx if CATATAN_ARAH in (t.get("catatan") or "")})
     if diarahkan:
         catatan.append(f"Di {diarahkan} bulan setoran diarahkan penuh ke bagian yang tertinggal (rebalance alami, saat selisih dari target lebih dari {AMBANG_REBALANCE * 100:.0f} poin).")
+    if any(p.get("pengganti_spus") for p in dipilih):
+        catatan.append(CATATAN_PENGGANTI_SPUS)
     for kaki in ("lokal", "global"):
         if bobot.get(kaki) and not any(p["kaki"] == kaki for p in dipilih):
             catatan.append(f"Tidak ada produk bagian {ps.NAMA_KAKI[kaki].lower()} yang punya NAV di seluruh periode; porsi itu dilewati.")

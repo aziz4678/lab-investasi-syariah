@@ -317,5 +317,76 @@ class TesMasuk(unittest.TestCase):
         self.assertEqual(d.telat_emas(pd.Timestamp("2026-11-05")), 2)
         self.assertEqual(d.telat_emas(pd.Timestamp("2026-11-06")), 3)
 
+    def test_bobot_lokal_25_masuk_target_dan_tidak_mengubah_resmi(self):
+        sebelum = {k: dict(v) for k, v in mp.BOBOT.items()}
+        m35, _ = self.jalan("h35", HARI[:1], bobot=mp.BOBOT_LOKAL_25["h35"])
+        e = m35.ekuitas[0]
+        self.assertAlmostEqual(e["lokal"], 25e6, delta=1)
+        self.assertAlmostEqual(e["global"], 75e6, delta=1)
+        m37, _ = self.jalan("h37", HARI[:1], bobot=mp.BOBOT_LOKAL_25["h37"])
+        e = m37.ekuitas[0]
+        self.assertAlmostEqual(e["lokal"], 20e6, delta=1)
+        self.assertAlmostEqual(e["global"], 60e6, delta=1)
+        self.assertEqual(mp.BOBOT, sebelum)
+        resmi, _ = self.jalan("h37", HARI[:1])
+        self.assertAlmostEqual(resmi.ekuitas[0]["lokal"], 40e6, delta=1)
+
+    def test_bobot_lokal_25_rebalance_ke_target_baru(self):
+        hari = sp.hari_kerja("2026-12-01", "2027-12-31", libur=lb.libur_set())
+        data = sp.bangun(PRA + list(hari), rd_naik={1: 0.0006, 2: 0.0006, 3: 0.0001})
+        m = sp.mesin("h35", data, hari[0], bobot=mp.BOBOT_LOKAL_25["h35"])
+        m.jalan(hari)
+        e = m.ekuitas[-1]
+        self.assertAlmostEqual(e["lokal"] / (e["lokal"] + e["global"]), 0.25, delta=0.01)
+
+    def test_btc_5_masuk_target_dan_tidak_mengubah_resmi(self):
+        data = sp.bangun(PRA + list(HARI), btc_naik=0.002)
+        m35 = sp.mesin("h35", data, HARI[0], bobot=mp.BOBOT_BTC_5["h35"])
+        m35.jalan(HARI[:1])
+        e = m35.ekuitas[0]
+        self.assertAlmostEqual(e["lokal"], 47.5e6, delta=1)
+        self.assertAlmostEqual(e["global"], 47.5e6, delta=1)
+        self.assertAlmostEqual(e["btc"], 5e6 * (1 - mp.FEE_BTC), delta=1)
+        m37 = sp.mesin("h37", data, HARI[0], bobot=mp.BOBOT_BTC_5["h37"])
+        m37.jalan(HARI[:1])
+        e = m37.ekuitas[0]
+        self.assertAlmostEqual(e["lokal"], 38e6, delta=1)
+        self.assertAlmostEqual(e["global"], 38e6, delta=1)
+        self.assertAlmostEqual(m37.st["kas"] + e["emas"], 19e6, delta=19e6 * 0.01)
+        self.assertEqual(sum(1 for t in m37.transaksi if t["kaki"] == "btc"), 1)
+        self.assertNotIn("btc", mp.BOBOT["h35"])
+        self.assertNotIn("btc", mp.BOBOT["h37"])
+
+    def test_hasil_resmi_identik_walau_data_btc_ada(self):
+        hari = sp.hari_kerja("2026-12-01", "2027-12-31", libur=lb.libur_set())
+        tanpa = sp.mesin("h37", sp.bangun(PRA + list(hari)), hari[0])
+        tanpa.jalan(hari)
+        dengan = sp.mesin("h37", sp.bangun(PRA + list(hari), btc_naik=0.003), hari[0])
+        dengan.jalan(hari)
+        self.assertEqual(tanpa.ekuitas, dengan.ekuitas)
+        self.assertEqual(tanpa.transaksi, dengan.transaksi)
+        self.assertEqual(tanpa.kejadian, dengan.kejadian)
+        self.assertNotIn("btc", dengan.ekuitas[-1])
+
+    def test_btc_5_rebalance_desember_kembali_ke_target(self):
+        hari = sp.hari_kerja("2026-12-01", "2027-12-31", libur=lb.libur_set())
+        data = sp.bangun(PRA + list(hari), btc_naik=0.01, rd_naik={1: 0.0003, 2: 0.0003, 3: 0.0003})
+        m = sp.mesin("h35", data, hari[0], bobot=mp.BOBOT_BTC_5["h35"])
+        m.jalan(hari)
+        sebelum = [e for e in m.ekuitas if e["tgl"] == "2027-12-29"][0]
+        sesudah = m.ekuitas[-1]
+        self.assertGreater(sebelum["btc"] / sebelum["nilai"], 0.2)
+        self.assertAlmostEqual(sesudah["btc"] / sesudah["nilai"], 0.05, delta=0.003)
+        jual = [t for t in m.transaksi if t["kaki"] == "btc" and t["sisi"] == "jual"]
+        self.assertEqual(len(jual), 1)
+        self.assertAlmostEqual(jual[0]["fee"], jual[0]["nilai"] * mp.FEE_BTC, delta=1e-6)
+
+    def test_btc_5_harga_kosong_menunda_masuk(self):
+        data = sp.bangun(PRA + list(HARI))
+        m = sp.mesin("h35", data, HARI[0], bobot=mp.BOBOT_BTC_5["h35"])
+        m.jalan(HARI[:2])
+        self.assertFalse(m.st["aktif"])
+        self.assertTrue([k for k in m.kejadian if k["jenis"] == "masuk_ditunda"])
+
 if __name__ == "__main__":
     unittest.main()

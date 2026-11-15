@@ -9,7 +9,7 @@ SUMBER = {"indeks": "indeks JII + saham syariah global (DJIM Titans 100 → MSCI
           "kategori": "rata-rata semua RD saham syariah sejenis, termasuk yang bubar",
           "keranjang": "keranjang produk di halaman ini (bulan sebelum produk ada diisi rata-rata RD sejenis)"}
 NAMA_APLIKASI = {"bibit": "Bibit", "makmur": "Makmur", "ajaib": "Ajaib"}
-CATATAN_GLOBAL = "Satu produk berisi ratusan saham global; dana disimpan di bank kustodian, bukan di MI."
+CATATAN_GLOBAL = "ETF berisi sekitar 200 perusahaan besar AS yang lolos saringan syariah, berat ke saham teknologi. Dibeli lewat akun saham AS di Ajaib (bukan reksa dana)."
 SETOR_RATA_MIN = 100_000
 SETORAN_CONTOH = 1_000_000
 
@@ -26,8 +26,14 @@ def _sumber(h):
 
 def _kinerja():
     from backend.app.services import reksadana as rdn
-    return {int(r["id"]): {"ret_1th": r.get("ret_1th"), "cagr_3": r.get("cagr_3_rp"), "cagr_5": r.get("cagr_5_rp"), "turun_terburuk": r.get("turun_terburuk_rp"),
-                           "tahun_data": r.get("tahun_data"), "untung_12bln": r.get("untung_12bln")} for r in rdn.daftar()["data"]}
+    hasil = {int(r["id"]): {"ret_1th": r.get("ret_1th"), "cagr_3": r.get("cagr_3_rp"), "cagr_5": r.get("cagr_5_rp"), "turun_terburuk": r.get("turun_terburuk_rp"),
+                            "tahun_data": r.get("tahun_data"), "untung_12bln": r.get("untung_12bln")} for r in rdn.daftar()["data"]}
+    try:
+        from backend.app.services import kenapa_beli as kb
+        hasil["SPUS"] = kb.kinerja_spus()
+    except Exception:
+        hasil["SPUS"] = None
+    return hasil
 
 
 def _kandidat(h, aplikasi):
@@ -65,7 +71,7 @@ def _kartu(c, nilai, catatan=None, kinerja=None):
 
 def _aplikasi_cukup(dok, kecuali=None):
     per = dok.get("per_aplikasi") or {}
-    return [NAMA_APLIKASI[a] for a in ("bibit", "makmur", "ajaib") if a != kecuali and per.get(a, {}).get("LK", 0) >= 3 and per.get(a, {}).get("GL_disetujui", 0) >= 1]
+    return [NAMA_APLIKASI[a] for a in ("bibit", "makmur", "ajaib") if a != kecuali and per.get(a, {}).get("LK", 0) >= 3]
 
 
 def _cakupan(produk):
@@ -110,15 +116,9 @@ def rencana(setoran=SETORAN_CONTOH, modal_awal=0, aplikasi="semua"):
     kin = _kinerja()
     peringatan = []
     if not gl:
-        if aplikasi in ("makmur", "ajaib"):
-            peringatan.append({"jenis": "global_aplikasi", "teks": "Bagian global belum tersedia di aplikasi ini, gunakan Bibit untuk porsi global.",
-                               "saran": _aplikasi_cukup(dok, aplikasi)})
-        else:
-            peringatan.append({"jenis": "global_kosong", "teks": "Keranjang global kosong karena produk global gagal saringan. Calon pengganti di bawah belum dipilih; keputusan ada di pemilik halaman.",
-                               "calon": [{k: c.get(k) for k in ("id", "nama", "mi", "alasan", "platform")} for c in dok.get("pengganti_global") or []
-                                         if not any(str(x).startswith("ditolak") for x in c.get("alasan") or [])]})
+        peringatan.append({"jenis": "global_aplikasi", "teks": "Kaki global (SPUS) tidak tersedia di aplikasi ini, beli di Ajaib.", "saran": ["Ajaib"]})
     if len(lk) < kp.JUMLAH["LK"]:
-        peringatan.append({"jenis": "lokal_kurang", "teks": f"Hanya {len(lk)} RD saham syariah Indonesia yang lolos di aplikasi ini.", "saran": _aplikasi_cukup(dok, aplikasi)})
+        peringatan.append({"jenis": "lokal_kurang", "teks": f"Hanya {len(lk)} dari {kp.JUMLAH['LK']} RD saham syariah Indonesia yang lolos di aplikasi ini.", "saran": _aplikasi_cukup(dok, aplikasi)})
     produk = lk + gl
     rata = bool(produk) and min([per_lk] * len(lk) + [per_gl] * len(gl)) >= SETOR_RATA_MIN
     bulan_ini = pd.Timestamp(date.today()).to_period("M")
@@ -146,6 +146,16 @@ def rencana(setoran=SETORAN_CONTOH, modal_awal=0, aplikasi="semua"):
                    "bagian": {"lokal": bagian["LK"], "global": bagian["GL"]}, "global_tanpa_produk": bagian["GL"] if not gl else 0.0,
                    "cara_setor": "rata" if rata else "bergiliran", "setor_rata_min": SETOR_RATA_MIN, "beli": beli, "jadwal_setor": jadwal_setor, "awal": awal,
                    "cakupan": _cakupan(produk), "peringatan": peringatan, "desember": desember, "rentang": _rentang(h, aplikasi, setoran, modal)})
+
+
+def perkiraan():
+    from backend.research import perkiraan_pertumbuhan as pp
+    h = dt.baca_hasil(pp.NAMA_HASIL)
+    if h is None:
+        h = pp.hitung(cetak=False)
+    h = {k: v for k, v in h.items() if k != "sidik"}
+    h["dihitung"] = h["dihitung"].isoformat(timespec="minutes") if hasattr(h["dihitung"], "isoformat") else str(h["dihitung"])
+    return bersih({"ada": True, **h})
 
 
 def dasar():
@@ -227,7 +237,20 @@ def uji_maju():
                      "jumlah_kejadian": db[f"paper_{kode}_kejadian"].count_documents({}), "jumlah_transaksi": db[f"paper_{kode}_transaksi"].count_documents({}),
                      "kejadian": [{"tgl": k["tgl"], "jenis": k["jenis"], "teks": k["teks"]} for k in kejadian], "modal": s["modal"]})
     mulai = mp.MULAI.date()
-    return bersih({"ada": bool(item), "item": item, "mulai": str(mulai), "hari_lagi": (mulai - date.today()).days, "aturan": aturan, "amandemen": amandemen,
+    from backend.paper import uji_maju_pertumbuhan as um
+    resmi = db[um.KOLEKSI_BEKU].find_one({"_id": um.ID_RESMI})
+    lama = db[um.KOLEKSI_BEKU].find_one({"_id": um.ID_LAMA})
+    nama = lambda dok: None if not dok else {k: [x["nama"] for x in dok[k]] for k in ("lokal", "global")}
+    produk_beku = None if not resmi else {"tgl": resmi.get("tgl"), "produk": nama(resmi), "lama": nama(lama), "emas_halaman": resmi.get("emas_halaman")}
+    pembanding = []
+    for jalur, awalan, bobot in (("lokal_25", um.AWALAN_L25, mp.BOBOT_LOKAL_25), ("btc_5", um.AWALAN_BTC5, mp.BOBOT_BTC_5)):
+        for kode in ("h35", "h37"):
+            st = db[f"{awalan}_status"].find_one({"_id": kode}) or {}
+            akhir = db[f"{awalan}_ekuitas"].find_one({"kode": kode}, sort=[("tgl", -1)])
+            pembanding.append({"jalur": jalur, "kode": kode.upper(), "bobot": bobot[kode], "aktif": bool(st.get("aktif")), "terakhir": st.get("terakhir_diproses"),
+                               "ekuitas": None if not akhir else {"tgl": akhir["tgl"], "nilai": akhir["nilai"], "ret": akhir["nilai"] / mp.MODAL - 1},
+                               "jumlah_transaksi": db[f"{awalan}_transaksi"].count_documents({"kode": kode})})
+    return bersih({"ada": bool(item), "item": item, "produk_beku": produk_beku, "pembanding": pembanding, "mulai": str(mulai), "hari_lagi": (mulai - date.today()).days, "aturan": aturan, "amandemen": amandemen,
                    "evaluasi_pertama": "Jan 2028"})
 
 

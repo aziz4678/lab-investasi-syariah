@@ -582,7 +582,7 @@ const kelasUtuh = (v) => (v == null ? "text-muted" : v >= 0.8 ? "font-medium tex
             <div class="text-[14px] font-medium">Daftar belanja</div>
             <p class="m-0 mt-1 text-[12px] text-muted">Hanya produk yang ada di aplikasimu, total {{ rupiahRingkas(r.masukan.modal) }}. Dipilih dengan aturan tetap, bukan dari hasil masa lalu.</p>
             <div class="mt-3">
-              <GrupBelanja :grup="belanjaBaru?.grup ?? []" :peringatan="belanjaBaru?.peringatan ?? []" satuan="" />
+              <GrupBelanja :grup="belanjaBaru?.grup ?? []" :peringatan="belanjaBaru?.peringatan ?? []" :ringkasan="belanjaBaru?.ringkasan" satuan="" />
             </div>
             <div v-if="sbnTampil" class="mt-3 overflow-hidden rounded-2xl border border-garis">
               <div class="flex flex-wrap items-center justify-between gap-2 bg-surface-2 px-4 py-3">

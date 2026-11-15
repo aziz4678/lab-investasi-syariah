@@ -1,12 +1,14 @@
 <script setup>
 import { inject } from "vue";
-import { AlertTriangle, Info, ChevronRight, Coins, ExternalLink } from "lucide-vue-next";
+import { AlertTriangle, Info, ChevronRight, Coins, ExternalLink, Globe } from "lucide-vue-next";
 import { rupiahRingkas } from "@/utils/format";
 import Logo, { kunciMi } from "@/components/common/Logo.vue";
+import KenapaBeli from "@/components/portofolio/KenapaBeli.vue";
 
 defineProps({
   grup: { type: Array, default: () => [] },
   peringatan: { type: Array, default: () => [] },
+  ringkasan: { type: Object, default: null },
   satuan: { type: String, default: "/bulan" },
 });
 const pindahTab = inject("pindahTab", () => {});
@@ -25,6 +27,7 @@ const feeTeks = (p) => (p.fee == null ? "cek di aplikasi" : `${(p.fee * 100).toL
 
 <template>
   <div class="space-y-3">
+    <div v-if="ringkasan?.teks" class="rounded-2xl bg-surface-2 px-4 py-3 text-[13px] leading-relaxed text-ink-2">{{ ringkasan.teks }}</div>
     <div v-for="(w, i) in peringatan" :key="i" class="flex items-start gap-2 rounded-2xl bg-kuning-bg px-4 py-3 text-[13px] text-kuning">
       <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
       <div class="min-w-0">
@@ -67,6 +70,30 @@ const feeTeks = (p) => (p.fee == null ? "cek di aplikasi" : `${(p.fee * 100).toL
               <div class="mt-1 text-muted">ETF emas berfatwa DSN-MUI {{ p.fatwa.nomor }} tentang {{ p.fatwa.tentang }}.
                 <a v-for="(s, k) in p.fatwa.sumber" :key="s" :href="s" target="_blank" rel="noopener" class="ml-1 inline-flex items-center gap-0.5 text-aksen">sumber {{ k + 1 }}<ExternalLink class="h-3 w-3" /></a></div>
             </div>
+            <KenapaBeli v-if="p.kenapa" :kenapa="p.kenapa" />
+          </template>
+          <template v-else-if="p.tipe === 'saham_as'">
+            <div class="flex items-start gap-3">
+              <span class="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[30%] bg-surface-2 text-ink-2"><Globe class="h-4 w-4" /></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] leading-snug font-medium">{{ p.kode }} · {{ p.nama }}</div>
+                <div class="mt-0.5 text-[11px] text-muted">Saham global · ETF saham AS syariah<template v-if="p.mi"> · {{ p.mi }}</template></div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span class="chip" :class="KELAS_RISIKO[p.risiko]">Risiko {{ p.risiko?.toLowerCase() }}</span>
+                  <span v-if="p.biaya != null" class="chip bg-surface-2 text-ink-2">biaya {{ p.biaya.toLocaleString("id-ID", { maximumFractionDigits: 2 }) }}% per tahun</span>
+                </div>
+              </div>
+              <div class="shrink-0 text-right">
+                <div class="text-[15px] font-semibold tabular-nums" :class="p.nilai ? '' : 'text-muted'">{{ p.nilai ? rupiahRingkas(p.nilai) : "giliran lain bulan" }}</div>
+                <div v-if="p.porsi && p.nilai" class="text-[11px] text-muted tabular-nums">{{ (p.porsi * 100).toLocaleString("id-ID", { maximumFractionDigits: 0 }) }}%</div>
+              </div>
+            </div>
+            <div class="mt-2 rounded-xl bg-surface-2 px-3 py-2 text-[12px] leading-relaxed text-ink-2">
+              <div><b class="font-medium text-ink">Cari di aplikasi:</b> {{ p.cari_di_aplikasi }}</div>
+              <div class="text-muted">Minimal beli: {{ p.min_beli_tampil }}</div>
+              <div v-if="p.catatan" class="mt-1 flex items-start gap-1.5 text-muted"><Info class="mt-0.5 h-3 w-3 shrink-0 text-aksen" />{{ p.catatan }}</div>
+            </div>
+            <KenapaBeli v-if="p.kenapa" :kenapa="p.kenapa" />
           </template>
           <template v-else>
             <div class="flex items-start gap-3">
@@ -90,6 +117,7 @@ const feeTeks = (p) => (p.fee == null ? "cek di aplikasi" : `${(p.fee * 100).toL
               <div v-if="p.min_beli_melebihi" class="mt-1 flex items-start gap-1.5 text-kuning"><AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />Minimal dari manajer investasi ({{ p.min_beli_tampil }}<template v-if="p.min_beli_uang === 'USD' && p.min_beli_idr"> ≈ {{ rupiahRingkas(p.min_beli_idr) }}</template>) lebih besar dari porsi bulan ini ({{ rupiahRingkas(p.nilai) }}). Cek minimal di aplikasi; kalau tetap lebih besar, beli bergiliran tiap beberapa bulan atau naikkan setoran.<template v-if="p.kaki === 'global'"> Produk global tidak diganti otomatis.</template></div>
               <div v-if="p.catatan" class="mt-1 flex items-start gap-1.5 text-muted"><Info class="mt-0.5 h-3 w-3 shrink-0 text-aksen" />{{ p.catatan }}</div>
             </div>
+            <KenapaBeli v-if="p.kenapa" :kenapa="p.kenapa" />
             <a :href="`#reksadana/katalog/${p.id}`" class="mt-1 inline-flex items-center text-[11px] text-aksen" @click.prevent="bukaProduk(p.id)">Detail produk<ChevronRight class="h-3 w-3" /></a>
           </template>
         </li>

@@ -23,7 +23,19 @@ TICK = 1.0
 LOT = 100
 TAK_HINGGA = 1e18
 BOBOT = {"h35": {"lokal": 0.5, "global": 0.5}, "h37": {"lokal": 0.4, "global": 0.4, "emas": 0.2}}
-URUT_ORDER = {"etf_jual": 0, "etf_beli": 1, "rd_beli": 2}
+BOBOT_LOKAL_25 = {"h35": {"lokal": 0.25, "global": 0.75}, "h37": {"lokal": 0.2, "global": 0.6, "emas": 0.2}}
+BOBOT_BTC_5 = {"h35": {"lokal": 0.475, "global": 0.475, "btc": 0.05}, "h37": {"lokal": 0.38, "global": 0.38, "emas": 0.19, "btc": 0.05}}
+URUT_ORDER = {"etf_jual": 0, "etf_beli": 1, "rd_beli": 2, "btc_beli": 2}
+KUNCI_BTC = "btc:BTC"
+FEE_BTC = 0.005
+ID_SPUS = "SPUS"
+FEE_SPUS = 0.005
+PAJAK_DIV_SPUS = 0.30
+
+
+def id_dari_kunci(kunci):
+    sisa = kunci[3:]
+    return int(sisa) if sisa.isdigit() else sisa
 
 
 def ada(x):
@@ -50,8 +62,70 @@ class DataNyata:
         self.emas_usd = harga.indeks("pasar_panjang/emas_usd")["close"].dropna().sort_index()
         self.db = d.koneksi()
         self.cache_nav = {}
+        self.spus_usd = None
+        self.btc_usd = None
+
+    def seri_btc_usd(self):
+        if self.btc_usd is None:
+            x = dt.baca("indeks_luar/btc_usd")
+            if x is None or len(x) == 0:
+                self.btc_usd = pd.Series(dtype=float)
+            else:
+                x = x.sort_index()
+                x.index = pd.DatetimeIndex(x.index).tz_localize(None).normalize()
+                self.btc_usd = x["close"].dropna()
+        return self.btc_usd
+
+    def tgl_harga_btc(self, D):
+        D = pd.Timestamp(D).normalize()
+        u = self.seri_btc_usd()
+        u = u[u.index < D]
+        k = self.kurs[self.kurs.index <= D]
+        return (u.index[-1] if len(u) else None), (k.index[-1] if len(k) else None)
+
+    def btc(self, D):
+        D = pd.Timestamp(D).normalize()
+        u = self.seri_btc_usd()
+        u = u[u.index < D]
+        k = self.kurs[self.kurs.index <= D]
+        if not len(u) or not len(k):
+            return None
+        return float(u.iloc[-1] * k.iloc[-1])
+
+    def seri_spus_usd(self):
+        if self.spus_usd is None:
+            x = dt.baca(f"etf_luar/{ID_SPUS}")
+            if x is None or len(x) == 0:
+                self.spus_usd = pd.Series(dtype=float)
+            else:
+                x = x.sort_index()
+                x.index = pd.DatetimeIndex(x.index).tz_localize(None).normalize()
+                c = x["close"].dropna()
+                dv = x["dividends"].reindex(c.index).fillna(0.0)
+                r = ((c + (1 - PAJAK_DIV_SPUS) * dv) / c.shift(1) - 1).fillna(0.0)
+                self.spus_usd = (1 + r).cumprod() * float(c.iloc[0])
+        return self.spus_usd
+
+    def tgl_harga_spus(self, D):
+        D = pd.Timestamp(D).normalize()
+        u = self.seri_spus_usd()
+        u = u[u.index <= D]
+        k = self.kurs[self.kurs.index <= D]
+        return (u.index[-1] if len(u) else None), (k.index[-1] if len(k) else None)
+
+    def spus(self, D):
+        D = pd.Timestamp(D).normalize()
+        u = self.seri_spus_usd()
+        u = u[u.index <= D]
+        k = self.kurs[self.kurs.index <= D]
+        if not len(u) or not len(k):
+            return None
+        return float(u.iloc[-1] * k.iloc[-1])
 
     def nav(self, fid):
+        if str(fid) == ID_SPUS:
+            u = self.seri_spus_usd()
+            return u * self.kurs.reindex(u.index, method="ffill")
         if fid not in self.cache_nav:
             x = pd.DataFrame(list(self.db.rd_nav.find({"fund": {"$in": [fid, str(fid)]}}, {"_id": 0})))
             if x.empty:
@@ -62,6 +136,8 @@ class DataNyata:
         return self.cache_nav[fid]
 
     def rd(self, fid, mu, D):
+        if str(fid) == ID_SPUS:
+            return self.spus(D)
         s = self.nav(fid)
         if D not in s.index:
             return None
@@ -102,9 +178,9 @@ class DataNyata:
 
 
 class Mesin:
-    def __init__(self, strategi, data, state=None, mulai=MULAI, rebalance_pertama=REBALANCE_PERTAMA, modal=MODAL):
+    def __init__(self, strategi, data, state=None, mulai=MULAI, rebalance_pertama=REBALANCE_PERTAMA, modal=MODAL, bobot=None):
         self.strategi = strategi
-        self.bobot = BOBOT[strategi]
+        self.bobot = BOBOT[strategi] if bobot is None else bobot
         self.data = data
         self.mulai = pd.Timestamp(mulai)
         self.rp = rebalance_pertama
@@ -114,6 +190,7 @@ class Mesin:
         self.kejadian = []
         self.ekuitas = []
         self.hitung_id = {}
+        self.ffill_dicatat = set()
 
     def nomor(self, kunci):
         self.hitung_id[kunci] = self.hitung_id.get(kunci, 0) + 1
@@ -135,17 +212,45 @@ class Mesin:
         v = self.data.rd(p["id"], p["mu"], D)
         if ada(v):
             self.st["harga_terakhir"][f"rd:{p['id']}"] = v
+            if str(p["id"]) == ID_SPUS:
+                self.catat_ffill_spus(D)
             return v
         return None
 
+    def catat_ffill_spus(self, D):
+        D = pd.Timestamp(D).normalize()
+        if D in self.ffill_dicatat:
+            return
+        tu, tk = self.data.tgl_harga_spus(D)
+        if (tu is not None and tu < D) or (tk is not None and tk < D):
+            self.ffill_dicatat.add(D)
+            self.cat(D, "harga_spus_ffill", f"harga SPUS atau kurs hari ini kosong, dipakai nilai terakhir (SPUS {tgl(tu) if tu is not None else '-'}, kurs {tgl(tk) if tk is not None else '-'})",
+                     tgl_spus=tgl(tu) if tu is not None else None, tgl_kurs=tgl(tk) if tk is not None else None)
+
+    def harga_btc(self, D):
+        v = self.data.btc(D)
+        if not ada(v):
+            return None
+        self.st["harga_terakhir"][KUNCI_BTC] = v
+        D = pd.Timestamp(D).normalize()
+        if D not in self.ffill_dicatat:
+            tu, tk = self.data.tgl_harga_btc(D)
+            if (tu is not None and tu < D - pd.Timedelta(days=1)) or (tk is not None and tk < D):
+                self.ffill_dicatat.add(D)
+                self.cat(D, "harga_btc_ffill", f"harga BTC atau kurs hari ini telat, dipakai nilai terakhir (BTC {tgl(tu) if tu is not None else '-'}, kurs {tgl(tk) if tk is not None else '-'})",
+                         tgl_btc=tgl(tu) if tu is not None else None, tgl_kurs=tgl(tk) if tk is not None else None)
+        return v
+
     def semua_harga_rd(self, D):
-        return all(self.harga_rd(p, D) is not None for _, p in self.produk_semua())
+        return all(self.harga_rd(p, D) is not None for _, p in self.produk_semua()) and ("btc" not in self.bobot or self.harga_btc(D) is not None)
 
     def harga_nilai(self, kunci, D):
         if kunci.startswith("rd:"):
-            fid = int(kunci[3:])
+            fid = id_dari_kunci(kunci)
             p = next(x for _, x in self.produk_semua() if x["id"] == fid)
             v = self.harga_rd(p, D)
+        elif kunci == KUNCI_BTC:
+            v = self.harga_btc(D)
         else:
             row = self.data.etf(kunci[4:], D)
             v = row["close"] if row and ada(row["close"]) else None
@@ -155,6 +260,8 @@ class Mesin:
 
     def nilai_kaki(self, D):
         out = {"lokal": 0.0, "global": 0.0, "emas": 0.0}
+        if "btc" in self.bobot:
+            out["btc"] = (self.st["unit"].get(KUNCI_BTC) or 0.0) * (self.harga_nilai(KUNCI_BTC, D) or 0)
         for kaki, p in self.produk_semua():
             k = f"rd:{p['id']}"
             if self.st["unit"].get(k):
@@ -197,8 +304,14 @@ class Mesin:
             per = self.bobot[kaki] * self.modal / len(daftar)
             for p in daftar:
                 pr = self.harga_rd(p, D)
-                st["unit"][f"rd:{p['id']}"] = per / pr
-                self.trx(D, kaki, f"rd:{p['id']}", "beli", per / pr, pr, 0.0, nama=p["nama"], masuk=True)
+                f = p.get("fee", 0.0)
+                st["unit"][f"rd:{p['id']}"] = per * (1 - f) / pr
+                self.trx(D, kaki, f"rd:{p['id']}", "beli", per * (1 - f) / pr, pr, per * f, nama=p["nama"], masuk=True)
+        if "btc" in self.bobot:
+            per = self.bobot["btc"] * self.modal
+            pr = self.harga_btc(D)
+            st["unit"][KUNCI_BTC] = per * (1 - FEE_BTC) / pr
+            self.trx(D, "btc", KUNCI_BTC, "beli", per * (1 - FEE_BTC) / pr, pr, per * FEE_BTC, nama="Bitcoin (BTC-USD x USDIDR)", masuk=True)
         if "emas" in self.bobot:
             st["kas"] = self.bobot["emas"] * self.modal
             self.buat_order("etf_beli", f"etf:{st['etf']}", st["kas"], D, kaki="emas")
@@ -218,6 +331,8 @@ class Mesin:
         for o in sorted(list(self.st["antrean"]), key=lambda x: (URUT_ORDER[x["jenis"]], x["id"])):
             if o["jenis"] == "rd_beli":
                 self.order_rd(D, o)
+            elif o["jenis"] == "btc_beli":
+                self.order_btc(D, o)
             else:
                 self.order_etf(D, o)
 
@@ -226,7 +341,7 @@ class Mesin:
 
     def order_rd(self, D, o):
         st = self.st
-        fid = int(o["kunci"][3:])
+        fid = id_dari_kunci(o["kunci"])
         p = next(x for _, x in self.produk_semua() if x["id"] == fid)
         pr = self.harga_rd(p, D)
         if pr is None:
@@ -236,10 +351,28 @@ class Mesin:
         jumlah = min(o["sisa"], bebas)
         if jumlah <= 1:
             return
-        st["unit"][o["kunci"]] = st["unit"].get(o["kunci"], 0.0) + jumlah / pr
+        f = p.get("fee", 0.0)
+        st["unit"][o["kunci"]] = st["unit"].get(o["kunci"], 0.0) + jumlah * (1 - f) / pr
         st["kas"] -= jumlah
         o["sisa"] -= jumlah
-        self.trx(D, o["kaki"], o["kunci"], "beli", jumlah / pr, pr, 0.0, nama=p["nama"], rebalance=True)
+        self.trx(D, o["kaki"], o["kunci"], "beli", jumlah * (1 - f) / pr, pr, jumlah * f, nama=p["nama"], rebalance=True)
+        if o["sisa"] < 1:
+            self.hapus(o)
+
+    def order_btc(self, D, o):
+        st = self.st
+        pr = self.harga_btc(D)
+        if pr is None:
+            self.cat(D, "data_kosong_btc", "harga BTC kosong, order ditunda", kunci=o["kunci"])
+            return
+        bebas = max(0.0, st["kas"] - self.cadangan_order_beli())
+        jumlah = min(o["sisa"], bebas)
+        if jumlah <= 1:
+            return
+        st["unit"][KUNCI_BTC] = st["unit"].get(KUNCI_BTC, 0.0) + jumlah * (1 - FEE_BTC) / pr
+        st["kas"] -= jumlah
+        o["sisa"] -= jumlah
+        self.trx(D, "btc", KUNCI_BTC, "beli", jumlah * (1 - FEE_BTC) / pr, pr, jumlah * FEE_BTC, nama="Bitcoin (BTC-USD x USDIDR)", rebalance=True)
         if o["sisa"] < 1:
             self.hapus(o)
 
@@ -398,12 +531,25 @@ class Mesin:
                     k = f"rd:{p['id']}"
                     jual = st["unit"][k] * frac
                     pr = self.harga_rd(p, D)
+                    f = p.get("fee", 0.0)
                     st["unit"][k] -= jual
-                    st["kas"] += jual * pr
-                    self.trx(D, kaki, k, "jual", jual, pr, 0.0, nama=p["nama"], rebalance=True)
+                    st["kas"] += jual * pr * (1 - f)
+                    self.trx(D, kaki, k, "jual", jual, pr, jual * pr * f, nama=p["nama"], rebalance=True)
             elif sekarang < target:
                 for p in daftar:
                     self.buat_order("rd_beli", f"rd:{p['id']}", (target - sekarang) / len(daftar), D, kaki=kaki)
+        if "btc" in self.bobot:
+            target = self.bobot["btc"] * total
+            sekarang = nilai["btc"]
+            rinci["btc"] = {"sekarang": sekarang, "target": target}
+            if sekarang > target:
+                pr = self.harga_btc(D)
+                jual = st["unit"][KUNCI_BTC] * (sekarang - target) / sekarang
+                st["unit"][KUNCI_BTC] -= jual
+                st["kas"] += jual * pr * (1 - FEE_BTC)
+                self.trx(D, "btc", KUNCI_BTC, "jual", jual, pr, jual * pr * FEE_BTC, nama="Bitcoin (BTC-USD x USDIDR)", rebalance=True)
+            elif sekarang < target:
+                self.buat_order("btc_beli", KUNCI_BTC, target - sekarang, D, kaki="btc")
         if "emas" in self.bobot:
             target = self.bobot["emas"] * total
             kode = st["etf"]

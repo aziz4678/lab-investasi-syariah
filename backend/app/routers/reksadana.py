@@ -72,6 +72,12 @@ def pertumbuhan_uji_maju():
     return pt.uji_maju()
 
 
+@router.get("/pertumbuhan/perkiraan")
+def pertumbuhan_perkiraan():
+    from backend.app.services import pertumbuhan as pt
+    return pt.perkiraan()
+
+
 @router.get("/pertumbuhan/emas")
 def pertumbuhan_emas():
     from backend.app.services import pertumbuhan as pt

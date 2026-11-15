@@ -58,11 +58,11 @@ const infoKat = computed(() => props.d?.info_kategori);
     <section class="panel px-4 py-5 sm:px-6">
       <div class="flex items-center gap-2 text-[14px] font-medium"><Scale class="h-4 w-4 text-aksen" />Cara kerjanya, langkah demi langkah</div>
       <ol class="m-0 mt-3 space-y-2 pl-5 text-[13px] leading-relaxed text-ink-2">
-        <li><b class="font-medium text-ink">Pilih produk sekali.</b> Halaman ini sudah memilihkan 3 RD saham syariah Indonesia dan 1 RD saham syariah global dengan aturan tetap (bawah). Pilih aplikasi yang kamu pakai di tab Rencana.</li>
-        <li><b class="font-medium text-ink">Pasang beli rutin.</b> Setoran dibagi: separuh rata ke 3 RD Indonesia, separuh ke RD global. Kalau setoran kecil, beli bergiliran satu produk per bulan.</li>
+        <li><b class="font-medium text-ink">Pilih produk sekali.</b> Halaman ini sudah memilihkan 3 RD saham syariah Indonesia dan 1 ETF saham AS syariah (SPUS) dengan aturan tetap (bawah). Pilih aplikasi yang kamu pakai di tab Rencana.</li>
+        <li><b class="font-medium text-ink">Pasang beli rutin.</b> Setoran dibagi: separuh rata ke 3 RD Indonesia, separuh ke SPUS (dibeli lewat Ajaib). Kalau setoran kecil, beli bergiliran satu produk per bulan.</li>
         <li><b class="font-medium text-ink">Biarkan.</b> Jangan dijual saat turun; penurunan 20–40% pernah terjadi dan termasuk normal untuk saham.</li>
         <li><b class="font-medium text-ink">Desember: seimbangkan.</b> Lihat nilai kedua bagian. Pindahkan selisihnya supaya kembali 50/50, atau arahkan setoran berikutnya ke bagian yang tertinggal.</li>
-        <li><b class="font-medium text-ink">Januari: cek daftar.</b> Kalau ada produk yang bubar, mahal, atau hilang dari aplikasi, halaman ini menampilkan penggantinya. Produk global tidak pernah diganti otomatis.</li>
+        <li><b class="font-medium text-ink">Januari: cek daftar.</b> Kalau ada produk yang bubar, mahal, atau hilang dari aplikasi, halaman ini menampilkan penggantinya. SPUS tetap dipakai.</li>
       </ol>
     </section>
 
@@ -80,23 +80,24 @@ const infoKat = computed(() => props.d?.info_kategori);
       <div class="flex items-center gap-2 text-[14px] font-medium"><ListChecks class="h-4 w-4 text-aksen" />Aturan memilih produk</div>
       <ul class="m-0 mt-3 space-y-1.5 pl-4 text-[13px] leading-relaxed text-ink-2">
         <li>Hanya reksa dana <b class="font-medium text-ink">syariah</b> yang masih aktif (harga terbit dalam {{ kriteria?.aktif_hari }} hari) dan punya riwayat minimal {{ kriteria?.min_tahun }} tahun.</li>
-        <li>Biaya tahunan diketahui, tidak membagi hasil tunai, dan dana kelolaan minimal setara median produk sejenis yang lolos.</li>
+        <li>Dana kelolaan minimal <b class="font-medium text-ink">Rp100 miliar</b>. Biaya tahunan 0,3% sampai 5% (di atas 5% terlalu mahal, di bawah 0,3% tidak wajar) dan tidak membagi hasil tunai.</li>
+        <li>Return 3 tahun terakhir harus <b class="font-medium text-ink">di atas JII</b> (JII ditambah asumsi dividen 2,5% per tahun).</li>
         <li><b class="font-medium text-ink">Wajib tersedia di Bibit, Makmur, atau Ajaib.</b> Produk tanpa data aplikasi tidak dipakai.</li>
-        <li>Diurutkan dari biaya termurah. Hasil masa lalu <b class="font-medium text-ink">tidak</b> dipakai untuk memilih.</li>
-        <li>Bagian global hanya RD yang membeli saham di banyak negara. RD satu kawasan (Asia, China, ASEAN, India, pasar berkembang, AS saja) dan RD satu sektor (mis. teknologi) ditolak.</li>
-        <li>Minimal beli dari data manajer investasi hanya ditampilkan, tidak menyaring, karena di aplikasi sering jauh lebih kecil. Kalau di atas Rp1 jt / US$100 diberi tanda "cek di aplikasi".</li>
-        <li>Dibentuk ulang tiap Januari. Di tengah tahun, RD Indonesia yang bubar / makin mahal / dana kelolaannya mengecil diganti calon termurah berikutnya. RD global yang gagal tidak diganti otomatis: bagian global dikosongkan dan calon penggantinya ditampilkan.</li>
+        <li>Dari yang lolos, ambil 3 dengan biaya termurah. Return masa lalu hanya syarat lolos (di atas JII), <b class="font-medium text-ink">tidak</b> dipakai untuk mengurutkan. Kalau di suatu aplikasi yang lolos kurang dari 3, dipakai yang ada.</li>
+        <li>Bagian global memakai SPUS, ETF saham AS syariah (sekitar 200 perusahaan besar) lewat Ajaib, bukan reksa dana. Aplikasi lain tidak menyediakannya, jadi bagian global dibeli di Ajaib.</li>
+        <li>Minimal beli reksa dana dari data manajer investasi hanya ditampilkan, tidak menyaring. Kalau di atas Rp1 jt diberi tanda "cek di aplikasi". SPUS bisa dibeli pecahan; cek minimalnya di aplikasi.</li>
+        <li>Dibentuk ulang tiap Januari. Di tengah tahun, RD Indonesia yang bubar, makin mahal, atau tidak lagi lolos saringan diganti calon termurah berikutnya. SPUS tidak diganti otomatis.</li>
       </ul>
       <div class="mt-4 text-[13px] font-medium">Produk yang lolos per aplikasi</div>
       <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div v-for="a in perAplikasi" :key="a.k" class="rounded-xl bg-surface-2 px-3 py-2">
           <div class="text-[12px] font-medium">{{ a.nama }}</div>
-          <div class="text-[11px] text-muted">Indonesia {{ a.lk }} · global {{ a.gl }}</div>
-          <div v-if="!a.gl" class="text-[11px] text-kuning">bagian global tidak tersedia</div>
+          <div class="text-[11px] text-muted">Indonesia {{ a.lk }} · SPUS {{ a.gl }}</div>
+          <div v-if="!a.gl" class="text-[11px] text-kuning">SPUS tidak tersedia, beli di Ajaib</div>
         </div>
       </div>
       <div v-if="pengganti.length" class="mt-4">
-        <div class="text-[13px] font-medium">Calon pengganti RD global (tidak dipakai sekarang)</div>
+        <div class="text-[13px] font-medium">Calon pengganti bagian global (tidak dipakai sekarang)</div>
         <ul class="m-0 mt-1 space-y-1 pl-4 text-[12px] text-ink-2"><li v-for="c in pengganti" :key="c.id">{{ c.nama }} · <span class="text-muted">{{ c.alasan.join(", ") }}</span></li></ul>
       </div>
       <div class="mt-4 text-[13px] font-medium">Produk yang tidak dipakai & alasannya</div>

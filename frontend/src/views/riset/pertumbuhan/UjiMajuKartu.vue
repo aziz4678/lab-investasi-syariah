@@ -18,8 +18,14 @@ const hitung = computed(() => {
   if (n === 1) return "besok";
   return aktif.value ? "sedang berjalan" : "hari pertama bursa Des 2026, menunggu pemrosesan";
 });
-const NAMA_PORSI = { lokal: "Indonesia", global: "global", emas: "emas" };
-const targetTeks = (b) => Object.entries(b).map(([k, v]) => `${pr(v, 0)} ${NAMA_PORSI[k] ?? k}`).join(" + ");
+const NAMA_PORSI = { lokal: "Indonesia", global: "global", emas: "emas", btc: "BTC" };
+const bulat = (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9;
+const targetTeks = (b) => Object.entries(b).map(([k, v]) => `${pr(v, bulat(v) ? 0 : 1)} ${NAMA_PORSI[k] ?? k}`).join(" + ");
+const JALUR = [
+  { id: "lokal_25", judul: "Porsi Indonesia lebih kecil", ket: "Produk dan mesin sama, hanya porsi Indonesia lebih kecil. Berasal dari observasi H38 (tidak lolos aturan kunci)." },
+  { id: "btc_5", judul: "Tambahan BTC 5%", ket: "Produk dan mesin sama, ditambah Bitcoin 5% (BTC-USD x USDIDR, biaya 0,5% per transaksi, rebalance Desember). Berasal dari H39 (lolos di backtest, belum diterapkan)." },
+];
+const kelompok = computed(() => JALUR.map((j) => ({ ...j, isi: (u.value?.pembanding ?? []).filter((x) => x.jalur === j.id) })).filter((j) => j.isi.length));
 const tglTeks = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "–");
 </script>
 
@@ -33,6 +39,12 @@ const tglTeks = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "nume
       </div>
     </div>
     <p class="m-0 mt-2 text-[12px] leading-relaxed text-ink-2">Modal paper {{ rupiahRingkas(u.item[0].modal) }} masing-masing, sekali masuk dengan produk nyata. Yang dinilai pelaksanaannya (selisih dengan model, selisih harga ETF dengan NAV, biaya nyata), bukan bukti keunggulan. Evaluasi pertama {{ u.evaluasi_pertama }}.</p>
+
+    <p v-if="u.produk_beku" class="m-0 mt-2 text-[12px] leading-relaxed text-ink-2">
+      <b class="font-medium text-ink">Produk dibekukan per {{ tglTeks(u.produk_beku.tgl) }}</b> sampai evaluasi {{ u.evaluasi_pertama }}, walau daftar belanja nanti berubah:
+      {{ [...u.produk_beku.produk.lokal, ...u.produk_beku.produk.global].join(", ") }}. Kaki emas dipilih aturan uji maju.
+      <template v-if="u.produk_beku.lama">Jalur pembanding (dihitung paralel, bukan hasil resmi): {{ [...u.produk_beku.lama.lokal, ...u.produk_beku.lama.global].join(", ") }}.</template>
+    </p>
 
     <div class="mt-3 grid gap-3 md:grid-cols-2">
       <div v-for="x in u.item" :key="x.kode" class="rounded-2xl bg-surface-2 px-4 py-3">
@@ -55,6 +67,23 @@ const tglTeks = (s) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "nume
         <ul v-if="x.kejadian.length" class="m-0 mt-2 list-none space-y-0.5 p-0 text-[11px] text-ink-2">
           <li v-for="k in x.kejadian" :key="k.tgl + k.jenis + k.teks"><span class="text-muted">{{ k.tgl }}</span> · {{ k.teks }}</li>
         </ul>
+      </div>
+    </div>
+
+    <div v-if="u.pembanding?.length" class="mt-3 rounded-2xl border border-garis px-4 py-3">
+      <div class="flex flex-wrap items-center gap-2 text-[13px] font-medium">Jalur pembanding (info)<span class="chip bg-surface-2 text-muted">bukan hasil resmi</span></div>
+      <p class="m-0 mt-1 text-[11px] leading-relaxed text-muted">Dipantau sebagai info, keputusan apa pun baru di evaluasi {{ u.evaluasi_pertama }}.</p>
+      <div v-for="j in kelompok" :key="j.id" class="mt-2">
+        <div class="text-[12px] font-medium">{{ j.judul }}</div>
+        <p class="m-0 text-[11px] leading-relaxed text-muted">{{ j.ket }}</p>
+        <div class="mt-1 grid gap-2 md:grid-cols-2">
+          <div v-for="x in j.isi" :key="x.kode" class="rounded-xl bg-surface-2 px-3 py-2">
+            <div class="text-[12px] font-medium">{{ x.kode }} · {{ targetTeks(x.bobot) }}</div>
+            <div v-if="x.ekuitas" class="text-[12px]"><span class="font-semibold tabular-nums">{{ rupiahRingkas(x.ekuitas.nilai) }}</span>
+              <span class="text-muted"> per {{ x.ekuitas.tgl }} · </span><span :class="x.ekuitas.ret < 0 ? 'text-turun' : 'text-naik'">{{ prTanda(x.ekuitas.ret, 2) }}</span></div>
+            <div v-else class="text-[11px] text-muted">Belum ada transaksi.</div>
+          </div>
+        </div>
       </div>
     </div>
 

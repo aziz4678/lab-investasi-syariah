@@ -6,18 +6,21 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from backend.app.services import kenapa_beli as kb
 from backend.app.services.reksadana import bersih
 
 APLIKASI_RD = ("bibit", "ajaib", "makmur")
 APLIKASI_ETF = ("stockbit", "ajaib")
 APLIKASI_SEMUA = ("bibit", "ajaib", "makmur", "stockbit")
+SPUS_APLIKASI = "ajaib"
 NAMA_APLIKASI = {"bibit": "Bibit", "ajaib": "Ajaib", "makmur": "Makmur", "stockbit": "Stockbit"}
 KATA_ETF = "ETF dibeli lewat akun saham (Stockbit/Ajaib); Bibit & Makmur tidak menjual ETF"
 FEE_ETF = {"stockbit": 0.0015, "ajaib": None}
 LOT = 100
 BATAS_PREMIUM = 0.02
 HARI_BASI = 3
-GLOBAL_DISETUJUI = (2233,)
+MIN_BELI_SPUS = "bisa beli pecahan, cek minimal di aplikasi"
+PEMBELI_SPUS = "Dibeli lewat akun saham AS di Ajaib (bukan reksa dana)."
 BAGIAN = {"saham": {"lokal": 0.5, "global": 0.5, "emas": 0.0}, "emas": {"lokal": 0.4, "global": 0.4, "emas": 0.2}}
 MODAL_KECIL = 50_000_000
 FATWA = {"nomor": "No. 163/DSN-MUI/VIII/2025", "tentang": "ETF Syariah Emas",
@@ -223,6 +226,13 @@ def _kartu_rd(pt, c, nilai, total, kin, pengganti, app, db, catatan=None, kurs=N
             "porsi": nilai / total if total else None, **info_min_beli(c, nilai, kurs), "tersedia_di": tersedia(c, APLIKASI_RD)}
 
 
+def _kartu_spus(c, nilai, total, app):
+    from backend.app.services import etf_info
+    return {"tipe": "saham_as", "kaki": "global", "id": c["id"], "kode": c["id"], "nama": c["nama"], "mi": c.get("mi"), "aplikasi": app, "nilai": nilai, "porsi": nilai / total if total else None,
+            "biaya": c.get("biaya"), "aum": c.get("aum"), "cari_di_aplikasi": c["id"], "min_beli_tampil": MIN_BELI_SPUS, "risiko": "Tinggi", "risiko_skala": None, "risiko_sumber": "jenis",
+            "catatan": f"{etf_info.KETERANGAN.get(c['id'], '')} {PEMBELI_SPUS}".strip(), "tersedia_di": [SPUS_APLIKASI]}
+
+
 def _kelompok(kartu, apps):
     per = {}
     for k in kartu:
@@ -261,11 +271,11 @@ def pertumbuhan(apps=None, setoran=1_000_000, modal_awal=0, gaya="saham", hari_i
         peringatan.append({"jenis": "lokal_kurang", "teks": f"Hanya {len(terpilih_lk)} dari {jumlah_lk} RD saham syariah Indonesia yang tersedia di aplikasimu." + (f" Produk kategori ini yang lain butuh aplikasi: {', '.join(butuh)}." if butuh else ""),
                            "saran": butuh})
     dasar_gl = dok["isi"]["GL"]
-    gl = [c for c in dasar_gl if c["id"] in GLOBAL_DISETUJUI and tersedia(c, rd)]
+    gl = [c for c in dasar_gl if tersedia(c, rd)]
     if not gl and rd:
-        ref = next((c for c in lolos["GL"] if c["id"] in GLOBAL_DISETUJUI), None) or (dasar_gl[0] if dasar_gl else None)
-        butuh = [NAMA_APLIKASI[p["kode"]] for p in (ref or {}).get("platform") or []] or ["Bibit"]
-        peringatan.append({"jenis": "global_aplikasi", "teks": f"Produk global tidak tersedia di aplikasimu, butuh Bibit. Produk global tidak diganti otomatis.", "saran": butuh})
+        ref = dasar_gl[0] if dasar_gl else None
+        butuh = [NAMA_APLIKASI[p["kode"]] for p in (ref or {}).get("platform") or []] or ["Ajaib"]
+        peringatan.append({"jenis": "global_aplikasi", "teks": f"Kaki global (SPUS) tidak tersedia di aplikasi ini, beli di {', '.join(butuh)}.", "saran": butuh})
     bagian = {k: setoran * v for k, v in w.items()}
     per_lk = bagian["lokal"] / len(terpilih_lk) if terpilih_lk else 0.0
     per_gl = bagian["global"] / len(gl) if gl else 0.0
@@ -286,13 +296,29 @@ def pertumbuhan(apps=None, setoran=1_000_000, modal_awal=0, gaya="saham", hari_i
         app = peta.get(i)
         if app is None:
             continue
-        catatan = pt.CATATAN_GLOBAL if kaki == "global" else None
-        k = _kartu_rd(pt, c, nilai, setoran, kin, pengganti, app, db, catatan, kurs)
+        if c.get("jenis") == "saham_as":
+            kartu.append(_kartu_spus(c, nilai, setoran, app))
+            continue
+        k = _kartu_rd(pt, c, nilai, setoran, kin, pengganti, app, db, None, kurs)
         kartu.append({**k, "kaki": kaki})
     etf = None
     if w["emas"] > 0:
         etf, per = kartu_etf(bagian["emas"], apps, hari_ini)
         peringatan += per
+    kenapa_galat = None
+    ringkas_kenapa = None
+    try:
+        b_rd = kb.bulanan_rd()
+        daftar_kenapa = []
+        for k in kartu:
+            k["kenapa"] = kb.kartu_pertumbuhan(k["kaki"], k, b_rd, kin, k.get("porsi"))
+            daftar_kenapa.append(k["kenapa"])
+        if etf:
+            etf["kenapa"] = kb.kartu_pertumbuhan("emas", etf, b_rd, kin, w["emas"])
+            daftar_kenapa.append(etf["kenapa"])
+        ringkas_kenapa = kb.ringkasan(daftar_kenapa)
+    except Exception as e:
+        kenapa_galat = f"{type(e).__name__}: {e}"
     grup = _kelompok(kartu, apps)
     if etf and etf["aplikasi"]:
         grup.append({"aplikasi": etf["aplikasi"], "nama": NAMA_APLIKASI[etf["aplikasi"]], "total": etf["nilai"], "produk": [etf]})
@@ -311,7 +337,7 @@ def pertumbuhan(apps=None, setoran=1_000_000, modal_awal=0, gaya="saham", hari_i
         awal = {"total": modal_awal, "lokal_per_produk": modal_awal * w["lokal"] / len(terpilih_lk) if terpilih_lk else 0.0,
                 "global_per_produk": modal_awal * w["global"] / len(gl) if gl else 0.0, "emas": modal_awal * w["emas"]}
     return bersih({"ada": True, "masukan": {"apps": apps, "setoran": setoran, "modal_awal": modal_awal, "gaya": gaya}, "app_angka": aplikasi_angka(apps), "bagian": bagian,
-                   "rata": rata, "grup": grup, "peringatan": peringatan, "etf": etf, "awal": awal, "dibentuk": dok["dibentuk"].isoformat(timespec="minutes") if hasattr(dok["dibentuk"], "isoformat") else str(dok["dibentuk"])})
+                   "rata": rata, "grup": grup, "peringatan": peringatan, "etf": etf, "awal": awal, "ringkasan": ringkas_kenapa, "kenapa_galat": kenapa_galat, "dibentuk": dok["dibentuk"].isoformat(timespec="minutes") if hasattr(dok["dibentuk"], "isoformat") else str(dok["dibentuk"])})
 
 
 def konservatif(apps=None, modal=1_000_000_000, pengeluaran=10_000_000, darurat=6, opsi="sbn50", hari_ini=None):
@@ -319,7 +345,6 @@ def konservatif(apps=None, modal=1_000_000_000, pengeluaran=10_000_000, darurat=
     from backend.app.services import reksadana as rdn
     from backend.db import koneksi as kdb
     from backend.research import keranjang as kr
-    from backend.app.services import pertumbuhan as pt
     apps = normal_aplikasi(apps)
     r = pn.rencana(modal, pengeluaran, darurat, opsi, aplikasi_angka(apps))
     if not r.get("ada"):
@@ -379,9 +404,19 @@ def konservatif(apps=None, modal=1_000_000_000, pengeluaran=10_000_000, darurat=
         sumber = info_rd.get(int(c["id"]), {})
         rd_kartu.append({**k, "tipe": "rd", "aplikasi": app, "kaki": wadah, "cari_di_aplikasi": _nama_di_aplikasi(db, c["id"], app) or c["nama"], "pengganti_dari": peng,
                          **info_min_beli({"min_beli_mi": sumber.get("min_beli"), "mata_uang": sumber.get("mata_uang") or "IDR"}, nilai, kurs), "tersedia_di": tersedia(c, APLIKASI_RD)})
+    kenapa_galat = None
+    ringkas_kenapa = None
+    try:
+        b_rd = kb.bulanan_rd()
+        for k in rd_kartu:
+            k["kenapa"] = kb.kartu_konservatif(k["kaki"], k, b_rd, info_rd, data_rd)
+        unik = {k["id"]: k["kenapa"] for k in rd_kartu}
+        ringkas_kenapa = kb.ringkasan(list(unik.values()), konservatif=True)
+    except Exception as e:
+        kenapa_galat = f"{type(e).__name__}: {e}"
     grup = _kelompok(rd_kartu, apps)
     sbn = None if kecil else r.get("sbn")
-    return bersih({"ada": True, "rencana": r, "grup": grup, "peringatan": peringatan, "sbn": sbn, "modal_kecil": kecil,
+    return bersih({"ada": True, "rencana": r, "grup": grup, "peringatan": peringatan, "sbn": sbn, "modal_kecil": kecil, "ringkasan": ringkas_kenapa, "kenapa_galat": kenapa_galat,
                    "label_modal_kecil": "Modal masih kecil — pakai sebagai dana darurat dulu; penghasilan rutin baru berarti di modal besar." if kecil else None,
                    "masukan": {"apps": apps, "modal": modal}})
 

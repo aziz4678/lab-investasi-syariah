@@ -65,10 +65,10 @@ def ringkas_emas(m):
             "kas": m.st["kas"], "etf": m.st["etf"], "hari_order": max([o["hari"] for o in m.st["antrean"] if o["jenis"] == "etf_beli"], default=None)}
 
 
-def jalankan_nyata(mulai):
+def jalankan_nyata(mulai, produk=None):
     from backend.paper.uji_maju_pertumbuhan import produk_halaman
     data = mp.DataNyata()
-    produk = produk_halaman()
+    produk = produk or produk_halaman()
     akhir_rd = min(max(data.nav(p["id"]).index) for k in produk for p in produk[k])
     akhir_etf = max(df.index.max() for df in data.etf_df.values())
     akhir = min(akhir_rd, akhir_etf)
@@ -120,6 +120,23 @@ def laporan_nyata(mulai):
     return hasil
 
 
+def bandingkan_jalur(mulai):
+    from backend.paper.uji_maju_pertumbuhan import produk_halaman, produk_lama
+    hasil = {}
+    for nama, produk in (("resmi", produk_halaman()), ("produk_lama", produk_lama())):
+        data, produk, hari, jalur = jalankan_nyata(mulai, produk)
+        print(f"JALUR {nama}: {', '.join(p['nama'][:28] for k in ('lokal', 'global') for p in produk[k])}")
+        for s in ("h35", "h37"):
+            m = jalur[s]
+            e = m.ekuitas[-1]
+            fee = sum(t["fee"] for t in m.transaksi if t["kaki"] != "emas")
+            ffill = len([k for k in m.kejadian if k["jenis"] == "harga_spus_ffill"])
+            print(f"  {s.upper()} {hari[0].date()} s/d {e['tgl']} ({len(m.ekuitas)} hari, ETF {m.st['etf']}): Rp{e['nilai']:,.0f} ({(e['nilai'] / mp.MODAL - 1) * 100:+.2f}%), kas Rp{e['kas']:,.0f}, "
+                  f"lokal Rp{e['lokal']:,.0f}, global Rp{e['global']:,.0f}, emas Rp{e['emas']:,.0f}; biaya transaksi RD/SPUS Rp{fee:,.0f}; kejadian ffill SPUS {ffill}")
+        hasil[nama] = jalur
+    return hasil
+
+
 def kasus_sintetis():
     hari = sp.hari_kerja("2026-12-01", "2028-01-14")
     data = sp.bangun(hari, rd_naik={1: 0.0006, 2: 0.0006, 3: 0.0001})
@@ -135,6 +152,10 @@ def jalan(argumen):
     mulai = "2026-11-02"
     if "--mulai" in argumen:
         mulai = argumen[argumen.index("--mulai") + 1]
+    if "--jalur" in argumen:
+        bandingkan_jalur(mulai)
+        print("SELESAI")
+        return
     laporan_nyata(mulai)
     kasus_sintetis()
     print("SELESAI")
