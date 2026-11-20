@@ -1514,6 +1514,41 @@ HIPOTESIS.append({
     "pelajaran": "Lolos aturan yang dikunci, tapi di holdout selisihnya kecil (B 5%: +2 poin CAGR) dan rebalance kuartalan justru memperburuk DD (B 5% holdout -14,9%). Aturan produk H35/H37 tidak diubah.", "terkait": ["H35", "H37"], "sumber": "hasil_riset/h39_hasil, hasil_riset/h39_ketahanan",
 })
 
+HIPOTESIS.append({
+    "kode": "H40", "keluarga": "H40", "nama": "Breakout Base Stage 2 (saham syariah)", "kategori": "tren", "status": "gagal",
+    "tgl_kunci": "2026-11-20", "tgl_uji": "2026-11-20", "skor": "dev gagal: 2 trade (syarat >= 30), S2 dan S3 gagal; holdout tidak dibuka",
+    "awam": "Beli saham syariah yang sudah uptrend kuat, konsolidasi 5-12 minggu, lalu menembus batas atas konsolidasi dengan volume besar. Ide dari trade idea ASGR 19 Nov 2026; dasar riset efek 52-week high dan momentum (George & Hwang 2004).",
+    "aturan": {"Filter": "JII close > MA200 JII; Stage 2: close > MA20 > MA50 > MA100 > MA200 dan MA200 naik dibanding 20 hari lalu; return 126 hari masuk top 20% universe syariah likuid hari itu.",
+               "Base dan trigger": "Jendela 25-60 hari bursa sebelum sinyal (terpanjang yang valid), (high-low)/high <= 25%; close > base_high dan volume >= 1,5x rata-rata 50 hari.",
+               "Entry dan stop": "Open besok, skip bila open > base_high x 1,05. Stop awal = low terendah 10 hari sebelum sinyal, skip bila jarak > 8%.",
+               "Exit": "Close < MA20 jual open besok; stop kena keluar di min(stop, open); maks 60 hari bursa.",
+               "Sizing dan biaya": "Risiko 1% ekuitas per trade, maks 5 posisi, lot 100, prioritas RS tertinggi. Biaya standar H11a (fee 0,15% + 0,25% + 1 tick/sisi) + slippage 0,2% per sisi.",
+               "Varian (info)": "V-B target = entry + tinggi base; V-C 50% di target lalu trailing MA20; V-D tanpa filter JII.",
+               "Periode": "Dev 2020-2023 (indikator valid sejak hari bursa ke-220, mulai 26 Nov 2020), holdout 2024-Okt 2026 hanya bila dev lolos."},
+    "periode": [p("Dev", "26 Nov 2020 s/d Des 2023", "Syariah DES point-in-time, harga_bersih_2020 (bebas survivorship)", False),
+                p("Holdout", "Jan 2024 s/d Okt 2026", "sama", False)],
+    "kriteria": [k("Standar seragam (bobot sama, JII, tanpa 5/10, tanpa tahun terbaik, S1, S2, S3)"), k("Trade dev >= 30"), k("Expectancy bersih > 0R"),
+                 k("Korelasi harian dengan H11a < 0,5 atau Sharpe 50/50 > Sharpe H11a")],
+    "angka": [], "kenapa": "Aturan stop low-10-hari bentrok dengan lebar base 25% + likuiditas tidak ikut standar seragam. Dari 70 hari-sinyal di dev, 33 gugur karena open > base_high x 1,05 dan 30 karena jarak stop > 8% (low 10 hari sering 14-22% di bawah entry); hanya 2 trade (BYAN +13R, IMPC). Trade >= 30 gagal, S2 dan S3 gagal. Holdout tidak dibuka. Diperbaiki di H41 (post-hoc), H40 tetap gagal.",
+    "kelemahan": ["Indikator MA200/RS baru valid sejak hari ke-220 harga_bersih (2 Jan 2020), jadi dev efektif 3 tahun, dan 2022 menyumbang 39 dari 63 kejadian sinyal.", "H11a pembanding dihitung di mesin yang sama (lot 100, median 5 seed), bukan angka backtest resmi.", "Filter JII > MA200 aktif hanya 320 dari 754 hari dev."],
+    "pelajaran": "Kombinasi base lebar 25%, stop di low 10 hari, dan batas stop 8% saling bertabrakan; keluarga breakout dengan stop struktural tidak punya cukup trade di universe syariah likuid. Ditutup tanpa variasi.", "terkait": ["H11a"], "sumber": "hasil_riset/h40_dev, hasil_riset/h40_aturan",
+})
+
+HIPOTESIS.append({
+    "kode": "H41", "keluarga": "H41", "nama": "Breakout Base Stage 2, perbaikan H40 (POST-HOC)", "kategori": "tren", "status": "gagal", "lencana": ["pasca_hasil"],
+    "tgl_kunci": "2026-11-20", "tgl_uji": "2026-11-20", "skor": "dev gagal: standar seragam 0/4 skenario (kalah dari bobot sama); trade 63, expectancy +0,67R, nilai tambah lulus; holdout tidak dibuka",
+    "awam": "H40 diperbaiki setelah hasilnya terlihat (hanya 2 trade): universe standar seragam, stop 2 x ATR14, batas mengejar harga 3 x ATR14, bobot maks 20% per posisi. Ditandai POST-HOC; H40 tidak diubah.",
+    "aturan": {"Yang berubah dari H40": "Universe = definisi standar seragam persis (nilai transaksi, ATR% 1,5-5, harga, tanpa volume nol); stop awal = entry - 2 x ATR14, skip bila jarak > 15%; skip bila open > base_high + 3 x ATR14; bobot per posisi maks 20% ekuitas.",
+               "Sisanya": "Sama dengan H40: JII > MA200, Stage 2, RS 126 hari top 20%, base 25-60 hari range <= 25%, trigger volume 1,5x; exit close < MA20 (open besok), stop tetap, jual di close hari ke-60; risiko 1% ekuitas, maks 5 posisi, biaya H11a + slippage 0,2% per sisi.",
+               "Varian (info)": "V-B target tinggi base; V-D tanpa filter JII.",
+               "Periode": "Dev 26 Nov 2020 s/d Des 2023, holdout Jan 2024 s/d Okt 2026 hanya bila dev lolos."},
+    "periode": [p("Dev", "26 Nov 2020 s/d Des 2023", "Syariah DES point-in-time, harga_bersih_2020", False), p("Holdout", "Jan 2024 s/d Okt 2026", "sama", False)],
+    "kriteria": [k("Standar seragam (bobot sama, JII, tanpa 5/10, tanpa tahun terbaik, S1, S2, S3)"), k("Trade dev >= 30"), k("Expectancy bersih > 0R"), k("Korelasi harian H11a < 0,5 atau Sharpe 50/50 > Sharpe H11a")],
+    "angka": [], "kenapa": "63 trade, expectancy +0,67R, korelasi H11a 0,27, Sharpe 50/50 1,02 vs 0,77: tiga syarat tambahan lulus. Tapi CAGR 9,7% kalah dari bobot sama syariah 11,6% (JII -1,6%), exposure hanya 17%, dan tanpa 5 saham terbaik -4,4% vs 6,3% (BYAN menyumbang Rp32,6 jt dari laba). Standar seragam gagal di dasar, S1, S2 (CAGR 0,5%), dan S3. Tahun 2022 menyumbang 39 dari 63 trade. Holdout tidak dibuka.",
+    "kelemahan": ["POST-HOC: aturan diubah setelah melihat hasil H40; angka dev bukan bukti.", "Dev efektif 3 tahun (mulai 26 Nov 2020) dan bergantung 2022.", "H11a pembanding dihitung di mesin yang sama (lot 100, median 5 seed), bukan angka backtest resmi.", "Tafsiran: slippage dan tick dipakai juga untuk stop dan jual di close hari ke-60; RS dihitung di universe standar seragam."],
+    "pelajaran": "Memperbaiki jumlah trade tidak menciptakan edge: breakout base Stage 2 menang atas H11a dalam diversifikasi, tapi kalah dari sekadar memegang semua saham syariah likuid. Ditutup tanpa variasi.", "terkait": ["H11a", "H40"], "sumber": "hasil_riset/h41_dev, hasil_riset/h41_aturan, hasil_riset/h41_langkah0",
+})
+
 GRAFIK["H35"] = [batang("CAGR rupiah per dekade, jalur 1", ["Jun 2001-2009", "2010-2019", "2020-Okt 2026", "Penuh"],
                         [("50/50", [14.2, 9.4, 3.9, 9.5]), ("100% IDX", [27.2, 7.4, -10.4, 8.3]), ("100% global", [-1.3, 10.6, 15.9, 7.8])],
                         "Indeks, dalam rupiah. Per dekade hanya laporan, bukan kriteria."),

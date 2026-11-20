@@ -4,23 +4,24 @@ Sumber kebenaran daftar hipotesis. CLAUDE.md dan README hanya meringkas dan mena
 
 ## Aturan hitung
 
-- **Satuan hitung = entri katalog (sub-ID)**, sama dengan menu Hipotesis: H7a dan H7b dihitung dua, H19a-g tujuh, dan seterusnya. Angka resmi di semua dokumen = **53 hipotesis**.
-- **Satuan alternatif = ID induk** (H7a/H7b = H7): **37 ID**, yaitu H0-H37 tanpa H24 (H24 Ramadan sengaja dihapus atas permintaan user 2026-10-28, tidak diuji ulang).
-- Selisih 53 - 37 = 16 sub-ID tambahan: H7 +1, H11 +1, H12 +1, H14 +1, H15 +1, H16 +2, H17 +3, H19 +6.
+- **Satuan hitung = entri katalog (sub-ID)**, sama dengan menu Hipotesis: H7a dan H7b dihitung dua, H19a-g tujuh, dan seterusnya. Angka resmi di semua dokumen = **57 hipotesis**.
+- **Satuan alternatif = ID induk** (H7a/H7b = H7): **41 ID**, yaitu H0-H41 tanpa H24 (H24 Ramadan sengaja dihapus atas permintaan user 2026-10-28, tidak diuji ulang).
+- Selisih 57 - 41 = 16 sub-ID tambahan: H7 +1, H11 +1, H12 +1, H14 +1, H15 +1, H16 +2, H17 +3, H19 +6.
 - **H31** (H20 dengan kas RD pasar uang) berkeluarga H20 tetapi punya ID sendiri, dihitung satu.
 - **Seri K (K1-K3, kualitas)** jalur terpisah atas permintaan user, **tidak dihitung** (lihat [RISET_KUALITAS.md](RISET_KUALITAS.md), semua gagal di dev).
 - Eksplorasi 2020+ dan analisis pendukung bukan hipotesis dan tidak dihitung.
 
-## Ringkasan status (53 entri)
+## Ringkasan status (57 entri)
 
 | Status | Jumlah |
 |---|---|
-| Gagal | 42 |
+| Gagal | 45 |
 | Tidak diadopsi | 6 |
 | Paper trade | 2 |
 | Uji maju | 2 |
 | Belum dikunci | 1 |
-| **Total** | **53** |
+| Lolos (pasca hasil, tanpa uji maju) | 1 |
+| **Total** | **57** |
 
 Catatan: H35 dan H37 berstatus Uji maju (mulai 1 Des 2026) sekaligus lolos pasca hasil (arah umum data sudah diketahui sebelum uji). H29 Paper sejak 1 Nov 2026, H11a Paper sejak 21 Okt 2026.
 
@@ -81,3 +82,7 @@ Catatan: H35 dan H37 berstatus Uji maju (mulai 1 Des 2026) sekaligus lolos pasca
 | H35 | Syariah Global: campuran IDX + global untuk lapisan Apresiasi | rezim | Uji maju (pasca_hasil) | K1-K4 4/4 (pasca hasil) | 2026-11-08 |
 | H36 | PEAD / Earnings Surprise syariah (SUE murni) | fundamental | Gagal | dev lulus (bergantung artefak 2020) · holdout gagal · syarat 2a & 2b gagal | 2026-11-12 |
 | H37 | Syariah Global + Emas: 40% Indonesia + 40% global + 20% emas | rezim | Uji maju (pasca_hasil) | dev 3/3 + holdout 3/3, sensitivitas: semua varian ≥2/3, K1 gagal di 3 dari 8 jalur (45/45/10 dev dan holdout, 35/35/30 holdout) (label varian emas dibetulkan 2026-11-12: spread bukan biaya/th); aturan uji maju dikunci 2026-11-12 (mulai 1 Des 2026) | - |
+| H38 | Porsi lokal di H35/H37 | rezim | Gagal (pasca_hasil) | 0/4 varian lulus | 2026-11-15 |
+| H39 | Tambahan BTC di H35/H37 | rezim | Lolos (pasca_hasil) | 4/4 varian; ketahanan 12/12 | 2026-11-15 |
+| H40 | Breakout Base Stage 2 (saham syariah) | tren | Gagal | dev 2 trade (< 30) · S2, S3 gagal | 2026-11-20 |
+| H41 | Breakout Base Stage 2, perbaikan H40 (POST-HOC) | tren | Gagal (pasca_hasil) | dev standar seragam 0/4 · trade 63 · expectancy +0,67R | 2026-11-20 |
